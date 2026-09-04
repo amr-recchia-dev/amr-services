@@ -117,21 +117,70 @@
       </div>
     </div>
 
-    <!-- Manual Input Accordion (Fallback) -->
+    <!-- Manual Input & Direct Typing Always Accessible -->
     <div class="w-full mt-6 text-center">
-      <button onclick="toggleManual()" class="text-xs text-gray-400 hover:text-white underline">
-        Oppure scrivi a tastiera
-      </button>
-      <div id="manualBox" class="hidden mt-3 flex gap-2">
-        <input id="manualInput" type="text" placeholder="Es. Taglio finito su Bertone 2h" 
-          class="flex-1 text-xs bg-[#161B26] border border-[#283548] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#DF3131]">
-        <button onclick="sendManual()" class="px-4 py-2 bg-[#DF3131] text-white rounded-xl text-xs font-bold hover:bg-red-600 transition">
-          Invia
-        </button>
+      <div class="p-4 rounded-2xl bg-[#161B26] border border-[#283548]">
+        <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+          <span>⌨️ Oppure scrivi / usa dettatura tastiera:</span>
+          <span class="text-[10px] text-gray-500">Tocca il 🎙️ sulla tastiera</span>
+        </div>
+        <div class="flex gap-2">
+          <input id="manualInput" type="text" placeholder="Es. Taglio finito su Bertone 2h" 
+            class="flex-1 text-xs bg-[#0D1117] border border-[#283548] rounded-xl px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-[#DF3131]">
+          <button onclick="sendManual()" class="px-4 py-2.5 bg-[#DF3131] text-white rounded-xl text-xs font-bold hover:bg-red-600 transition flex items-center gap-1">
+            <span>Invia</span> <span>➔</span>
+          </button>
+        </div>
       </div>
     </div>
 
   </main>
+
+  <!-- Modal Guida Permessi Microfono -->
+  <div id="micHelpModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-[#161B26] border border-[#DF3131]/40 rounded-2xl max-w-sm w-full p-6 text-left shadow-2xl relative">
+      <button onclick="hideMicHelp()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
+      
+      <div class="w-12 h-12 rounded-full bg-[#DF3131]/20 border border-[#DF3131]/40 flex items-center justify-center text-2xl mb-4">
+        🎙️
+      </div>
+
+      <h3 class="text-base font-bold text-white mb-1">Microfono non abilitato</h3>
+      <p id="micErrorReason" class="text-xs text-[#FF8E8E] mb-4 bg-red-950/40 p-2.5 rounded-lg border border-red-900/50">
+        Il browser ha bloccato l'accesso al microfono (service-not-allowed).
+      </p>
+
+      <div class="space-y-3 text-xs text-gray-300">
+        <div class="flex gap-2.5 items-start">
+          <span class="font-bold text-[#DF3131] bg-[#DF3131]/10 px-2 py-0.5 rounded border border-[#DF3131]/30">1</span>
+          <div>
+            <b class="text-white">Nella barra dell'indirizzo</b>: tocca l'icona del lucchetto 🔒 o dei cursori a sinistra di <i>amr-services.onrender.com</i> e seleziona <b>Microfono: Consenti</b>.
+          </div>
+        </div>
+        <div class="flex gap-2.5 items-start">
+          <span class="font-bold text-[#DF3131] bg-[#DF3131]/10 px-2 py-0.5 rounded border border-[#DF3131]/30">2</span>
+          <div>
+            <b class="text-white">Su Mac</b>: apri <i>Impostazioni di Sistema > Privacy e Sicurezza > Microfono</i> e attiva la levetta per Google Chrome / Safari.
+          </div>
+        </div>
+        <div class="flex gap-2.5 items-start">
+          <span class="font-bold text-[#DF3131] bg-[#DF3131]/10 px-2 py-0.5 rounded border border-[#DF3131]/30">3</span>
+          <div>
+            <b class="text-white">Da Smartphone</b>: tocca la casella di testo qui sotto e usa il <b>tasto microfono 🎙️ integrato nella tastiera</b> del telefono.
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-col gap-2">
+        <button onclick="requestMicPermissionAndRetry()" class="w-full py-2.5 bg-[#DF3131] hover:bg-red-600 text-white font-bold text-xs rounded-xl transition">
+          🔄 Riprova ad abilitare microfono
+        </button>
+        <button onclick="hideMicHelpAndFocusInput()" class="w-full py-2.5 bg-[#283548] hover:bg-gray-700 text-gray-200 text-xs rounded-xl transition">
+          ⌨️ Scrivi o detta da tastiera
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Footer -->
   <footer class="text-center py-4 border-t border-[#283548] text-[11px] text-gray-400">
@@ -143,10 +192,11 @@
     let isRecording = false;
     let recognition = null;
     let finalTranscript = '';
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let audioCtx = null;
 
     function playBeep(freq, duration) {
       try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
@@ -160,21 +210,24 @@
       } catch(e) {}
     }
 
-    // Check SpeechRecognition support
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'it-IT';
-      recognition.continuous = false;
-      recognition.interimResults = true;
+    function initRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        console.warn('SpeechRecognition not natively supported.');
+        return null;
+      }
+      const rec = new SpeechRecognition();
+      rec.lang = 'it-IT';
+      rec.continuous = false;
+      rec.interimResults = true;
 
-      recognition.onstart = () => {
+      rec.onstart = () => {
         isRecording = true;
         updateUI('recording');
         playBeep(600, 0.15);
       };
 
-      recognition.onresult = (event) => {
+      rec.onresult = (event) => {
         let interim = '';
         finalTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -188,15 +241,19 @@
         document.getElementById('transcriptText').innerText = finalTranscript || interim;
       };
 
-      recognition.onerror = (event) => {
-        console.error('Speech error:', event.error);
-        if (event.error !== 'no-speech') {
-          alert('Errore microfono: ' + event.error);
-        }
+      rec.onerror = (event) => {
+        console.error('Speech error event:', event.error);
         stopRecording();
+        if (event.error === 'service-not-allowed' || event.error === 'not-allowed') {
+          showMicHelp('Il browser ha bloccato il servizio vocale (' + event.error + '). Abilita il microfono o usa la dettatura da tastiera.');
+        } else if (event.error === 'audio-capture') {
+          showMicHelp('Nessun microfono rilevato sul dispositivo.');
+        } else if (event.error !== 'no-speech') {
+          showMicHelp('Errore microfono: ' + event.error);
+        }
       };
 
-      recognition.onend = () => {
+      rec.onend = () => {
         if (isRecording) {
           stopRecording();
           if (finalTranscript.trim().length > 2) {
@@ -204,14 +261,15 @@
           }
         }
       };
-    } else {
-      console.warn('SpeechRecognition not natively supported, falling back to manual/audio upload.');
+      return rec;
     }
 
+    recognition = initRecognition();
+
     const micBtn = document.getElementById('micBtn');
-    micBtn.addEventListener('click', () => {
+    micBtn.addEventListener('click', async () => {
       if (!isRecording) {
-        startRecording();
+        await startRecording();
       } else {
         stopRecording();
         if (finalTranscript.trim().length > 2) {
@@ -220,20 +278,39 @@
       }
     });
 
-    function startRecording() {
-      if (!recognition) {
-        alert('Il riconoscimento vocale non è supportato dal browser. Puoi usare la casella di testo.');
-        toggleManual();
-        return;
-      }
-      finalTranscript = '';
+    async function startRecording() {
+      hideMicHelp();
       document.getElementById('resultBox').classList.add('hidden');
       document.getElementById('transcriptBox').classList.add('hidden');
       document.getElementById('transcriptText').innerText = 'In ascolto...';
+
+      // Step 1: Explicitly request microphone stream to trigger OS / Browser permission prompt
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(t => t.stop()); // close test track immediately
+        } catch (err) {
+          console.warn('getUserMedia permission error:', err);
+          showMicHelp('Permesso microfono non concesso: ' + (err.message || err.name));
+          return;
+        }
+      }
+
+      // Step 2: Start Speech Recognition
+      if (!recognition) {
+        recognition = initRecognition();
+      }
+      if (!recognition) {
+        showMicHelp('Il tuo browser non supporta Web Speech API. Usa la casella di testo qui sotto (supporta la dettatura vocale della tastiera).');
+        return;
+      }
+
+      finalTranscript = '';
       try {
         recognition.start();
       } catch(e) {
-        console.error(e);
+        console.error('Recognition start exception:', e);
+        showMicHelp('Impossibile avviare il microfono: ' + (e.message || e));
       }
     }
 
@@ -242,7 +319,7 @@
       updateUI('processing');
       playBeep(400, 0.15);
       try {
-        recognition.stop();
+        if (recognition) recognition.stop();
       } catch(e) {}
     }
 
@@ -291,11 +368,11 @@
           document.getElementById('resultBox').classList.remove('hidden');
           document.getElementById('resultText').innerText = data.message;
         } else {
-          alert(data.message || 'Comando non riconosciuto');
+          showMicHelp('Risposta server: ' + (data.message || 'Comando non riconosciuto'));
         }
       } catch (err) {
         updateUI('idle');
-        alert('Errore di connessione al server: ' + err);
+        showMicHelp('Errore di connessione al server: ' + err);
       }
     }
 
@@ -305,20 +382,42 @@
       sendCommand(txt);
     }
 
-    function toggleManual() {
-      const box = document.getElementById('manualBox');
-      box.classList.toggle('hidden');
-      if (!box.classList.contains('hidden')) {
-        document.getElementById('manualInput').focus();
-      }
-    }
-
     function sendManual() {
       const val = document.getElementById('manualInput').value.trim();
       if (val) {
         simulateText(val);
         document.getElementById('manualInput').value = '';
       }
+    }
+
+    // Support ENTER key in manual input
+    document.getElementById('manualInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        sendManual();
+      }
+    });
+
+    function showMicHelp(reason) {
+      if (reason) {
+        document.getElementById('micErrorReason').innerText = reason;
+      }
+      document.getElementById('micHelpModal').classList.remove('hidden');
+    }
+
+    function hideMicHelp() {
+      document.getElementById('micHelpModal').classList.add('hidden');
+    }
+
+    function hideMicHelpAndFocusInput() {
+      hideMicHelp();
+      const input = document.getElementById('manualInput');
+      input.focus();
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function requestMicPermissionAndRetry() {
+      hideMicHelp();
+      await startRecording();
     }
   </script>
 </body>
