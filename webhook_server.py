@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import drive_archiver
 import step_time_tracker
 import business_time
+import department_syncer
 
 load_dotenv()
 
@@ -292,8 +293,16 @@ def webhook_status_change():
             label = val.get("text", "")
 
     logger.info(f"📥 Ricevuto cambio stato Monday: Board {board_id}, Item #{item_id}, Colonna {column_id} -> '{label}'")
+    
+    # 1. Se l'evento proviene da GESTIONE PROGETTI NEW (2136092569) -> Inoltro a schede Reparto (Taglio / Finiture)
+    if board_id == "2136092569":
+        logger.info(f"⚙️ Evento da GESTIONE PROGETTI NEW: avvio sincronizzazione con reparti per #{item_id}...")
+        dept_res = department_syncer.sync_project_to_departments(item_id)
+        return jsonify({"status": "processed", "type": "department_sync", "result": dept_res}), 200
+
+    # 2. Se l'evento proviene da TAGLIO E FRESA (5086546323) o FINITURE (5088215890) -> Tracciamento Tempo Lavorativo
     res = step_time_tracker.handle_status_change(board_id, item_id, column_id, label)
-    return jsonify({"status": "processed", "result": res}), 200
+    return jsonify({"status": "processed", "type": "step_time_tracking", "result": res}), 200
 
 
 @app.route("/api/night-guardian/status", methods=["GET"])
