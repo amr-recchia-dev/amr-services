@@ -9,7 +9,7 @@ import json
 import logging
 import threading
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 import drive_archiver
 
@@ -172,6 +172,85 @@ def health():
         "running": last_status["running"],
         "total_archived": last_status["total_archived"],
     }), 200
+
+
+dashboard_cache = {
+    "data": None,
+    "timestamp": 0
+}
+
+
+@app.route("/", methods=["GET"])
+@app.route("/dashboard", methods=["GET"])
+def dashboard_view():
+    """Interfaccia Web della Dashboard Avanzamento Progetti AMR Recchia."""
+    return render_template("dashboard.html")
+
+
+@app.route("/api/dashboard-data", methods=["GET"])
+def api_dashboard_data():
+    """Restituisce i dati dei progetti da Monday.com in tempo reale (cache 30s)."""
+    import time
+    import requests
+
+    now = time.time()
+    if dashboard_cache["data"] and (now - dashboard_cache["timestamp"] < 30):
+        return jsonify({"projects": dashboard_cache["data"], "cached": True})
+
+    token = os.getenv("MONDAY_API_TOKEN")
+    query = """
+    query {
+      boards(ids: ["2136092569"]) {
+        items_page(limit: 100) {
+          items {
+            id
+            name
+            state
+            column_values {
+              id
+              text
+            }
+          }
+        }
+      }
+    }
+    """
+    try:
+        resp = requests.post(
+            "https://api.monday.com/v2",
+            json={"query": query},
+            headers={"Authorization": token, "API-Version": "2024-10"},
+            timeout=15,
+        )
+        items = resp.json().get("data", {}).get("boards", [{}])[0].get("items_page", {}).get("items", [])
+        clean_projects = []
+        for it in items:
+            if it.get("state") == "deleted":
+                continue
+            cols = {cv.get("id"): cv.get("text") for cv in it.get("column_values", []) if cv.get("text")}
+            clean_projects.append({
+                "id": it["id"],
+                "name": it["name"],
+                "commessa": cols.get("text_mm51yk45", "COMM-" + it["id"]),
+                "progetto": cols.get("testo_mkn1sqb4", ""),
+                "stato": cols.get("color_mm45raj9", "Da iniziare"),
+                "consegna": cols.get("date4", ""),
+                "priorita": cols.get("color_mknssm0t", "Normale"),
+                "taglio": cols.get("color_mkns43r0") == "SI",
+                "fresa": cols.get("color_mknsezab") == "SI",
+                "finitura": cols.get("color_mknsghqz") == "SI",
+                "esterna": cols.get("color_mkyn8z12") == "SI",
+                "referente": cols.get("dup__of_nome_referente_mkn3gf63", ""),
+                "drive_link": cols.get("link_mm45entc", "")
+            })
+        dashboard_cache["data"] = clean_projects
+        dashboard_cache["timestamp"] = now
+        return jsonify({"projects": clean_projects, "cached": False})
+    except Exception as e:
+        logger.error(f"Errore recupero dati dashboard: {e}")
+        if dashboard_cache["data"]:
+            return jsonify({"projects": dashboard_cache["data"], "cached": True, "error": str(e)})
+        return jsonify({"projects": [], "error": str(e)}), 500
 
 
 @app.route("/status", methods=["GET"])

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AMR Recchia • Dashboard Avanzamento Progetti</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --amr-black: #0d1117;
+      --amr-card: #161b26;
+      --amr-card-border: #232a3b;
+      --amr-red: #DF3131;
+      --amr-red-hover: #c42626;
+      --amr-steel: #2B5672;
+      --amr-text: #f8fafc;
+      --amr-muted: #94a3b8;
+    }
+    body {
+      background-color: var(--amr-black);
+      color: var(--amr-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    .badge {
+      font-size: 0.72rem;
+      padding: 0.22rem 0.6rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .brand-glow {
+      box-shadow: 0 0 25px -5px rgba(223, 49, 49, 0.15);
+    }
+  </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8 min-h-screen antialiased">
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- TOP HEADER WITH OFFICIAL AMR RECCHIA LOGO -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-[var(--amr-card-border)] gap-4">
+      <div class="flex items-center gap-4">
+        <!-- Official Logo Container -->
+        <a href="https://www.amrrecchia.it" target="_blank" class="bg-white p-2 rounded-lg shadow-sm border border-slate-200 hover:opacity-90 transition-opacity flex items-center justify-center">
+          <img src="/static/logo.png" alt="AMR Recchia Logo" class="h-8 sm:h-9 object-contain">
+        </a>
+        
+        <div class="border-l border-slate-700 pl-4">
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white uppercase">AMR Recchia</h1>
+            <span class="text-[0.7rem] uppercase font-bold tracking-wider bg-[var(--amr-red)]/15 text-[var(--amr-red)] border border-[var(--amr-red)]/30 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[var(--amr-red)] animate-pulse"></span> Cloud Production Hub
+            </span>
+          </div>
+          <p class="text-xs sm:text-sm text-[var(--amr-muted)] mt-0.5">Controllo Avanzamento Commesse • Reparti Taglio, Fresa, Finiture & Cantieri</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center gap-3">
+        <button onclick="fetchLiveData()" id="refresh-btn" 
+                class="text-xs bg-[var(--amr-card)] hover:bg-slate-800 active:scale-95 text-slate-200 font-semibold px-4 py-2.5 rounded-lg border border-[var(--amr-card-border)] flex items-center gap-2 transition-all shadow-sm">
+          <svg id="refresh-spinner" class="w-3.5 h-3.5 text-[var(--amr-red)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <span>Aggiorna Dati</span>
+        </button>
+        <a href="https://amr-srl.monday.com/boards/2136092569" target="_blank"
+           class="text-xs bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold px-4 py-2.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-md shadow-red-950/40">
+          <span>Apri su Monday.com</span>
+          <span class="text-sm leading-none">&rarr;</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- KPI STATS CARDS -->
+    <section class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-xl p-4 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-bl-full pointer-events-none"></div>
+        <p class="text-xs uppercase tracking-wider text-[var(--amr-muted)] font-bold">Commesse Totali</p>
+        <p class="text-3xl font-black text-white mt-1" id="kpi-totale">-</p>
+        <span class="text-[0.72rem] text-slate-400">Progetti confermati in carico</span>
+      </div>
+      
+      <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-xl p-4 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full pointer-events-none"></div>
+        <p class="text-xs uppercase tracking-wider text-amber-400 font-bold">In Lavorazione</p>
+        <p class="text-3xl font-black text-amber-300 mt-1" id="kpi-incorso">-</p>
+        <span class="text-[0.72rem] text-slate-400">Attivi nei reparti produttivi</span>
+      </div>
+
+      <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-xl p-4 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-16 h-16 bg-sky-500/10 rounded-bl-full pointer-events-none"></div>
+        <p class="text-xs uppercase tracking-wider text-sky-400 font-bold">Da Iniziare</p>
+        <p class="text-3xl font-black text-sky-300 mt-1" id="kpi-dainiziare">-</p>
+        <span class="text-[0.72rem] text-slate-400">In coda di pianificazione</span>
+      </div>
+
+      <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-xl p-4 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-bl-full pointer-events-none"></div>
+        <p class="text-xs uppercase tracking-wider text-emerald-400 font-bold">Completati</p>
+        <p class="text-3xl font-black text-emerald-300 mt-1" id="kpi-archiviati">-</p>
+        <span class="text-[0.72rem] text-slate-400">Archiviati su Google Drive</span>
+      </div>
+    </section>
+
+    <!-- CARICO LAVORO PER REPARTO -->
+    <section class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-xl p-5 shadow-sm">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-[var(--amr-red)] flex items-center gap-1.5">
+            <span>⚡</span> Monitoraggio Reparti Produttivi
+          </h2>
+          <p class="text-xs text-[var(--amr-muted)] mt-0.5">Carico di commesse assegnate per tipologia di lavorazione</p>
+        </div>
+        <span class="text-xs text-slate-400 font-mono" id="last-updated-label">Caricamento...</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- TAGLIO -->
+        <div class="bg-slate-900/60 border border-emerald-900/40 rounded-xl p-4">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+              <span>✂️</span> Taglio & Assemblaggio
+            </span>
+            <span class="text-base font-black text-white" id="count-taglio">0</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div class="bg-emerald-500 h-2.5 rounded-full transition-all duration-500" id="bar-taglio" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[0.7rem] text-slate-400 mt-2 font-medium">
+            <span>Pantografo</span>
+            <span>Taglierina</span>
+          </div>
+        </div>
+
+        <!-- FRESA -->
+        <div class="bg-slate-900/60 border border-[var(--amr-steel)]/60 rounded-xl p-4">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+              <span>⚙️</span> Frese & Imballo
+            </span>
+            <span class="text-base font-black text-white" id="count-fresa">0</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div class="bg-sky-500 h-2.5 rounded-full transition-all duration-500" id="bar-fresa" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[0.7rem] text-slate-400 mt-2 font-medium">
+            <span>Lavorazione CNC</span>
+            <span>Assemblaggio</span>
+          </div>
+        </div>
+
+        <!-- FINITURA -->
+        <div class="bg-slate-900/60 border border-pink-900/40 rounded-xl p-4">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-pink-400 flex items-center gap-1.5">
+              <span>🎨</span> Indurimento & Finitura
+            </span>
+            <span class="text-base font-black text-white" id="count-finitura">0</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div class="bg-pink-500 h-2.5 rounded-full transition-all duration-500" id="bar-finitura" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[0.7rem] text-slate-400 mt-2 font-medium">
+            <span>Resina</span>
+            <span>Carteggio & Vernice</span>
+          </div>
+        </div>
+
+        <!-- ESTERNA & CANTIERE -->
+        <div class="bg-slate-900/60 border border-amber-900/40 rounded-xl p-4">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+              <span>🚚</span> Esterna & Cantiere
+            </span>
+            <span class="text-base font-black text-white" id="count-esterna">0</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div class="bg-amber-500 h-2.5 rounded-full transition-all duration-500" id="bar-esterna" style="width: 0%"></div>
+          </div>
+          <div class="flex justify-between text-[0.7rem] text-slate-400 mt-2 font-medium">
+            <span>Fornitori Terzi</span>
+            <span>Posa in Opera</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SEARCH & FILTERS CONTROLS -->
+    <section class="flex flex-col md:flex-row gap-3 items-center justify-between">
+      <div class="relative w-full md:w-80">
+        <input type="text" id="search-input" placeholder="Cerca cliente, commessa, progetto..." 
+               class="w-full bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-lg px-3.5 py-2 text-sm text-white placeholder-[var(--amr-muted)] focus:outline-none focus:border-[var(--amr-red)] transition-colors">
+      </div>
+      <div class="flex flex-wrap gap-2 w-full md:w-auto">
+        <button onclick="setFilter('status', 'all')" class="filter-btn active text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-red)] bg-[var(--amr-red)] text-white font-bold" data-val="all">Tutti gli Stati</button>
+        <button onclick="setFilter('status', 'Da iniziare')" class="filter-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-[var(--amr-muted)] hover:text-white" data-val="Da iniziare">Da iniziare</button>
+        <button onclick="setFilter('status', 'In corso')" class="filter-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-[var(--amr-muted)] hover:text-white" data-val="In corso">In corso</button>
+        <button onclick="setFilter('status', 'Archiviato')" class="filter-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-[var(--amr-muted)] hover:text-white" data-val="Archiviato">Archiviati</button>
+        <div class="h-6 w-px bg-[var(--amr-card-border)] mx-1 self-center hidden sm:block"></div>
+        <button onclick="setFilter('dept', 'all')" class="dept-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-white font-bold" data-dept="all">Tutti i Reparti</button>
+        <button onclick="setFilter('dept', 'taglio')" class="dept-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-emerald-400 hover:text-white" data-dept="taglio">Taglio</button>
+        <button onclick="setFilter('dept', 'fresa')" class="dept-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-sky-400 hover:text-white" data-dept="fresa">Fresa</button>
+        <button onclick="setFilter('dept', 'finitura')" class="dept-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-pink-400 hover:text-white" data-dept="finitura">Finitura</button>
+      </div>
+    </section>
+
+    <!-- COMMESSE TABLE -->
+    <main class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-xl overflow-hidden shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-200">
+          <thead class="bg-slate-900/80 text-[0.7rem] uppercase tracking-wider text-[var(--amr-muted)] border-b border-[var(--amr-card-border)]">
+            <tr>
+              <th class="py-3.5 px-4 font-bold">N° Commessa</th>
+              <th class="py-3.5 px-4 font-bold">Cliente / Progetto</th>
+              <th class="py-3.5 px-4 font-bold">Reparti Assegnati</th>
+              <th class="py-3.5 px-4 font-bold">Consegna</th>
+              <th class="py-3.5 px-4 font-bold">Stato Avanzamento</th>
+              <th class="py-3.5 px-4 text-right font-bold">Scheda Operativa</th>
+            </tr>
+          </thead>
+          <tbody id="projects-table-body" class="divide-y divide-[var(--amr-card-border)]">
+            <tr>
+              <td colspan="6" class="p-8 text-center text-sm text-[var(--amr-muted)]">Caricamento progetti live da Monday.com...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="no-results" class="hidden p-8 text-center text-sm text-[var(--amr-muted)]">
+        Nessuna commessa trovata con i filtri selezionati.
+      </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="text-center text-xs text-slate-500 pt-4 pb-8">
+      AMR Recchia S.r.l. • Dashboard di Produzione • Alimentata in tempo reale via Monday.com API & Render Cloud
+    </footer>
+
+  </div>
+
+  <script>
+    let projectsData = [];
+    let currentStatus = "all";
+    let currentDept = "all";
+    let searchQuery = "";
+
+    async function fetchLiveData() {
+      const spinner = document.getElementById("refresh-spinner");
+      spinner.classList.add("animate-spin");
+      document.getElementById("last-updated-label").textContent = "Sincronizzazione...";
+
+      try {
+        const resp = await fetch("/api/dashboard-data");
+        if (resp.ok) {
+          const data = await resp.json();
+          projectsData = data.projects || [];
+          document.getElementById("last-updated-label").textContent = "Aggiornato: " + new Date().toLocaleTimeString();
+          updateKPIs();
+          renderTable();
+        } else {
+          document.getElementById("last-updated-label").textContent = "Errore connessione";
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+        document.getElementById("last-updated-label").textContent = "Errore di rete";
+      } finally {
+        spinner.classList.remove("animate-spin");
+      }
+    }
+
+    function updateKPIs() {
+      const tot = projectsData.length;
+      const incorso = projectsData.filter(p => p.stato === "In corso").length;
+      const dainiziare = projectsData.filter(p => p.stato === "Da iniziare").length;
+      const arch = projectsData.filter(p => p.stato === "Archiviato").length;
+
+      document.getElementById("kpi-totale").textContent = tot;
+      document.getElementById("kpi-incorso").textContent = incorso;
+      document.getElementById("kpi-dainiziare").textContent = dainiziare;
+      document.getElementById("kpi-archiviati").textContent = arch;
+
+      const taglio = projectsData.filter(p => p.taglio).length;
+      const fresa = projectsData.filter(p => p.fresa).length;
+      const finitura = projectsData.filter(p => p.finitura).length;
+      const esterna = projectsData.filter(p => p.esterna).length;
+
+      document.getElementById("count-taglio").textContent = taglio;
+      document.getElementById("count-fresa").textContent = fresa;
+      document.getElementById("count-finitura").textContent = finitura;
+      document.getElementById("count-esterna").textContent = esterna;
+
+      if (tot > 0) {
+        document.getElementById("bar-taglio").style.width = ((taglio / tot) * 100) + "%";
+        document.getElementById("bar-fresa").style.width = ((fresa / tot) * 100) + "%";
+        document.getElementById("bar-finitura").style.width = ((finitura / tot) * 100) + "%";
+        document.getElementById("bar-esterna").style.width = ((esterna / tot) * 100) + "%";
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("projects-table-body");
+      tbody.innerHTML = "";
+
+      const filtered = projectsData.filter(p => {
+        const matchStatus = (currentStatus === "all" || p.stato === currentStatus);
+        const matchDept = (
+          currentDept === "all" ||
+          (currentDept === "taglio" && p.taglio) ||
+          (currentDept === "fresa" && p.fresa) ||
+          (currentDept === "finitura" && p.finitura) ||
+          (currentDept === "esterna" && p.esterna)
+        );
+        const q = searchQuery.toLowerCase();
+        const matchSearch = !q || 
+          (p.name && p.name.toLowerCase().includes(q)) || 
+          (p.commessa && p.commessa.toLowerCase().includes(q)) || 
+          (p.progetto && p.progetto.toLowerCase().includes(q)) ||
+          (p.referente && p.referente.toLowerCase().includes(q));
+
+        return matchStatus && matchDept && matchSearch;
+      });
+
+      document.getElementById("no-results").classList.toggle("hidden", filtered.length > 0);
+
+      filtered.forEach(p => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40 transition-colors";
+
+        let statusBadge = `<span class="badge bg-slate-700 text-slate-300">${p.stato}</span>`;
+        if (p.stato === "In corso") {
+          statusBadge = `<span class="badge bg-amber-500/20 text-amber-400 border border-amber-500/30">In corso</span>`;
+        } else if (p.stato === "Archiviato") {
+          statusBadge = `<span class="badge bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Archiviato</span>`;
+        } else if (p.stato === "Da iniziare") {
+          statusBadge = `<span class="badge bg-sky-500/20 text-sky-400 border border-sky-500/30">Da iniziare</span>`;
+        }
+
+        let deptBadges = "";
+        if (p.taglio) deptBadges += `<span class="badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 mr-1.5">Taglio</span>`;
+        if (p.fresa) deptBadges += `<span class="badge bg-sky-500/10 text-sky-400 border border-sky-500/25 mr-1.5">Fresa</span>`;
+        if (p.finitura) deptBadges += `<span class="badge bg-pink-500/10 text-pink-400 border border-pink-500/25 mr-1.5">Finitura</span>`;
+        if (p.esterna) deptBadges += `<span class="badge bg-amber-500/10 text-amber-400 border border-amber-500/25 mr-1.5">Esterna</span>`;
+        if (!deptBadges) deptBadges = `<span class="text-xs text-slate-500">-</span>`;
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono text-xs font-bold text-slate-300">
+            <span class="bg-slate-800/80 px-2 py-1 rounded border border-slate-700/60">${p.commessa}</span>
+          </td>
+          <td class="py-3 px-4">
+            <div class="font-bold text-white">${p.name}</div>
+            <div class="text-xs text-[var(--amr-muted)]">${p.progetto || "Nessuna specifica"}</div>
+          </td>
+          <td class="py-3 px-4">${deptBadges}</td>
+          <td class="py-3 px-4 text-xs font-mono text-slate-300">${p.consegna || '<span class="text-slate-500">Da definire</span>'}</td>
+          <td class="py-3 px-4">${statusBadge}</td>
+          <td class="py-3 px-4 text-right">
+            <a href="https://amr-srl.monday.com/boards/2136092569/pulses/${p.id}" target="_blank" 
+               class="text-xs bg-slate-800 hover:bg-slate-700 text-sky-400 px-3 py-1.5 rounded-lg border border-slate-700 font-semibold inline-flex items-center gap-1 transition-colors">
+              Apri su Monday &rarr;
+            </a>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function setFilter(type, val) {
+      if (type === "status") {
+        currentStatus = val;
+        document.querySelectorAll(".filter-btn").forEach(btn => {
+          const isActive = btn.getAttribute("data-val") === val;
+          btn.className = isActive 
+            ? "filter-btn active text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-red)] bg-[var(--amr-red)] text-white font-bold"
+            : "filter-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-[var(--amr-muted)] hover:text-white";
+        });
+      } else if (type === "dept") {
+        currentDept = val;
+        document.querySelectorAll(".dept-btn").forEach(btn => {
+          const isActive = btn.getAttribute("data-dept") === val;
+          btn.className = isActive
+            ? "dept-btn active text-xs px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-700 text-white font-bold"
+            : "dept-btn text-xs px-3 py-1.5 rounded-lg border border-[var(--amr-card-border)] bg-[var(--amr-card)] text-slate-400 hover:text-white";
+        });
+      }
+      renderTable();
+    }
+
+    document.getElementById("search-input").addEventListener("input", (e) => {
+      searchQuery = e.target.value;
+      renderTable();
+    });
+
+    // Initial fetch
+    fetchLiveData();
+  </script>
+</body>
+</html>
