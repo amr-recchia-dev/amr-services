@@ -56,7 +56,12 @@
         </div>
       </div>
       
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <a href="/vocale" 
+           class="text-xs bg-[var(--amr-red)]/15 hover:bg-[var(--amr-red)]/25 border border-[var(--amr-red)]/40 text-[var(--amr-red)] font-bold px-3.5 py-2.5 rounded-lg flex items-center gap-2 transition-all shadow-sm">
+          <span>🎙️</span>
+          <span>Assistente Vocale</span>
+        </a>
         <button onclick="fetchLiveData()" id="refresh-btn" 
                 class="text-xs bg-[var(--amr-card)] hover:bg-slate-800 active:scale-95 text-slate-200 font-semibold px-4 py-2.5 rounded-lg border border-[var(--amr-card-border)] flex items-center gap-2 transition-all shadow-sm">
           <svg id="refresh-spinner" class="w-3.5 h-3.5 text-[var(--amr-red)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +71,7 @@
         </button>
         <a href="https://amr-srl.monday.com/boards/2136092569" target="_blank"
            class="text-xs bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold px-4 py-2.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-md shadow-red-950/40">
-          <span>Apri su Monday.com</span>
+          <span>Apri su Monday</span>
           <span class="text-sm leading-none">&rarr;</span>
         </a>
       </div>

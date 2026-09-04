@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AMR Recchia • Assistente Vocale Officina</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0D1117;
+      color: #F8FAFC;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mic-pulse {
+      animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(223, 49, 49, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 25px rgba(223, 49, 49, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(223, 49, 49, 0); }
+    }
+    .mic-recording {
+      animation: mic-rec 1.2s ease-in-out infinite alternate;
+    }
+    @keyframes mic-rec {
+      from { transform: scale(1); box-shadow: 0 0 35px rgba(223, 49, 49, 0.8); }
+      to { transform: scale(1.1); box-shadow: 0 0 60px rgba(223, 49, 49, 1); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-[#DF3131] selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-[#283548] bg-[#161B26]/90 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/dashboard">
+          <img src="/static/logo.png" alt="AMR Recchia Logo" class="h-8 object-contain">
+        </a>
+        <div>
+          <h1 class="text-sm font-bold text-white tracking-wide uppercase">Voice Agent</h1>
+          <p class="text-[10px] text-gray-400">Aggiornamento Vocale Monday.com</p>
+        </div>
+      </div>
+      <a href="/dashboard" class="text-xs px-3 py-1.5 rounded-lg border border-[#283548] hover:border-gray-500 text-gray-300 transition flex items-center gap-1.5">
+        📊 <span>Dashboard</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-md mx-auto w-full px-4 py-6 flex flex-col items-center justify-center text-center">
+
+    <!-- Status Card -->
+    <div id="statusContainer" class="w-full bg-[#161B26] border border-[#283548] rounded-2xl p-5 mb-8 shadow-xl transition-all">
+      <div id="statusIcon" class="text-3xl mb-2">🎙️</div>
+      <h2 id="statusTitle" class="text-lg font-bold text-white mb-1">Tocca per parlare</h2>
+      <p id="statusDesc" class="text-xs text-gray-400">
+        Comunica l'avanzamento, le ore o lo stato di una commessa
+      </p>
+
+      <!-- Live Transcript Box -->
+      <div id="transcriptBox" class="hidden mt-4 p-3 bg-[#0D1117] border border-[#283548] rounded-xl text-left text-sm text-gray-200">
+        <div class="text-[10px] uppercase font-bold text-[#DF3131] tracking-wider mb-1">Cosa ho capito:</div>
+        <p id="transcriptText" class="italic text-gray-300">In ascolto...</p>
+      </div>
+
+      <!-- Result Feedback Box -->
+      <div id="resultBox" class="hidden mt-4 p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-left text-sm text-emerald-300">
+        <div class="font-bold text-emerald-400 flex items-center gap-1.5 mb-1">
+          <span>✅</span> Aggiornato con successo su Monday!
+        </div>
+        <p id="resultText" class="text-xs text-gray-200"></p>
+      </div>
+    </div>
+
+    <!-- Big Microphone Button -->
+    <div class="relative my-4 flex items-center justify-center">
+      <div id="micRing" class="absolute w-36 h-36 rounded-full bg-[#DF3131]/10 mic-pulse pointer-events-none"></div>
+      <button id="micBtn" 
+        class="relative z-10 w-28 h-28 rounded-full bg-gradient-to-tr from-[#DF3131] to-[#FF5E5E] text-white shadow-2xl flex flex-col items-center justify-center transition transform active:scale-95 focus:outline-none cursor-pointer">
+        <svg id="micIcon" class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+        <span id="micLabel" class="text-[11px] font-bold uppercase tracking-wider mt-1">Premi</span>
+      </button>
+    </div>
+
+    <!-- Instructions / Suggestions -->
+    <div class="w-full mt-8 text-left">
+      <div class="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2.5 flex items-center justify-between">
+        <span>💡 Esempi di comandi vocali:</span>
+      </div>
+      <div class="space-y-2">
+        <button onclick="simulateText('Ho finito il taglio su Bertone tavolo 2 in 2 ore e mezza')" 
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          <span>✂️</span> <span>"Ho finito il taglio su <b>Bertone tavolo 2</b> in 2 ore e mezza"</span>
+        </button>
+        <button onclick="simulateText('Sulla commessa Donna Karan di Noabrand carteggiatura finita tempo 3 ore')" 
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          <span>🎨</span> <span>"Su <b>Donna Karan</b> carteggiatura finita tempo 3 ore"</span>
+        </button>
+        <button onclick="simulateText('Metti in pausa Mogg perché manca il materiale')" 
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          <span>⏸️</span> <span>"Metti in pausa <b>Mogg</b> perché manca il materiale"</span>
+        </button>
+        <button onclick="simulateText('Segna Ilas come fatto')" 
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          <span>✅</span> <span>"Segna <b>Ilas</b> come fatto"</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Manual Input Accordion (Fallback) -->
+    <div class="w-full mt-6 text-center">
+      <button onclick="toggleManual()" class="text-xs text-gray-400 hover:text-white underline">
+        Oppure scrivi a tastiera
+      </button>
+      <div id="manualBox" class="hidden mt-3 flex gap-2">
+        <input id="manualInput" type="text" placeholder="Es. Taglio finito su Bertone 2h" 
+          class="flex-1 text-xs bg-[#161B26] border border-[#283548] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-[#DF3131]">
+        <button onclick="sendManual()" class="px-4 py-2 bg-[#DF3131] text-white rounded-xl text-xs font-bold hover:bg-red-600 transition">
+          Invia
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-4 border-t border-[#283548] text-[11px] text-gray-400">
+    AMR Recchia • Voice Engine v1.0 • Connesso in tempo reale a Monday.com
+  </footer>
+
+  <!-- Web Speech & Logic Script -->
+  <script>
+    let isRecording = false;
+    let recognition = null;
+    let finalTranscript = '';
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playBeep(freq, duration) {
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    // Check SpeechRecognition support
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'it-IT';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        isRecording = true;
+        updateUI('recording');
+        playBeep(600, 0.15);
+      };
+
+      recognition.onresult = (event) => {
+        let interim = '';
+        finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        document.getElementById('transcriptBox').classList.remove('hidden');
+        document.getElementById('transcriptText').innerText = finalTranscript || interim;
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech error:', event.error);
+        if (event.error !== 'no-speech') {
+          alert('Errore microfono: ' + event.error);
+        }
+        stopRecording();
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          stopRecording();
+          if (finalTranscript.trim().length > 2) {
+            sendCommand(finalTranscript);
+          }
+        }
+      };
+    } else {
+      console.warn('SpeechRecognition not natively supported, falling back to manual/audio upload.');
+    }
+
+    const micBtn = document.getElementById('micBtn');
+    micBtn.addEventListener('click', () => {
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+        if (finalTranscript.trim().length > 2) {
+          sendCommand(finalTranscript);
+        }
+      }
+    });
+
+    function startRecording() {
+      if (!recognition) {
+        alert('Il riconoscimento vocale non è supportato dal browser. Puoi usare la casella di testo.');
+        toggleManual();
+        return;
+      }
+      finalTranscript = '';
+      document.getElementById('resultBox').classList.add('hidden');
+      document.getElementById('transcriptBox').classList.add('hidden');
+      document.getElementById('transcriptText').innerText = 'In ascolto...';
+      try {
+        recognition.start();
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      updateUI('processing');
+      playBeep(400, 0.15);
+      try {
+        recognition.stop();
+      } catch(e) {}
+    }
+
+    function updateUI(state) {
+      const micBtn = document.getElementById('micBtn');
+      const micRing = document.getElementById('micRing');
+      const micLabel = document.getElementById('micLabel');
+      const statusTitle = document.getElementById('statusTitle');
+      const statusDesc = document.getElementById('statusDesc');
+
+      if (state === 'recording') {
+        micBtn.classList.add('mic-recording');
+        micRing.classList.add('hidden');
+        micLabel.innerText = 'Ascolto';
+        statusTitle.innerText = 'Ti ascolto...';
+        statusDesc.innerText = 'Parla con calma, tocca di nuovo quando hai finito';
+      } else if (state === 'processing') {
+        micBtn.classList.remove('mic-recording');
+        micRing.classList.remove('hidden');
+        micLabel.innerText = 'Elaboro';
+        statusTitle.innerText = 'Elaborazione in corso...';
+        statusDesc.innerText = 'Interpreto il comando vocale e aggiorno Monday';
+      } else {
+        micBtn.classList.remove('mic-recording');
+        micRing.classList.remove('hidden');
+        micLabel.innerText = 'Premi';
+        statusTitle.innerText = 'Tocca per parlare';
+        statusDesc.innerText = 'Comunica l\'avanzamento, le ore o lo stato di una commessa';
+      }
+    }
+
+    async function sendCommand(text) {
+      updateUI('processing');
+      try {
+        const resp = await fetch('/api/voice-command', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({text: text})
+        });
+        const data = await resp.json();
+        
+        updateUI('idle');
+        if (data.success) {
+          playBeep(800, 0.2);
+          setTimeout(() => playBeep(1000, 0.3), 150);
+          document.getElementById('resultBox').classList.remove('hidden');
+          document.getElementById('resultText').innerText = data.message;
+        } else {
+          alert(data.message || 'Comando non riconosciuto');
+        }
+      } catch (err) {
+        updateUI('idle');
+        alert('Errore di connessione al server: ' + err);
+      }
+    }
+
+    function simulateText(txt) {
+      document.getElementById('transcriptBox').classList.remove('hidden');
+      document.getElementById('transcriptText').innerText = txt;
+      sendCommand(txt);
+    }
+
+    function toggleManual() {
+      const box = document.getElementById('manualBox');
+      box.classList.toggle('hidden');
+      if (!box.classList.contains('hidden')) {
+        document.getElementById('manualInput').focus();
+      }
+    }
+
+    function sendManual() {
+      const val = document.getElementById('manualInput').value.trim();
+      if (val) {
+        simulateText(val);
+        document.getElementById('manualInput').value = '';
+      }
+    }
+  </script>
+</body>
+</html>

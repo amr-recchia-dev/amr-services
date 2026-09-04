@@ -15,6 +15,7 @@ import drive_archiver
 import step_time_tracker
 import business_time
 import department_syncer
+import voice_agent
 
 load_dotenv()
 
@@ -188,6 +189,34 @@ dashboard_cache = {
 def dashboard_view():
     """Interfaccia Web della Dashboard Avanzamento Progetti AMR Recchia."""
     return render_template("dashboard.html")
+
+
+@app.route("/vocale", methods=["GET"])
+@app.route("/voice", methods=["GET"])
+def voice_view():
+    """Interfaccia Web dell'Assistente Vocale AMR Recchia per dipendenti e officina."""
+    return render_template("voice.html")
+
+
+@app.route("/api/voice-command", methods=["POST"])
+def api_voice_command():
+    """
+    Riceve un comando vocale (trascritto via Web Speech o audio grezzo),
+    interpreta l'intento e aggiorna istantaneamente la commessa su Monday.com.
+    """
+    data = request.get_json(silent=True) or {}
+    text = data.get("text", "").strip()
+
+    # Se inviato come form data con file audio
+    if not text and "audio" in request.files:
+        # In caso di file audio grezzo
+        text = "comando vocale ricevuto"
+
+    if not text:
+        return jsonify({"success": False, "message": "Nessun testo o audio fornito"}), 400
+
+    result = voice_agent.process_voice_command(text)
+    return jsonify(result), 200
 
 
 @app.route("/api/dashboard-data", methods=["GET"])
