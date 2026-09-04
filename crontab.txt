@@ -1,0 +1,1 @@
+*/5 * * * * /Users/shallo/Documents/Antigravity/email-agent/.venv/bin/python3 /Users/shallo/Documents/Antigravity/email-agent/agent.py >> /Users/shallo/Documents/Antigravity/email-agent/agent.log 2>&1

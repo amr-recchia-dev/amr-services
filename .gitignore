@@ -1,0 +1,31 @@
+# Email Agent - AMR Recchia
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Credenziali (MAI committare su git!)
+.env
+credentials.json
+drive_token.json
+webhook.pid
+
+# Database email processate
+processed_emails.db
+
+# Log
+agent.log
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# macOS
+.DS_Store

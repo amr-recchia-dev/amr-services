@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>it.amrrecchia.emailagent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/shallo/Documents/Antigravity/email-agent/.venv/bin/python3</string>
+        <string>/Users/shallo/Documents/Antigravity/email-agent/agent.py</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>300</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/shallo/Documents/Antigravity/email-agent/agent.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/shallo/Documents/Antigravity/email-agent/agent.log</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/shallo/Documents/Antigravity/email-agent</string>
+</dict>
+</plist>
