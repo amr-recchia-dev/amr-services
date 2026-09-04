@@ -12,6 +12,8 @@ from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
 import drive_archiver
+import step_time_tracker
+import business_time
 
 load_dotenv()
 
@@ -257,6 +259,60 @@ def api_dashboard_data():
 def status():
     """Stato dettagliato dell'ultima archiviazione."""
     return jsonify(last_status), 200
+
+
+@app.route("/webhook/status-change", methods=["POST"])
+@app.route("/monday/status-change", methods=["POST"])
+def webhook_status_change():
+    """
+    Webhook ricezione cambio stato step di reparto da Monday.com.
+    Traccia automaticamente l'orario di inizio ('In svolgimento') e
+    calcola la durata lavorativa reale feriale (max 8h/giorno) al completamento ('Fatto').
+    """
+    data = request.get_json(silent=True) or {}
+
+    # Risposta alla verifica webhook di Monday.com (challenge handshake)
+    if "challenge" in data:
+        logger.info(f"🤝 Handshake Monday webhook ricevuto con challenge: {data['challenge'][:15]}...")
+        return jsonify({"challenge": data["challenge"]}), 200
+
+    event = data.get("event", {})
+    if not event:
+        return jsonify({"status": "ignored", "reason": "No event payload"}), 200
+
+    board_id = str(event.get("boardId", ""))
+    item_id = str(event.get("pulseId", ""))
+    column_id = str(event.get("columnId", ""))
+    
+    val = event.get("value", {})
+    label = ""
+    if isinstance(val, dict):
+        label = val.get("label", {}).get("text", "")
+        if not label:
+            label = val.get("text", "")
+
+    logger.info(f"📥 Ricevuto cambio stato Monday: Board {board_id}, Item #{item_id}, Colonna {column_id} -> '{label}'")
+    res = step_time_tracker.handle_status_change(board_id, item_id, column_id, label)
+    return jsonify({"status": "processed", "result": res}), 200
+
+
+@app.route("/api/night-guardian/status", methods=["GET"])
+@app.route("/api/night-guardian", methods=["GET", "POST"])
+def night_guardian_status():
+    """Restituisce lo stato del Guardiano Notturno e gli step attualmente in svolgimento."""
+    is_off_hours = step_time_tracker.is_night_or_weekend()
+    active_steps = step_time_tracker.get_active_tracked_steps()
+    return jsonify({
+        "night_guardian_active": is_off_hours,
+        "mode": "FROZEN_NIGHT_WEEKEND" if is_off_hours else "ACTIVE_WORK_HOURS",
+        "description": (
+            "🌙 Guardiano Notturno ATTIVO: timer congelati, notti e weekend esclusi dal conteggio ore"
+            if is_off_hours else
+            "☀️ Orario Lavorativo ATTIVO: conteggio attivo su finestra 08:30-12:30 e 13:30-17:30 (max 8h/giorno)"
+        ),
+        "active_tracked_steps_count": len(active_steps),
+        "active_steps": active_steps
+    }), 200
 
 
 @app.route("/test/<item_id>", methods=["GET"])
