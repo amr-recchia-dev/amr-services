@@ -159,15 +159,26 @@ def fetch_unseen_emails() -> List[ParsedEmail]:
         mail.login(IMAP_USER, IMAP_PASSWORD)
         mail.select(IMAP_FOLDER)
 
-        # Cerca email non lette (UNSEEN) oppure contrassegnate (FLAGGED)
-        status, data = mail.uid("search", None, "OR", "UNSEEN", "FLAGGED")
-        if status != "OK" or not data or not data[0]:
-            logger.info("Nessuna email non letta o contrassegnata trovata.")
+        # Cerca sia le non lette/flaggate che le ultime 30 email recenti della casella
+        # (questo garantisce che le email già visualizzate da client come Apple Mail o Outlook
+        # vengano comunque intercettate e processate se non ancora nel DB!)
+        status_unseen, data_unseen = mail.uid("search", None, "OR", "UNSEEN", "FLAGGED")
+        status_all, data_all = mail.uid("search", None, "ALL")
+
+        uids_unseen = data_unseen[0].split() if (status_unseen == "OK" and data_unseen and data_unseen[0]) else []
+        uids_all = data_all[0].split() if (status_all == "OK" and data_all and data_all[0]) else []
+
+        # Prendi le ultime 30 email recenti + tutte le non lette
+        recent_uids = uids_all[-30:] if len(uids_all) > 30 else uids_all
+        combined_uids = sorted(list(set(uids_unseen + recent_uids)), key=lambda x: int(x))
+
+        if not combined_uids:
+            logger.info("Nessuna email da esaminare.")
             mail.logout()
             return []
 
-        uid_list = data[0].split()
-        logger.info("Trovate %d email non lette.", len(uid_list))
+        logger.info("Trovate %d email da verificare (tra non lette e recenti).", len(combined_uids))
+        uid_list = combined_uids
 
         for uid in uid_list:
             try:
