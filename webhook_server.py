@@ -228,18 +228,35 @@ def api_voice_command():
         audio_bytes = audio_file.read()
         mime_type = audio_file.content_type or "audio/webm"
         logger.info(f"🎙️ Ricevuto file audio ({len(audio_bytes)} bytes, {mime_type}). Avvio trascrizione con Gemini...")
+        
+        # Salva ultimo audio per diagnostica
+        try:
+            with open("/tmp/last_voice_command.audio", "wb") as f:
+                f.write(audio_bytes)
+        except Exception:
+            pass
+
         text = voice_agent.transcribe_audio_with_gemini(audio_bytes, mime_type)
 
     if not text:
         return jsonify({
             "success": False,
-            "message": "Nessun testo o audio rilevato. Riprova tenendo premuto mentre parli."
+            "message": "Nessuna voce comprensibile rilevata nell'audio. Prova a parlare più vicino al microfono."
         }), 200
 
     logger.info(f"📝 Testo finale per Voice Agent: \"{text}\"")
-    result = voice_agent.process_voice_command(text)
-    result["transcription"] = text
-    return jsonify(result), 200
+    try:
+        result = voice_agent.process_voice_command(text)
+        result["transcription"] = text
+        return jsonify(result), 200
+    except Exception as e:
+        logger.error(f"❌ Errore inatteso process_voice_command: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "transcription": text,
+            "message": f"Errore interno elaborazione: {e}"
+        }), 200
+
 
 
 

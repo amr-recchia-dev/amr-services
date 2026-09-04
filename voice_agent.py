@@ -9,7 +9,7 @@ Comprende comandi vocali in italiano per:
 - Fuzzy matching intelligente su nomi clienti e progetti reali di Monday.com
 """
 
-import os, re, json, difflib, logging, requests, base64
+import os, re, json, difflib, logging, requests, base64, time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,25 +29,45 @@ def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/web
         logger.error("GEMINI_API_KEY mancante per trascrizione audio.")
         return ""
 
-    # Usa gemini-flash-latest con fallback su gemini-2.5-flash
-    for model_name in ["gemini-flash-latest", "gemini-2.5-flash", "gemini-3.5-flash"]:
+    if len(audio_bytes) < 400:
+        logger.warning(f"Audio troppo corto ({len(audio_bytes)} bytes), scartato.")
+        return ""
+
+    # Normalizzazione precisa del MIME type per le specifiche di Gemini
+    raw_mime = (mime_type or "audio/webm").split(";")[0].strip().lower()
+    if "mp4" in raw_mime:
+        clean_mime = "audio/mp4"
+    elif "webm" in raw_mime:
+        clean_mime = "audio/webm"
+    elif "ogg" in raw_mime:
+        clean_mime = "audio/ogg"
+    elif "wav" in raw_mime:
+        clean_mime = "audio/wav"
+    elif "aac" in raw_mime:
+        clean_mime = "audio/aac"
+    else:
+        clean_mime = "audio/webm"
+
+    b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+
+    # Usa gemini-flash-latest con fallback su gemini-3.5-flash e gemini-2.5-flash
+    for model_name in ["gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash"]:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        clean_mime = mime_type.split(";")[0].strip() if mime_type else "audio/webm"
-        b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
 
         payload = {
             "contents": [{
                 "parts": [
                     {"inline_data": {"mime_type": clean_mime, "data": b64_audio}},
                     {"text": (
-                        "Ascolta con attenzione questo audio registrato in officina per AMR Recchia. "
-                        "Trascrivi fedelmente e per esteso le parole pronunciate in italiano (commesse, clienti, tempi, stati). "
-                        "Rispondi ESCLUSIVAMENTE con la trascrizione testuale esatta, senza virgolette e senza altri commenti."
+                        "Ascolta attentamente questa nota vocale registrata in officina per l'azienda AMR Recchia. "
+                        "Trascrivi fedelmente e integralmente le parole pronunciate in lingua italiana. "
+                        "Rispondi ESCLUSIVAMENTE con il testo esatto della trascrizione, senza commenti, senza virgolette e senza preamboli."
                     )}
                 ]
             }],
             "generationConfig": {"temperature": 0.1}
         }
+
 
         try:
             resp = requests.post(url, json=payload, timeout=25)
