@@ -185,9 +185,28 @@ def get_active_projects_cache() -> list:
         return []
 
 
+# Mappatura membri del team AMR per tag e notifiche
+TEAM_USERS = [
+    {"id": "71533914", "name": "Riccardo Gazzola", "keywords": ["riccardo", "gazzola", "riccardo gazzola"]},
+    {"id": "71478506", "name": "Alessandro Recchia", "keywords": ["alessandro recchia", "alessandro", "recchia"]},
+    {"id": "71489364", "name": "Gary Innocente", "keywords": ["gary", "innocente", "gary innocente"]},
+    {"id": "71533503", "name": "Maurizio Nordio", "keywords": ["maurizio", "nordio", "maurizio nordio"]},
+    {"id": "71533953", "name": "Andrea Moscon", "keywords": ["andrea", "moscon", "andrea moscon"]},
+    {"id": "71533963", "name": "Alessandro Buosi", "keywords": ["buosi", "alessandro buosi"]},
+    {"id": "71533986", "name": "Taglio AMR", "keywords": ["taglio", "reparto taglio"]},
+    {"id": "78115008", "name": "Antonio Ambrosino", "keywords": ["antonio", "ambrosino"]},
+    {"id": "78744209", "name": "Jamal Sriti", "keywords": ["jamal", "sriti"]}
+]
+
+def normalize_continuous(s: str) -> str:
+    """Rimuove ogni spazio e punteggiatura per matching a prova di errori fonetici: 'Dal Pian' -> 'dalpian'."""
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
 def match_project_from_text(text: str, projects: list) -> dict:
-    """Identifica con precisione e fuzzy match il progetto citato nel comando vocale."""
+    """Identifica con altissima precisione il progetto citato nel comando vocale."""
     t_clean = text.lower()
+    t_continuous = normalize_continuous(text)
     t_words = [w for w in re.split(r"[\s\-_/.,;:?!]+", t_clean) if len(w) >= 3]
     
     best_match = None
@@ -196,8 +215,26 @@ def match_project_from_text(text: str, projects: list) -> dict:
     for p in projects:
         p_name = p["name"].lower()
         p_proj = (p.get("progetto") or "").lower()
+        p_comm = (p.get("commessa") or "").lower()
         
         score = 0.0
+        
+        # 1. Matching continuo sul primo token / parola chiave cliente (es. 'dalpian' in 'mandiamounmessaggiosullacommessadalpian...')
+        p_first_word = normalize_continuous(p_name.split()[0])
+        if len(p_first_word) >= 3 and p_first_word in t_continuous:
+            score += 120.0
+
+        # Matching continuo su tutto il nome del progetto
+        p_full_cont = normalize_continuous(p_name)
+        if len(p_full_cont) >= 4 and (p_full_cont in t_continuous or t_continuous in p_full_cont):
+            score += 150.0
+
+        # Matching continuo sul codice commessa
+        if p_comm:
+            c_norm = normalize_continuous(p_comm)
+            if c_norm and c_norm in t_continuous:
+                score += 200.0
+
         p_tokens = [tok for tok in re.split(r"[\s\-_/.,]+", p_name) if len(tok) >= 3]
         if p_proj:
             p_tokens.extend([tok for tok in re.split(r"[\s\-_/.,]+", p_proj) if len(tok) >= 3])
@@ -218,9 +255,59 @@ def match_project_from_text(text: str, projects: list) -> dict:
             best_score = score
             best_match = p
 
-    if best_score >= 10.0:
+    if best_score >= 15.0:
         return best_match
     return None
+
+
+def extract_update_and_tags(spoken_text: str) -> tuple[list, str, bool]:
+    """
+    Rileva se il comando vocale richiede di pubblicare una nota o un messaggio su Monday,
+    individua gli utenti da taggare e isola il testo del messaggio.
+    """
+    t_lower = spoken_text.lower()
+    
+    # Rilevamento utenti taggati
+    tagged_users = []
+    for u in TEAM_USERS:
+        if any(kw in t_lower for kw in u["keywords"]):
+            if u not in tagged_users:
+                tagged_users.append(u)
+
+    # Trigger di messaggi, note o comunicazioni
+    is_message = any(trigger in t_lower for trigger in [
+        "messaggio", "tagga", "tagghiamo", "diciamo che", "diciamo", "scrivi che", 
+        "scrivi", "segna che", "nota", "avvisa", "comunica", "fai sapere", "invia"
+    ]) or bool(tagged_users)
+
+    if not is_message:
+        return [], "", False
+
+    # Estrazione del corpo del messaggio ripulito
+    patterns = [
+        r"(?:gli\s+)?diciamo\s+che\s+(.*)",
+        r"(?:scrivi|segna|annota|comunica)\s+che\s+(.*)",
+        r"(?:scrivi|segna|invia|manda)\s+(?:un\s+)?(?:messaggio|nota)\s*[:,\-]?\s*(.*)",
+        r"tagghiamo\s+[a-zA-Z\s]+(?:e\s+gli\s+diciamo\s+che|,?\s*diciamo\s+che)?\s+(.*)",
+    ]
+
+    msg_body = ""
+    for pat in patterns:
+        m = re.search(pat, spoken_text, re.IGNORECASE)
+        if m:
+            msg_body = m.group(1).strip()
+            break
+
+    if not msg_body:
+        # Pulizia dell'incipit
+        clean_s = re.sub(r"^(?:mandiamo|invia|manda|scrivi|segna|tagga|tagghiamo)\s+.*?(?:che|:)\s*", "", spoken_text, flags=re.IGNORECASE)
+        msg_body = clean_s.strip() if clean_s else spoken_text
+
+    if msg_body:
+        msg_body = msg_body[0].upper() + msg_body[1:]
+
+    return tagged_users, msg_body, True
+
 
 
 def process_voice_command(spoken_text: str) -> dict:
@@ -242,6 +329,58 @@ def process_voice_command(spoken_text: str) -> dict:
     proj_name = matched_project["name"]
     proj_id = matched_project["id"]
     t_lower = spoken_text.lower()
+    headers = {"Authorization": MONDAY_TOKEN, "API-Version": "2024-10", "Content-Type": "application/json"}
+
+    # 1. VERIFICA SE È UNA NOTA / AGGIORNAMENTO SCRITTO CON MENZIONI O TAG
+    tagged_users, msg_body, is_update = extract_update_and_tags(spoken_text)
+    update_published = False
+
+    if is_update and msg_body:
+        tags_html = " ".join([f"<b>@{u['name']}</b>" for u in tagged_users])
+        tags_text = ", ".join([f"@{u['name']}" for u in tagged_users])
+        
+        body_html = f"<p>🎙️ <b>Nota Vocale dall'Officina</b>"
+        if tags_html:
+            body_html += f" per {tags_html}:"
+        else:
+            body_html += ":"
+        body_html += f"<br>{msg_body}</p>"
+
+        mut_up = f'''
+        mutation {{
+          create_update(item_id: "{proj_id}", body: {json.dumps(body_html)}) {{
+            id
+          }}
+        }}
+        '''
+        try:
+            r_up = requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up}, timeout=10)
+            logger.info(f"Update creato su Monday #{proj_id}: {r_up.text[:150]}")
+            update_published = True
+        except Exception as e:
+            logger.error(f"Errore creazione update Monday: {e}")
+
+        # Invia notifica su Monday a ciascun utente menzionato
+        for u in tagged_users:
+            u_id = u["id"]
+            notif_text = f"🎙️ Nota vocale su commessa {proj_name}: {msg_body[:90]}"
+            mut_notif = f'''
+            mutation {{
+              create_notification(
+                user_id: {u_id},
+                target_id: {proj_id},
+                text: {json.dumps(notif_text)},
+                target_type: Project
+              ) {{
+                id
+              }}
+            }}
+            '''
+            try:
+                requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_notif}, timeout=10)
+                logger.info(f"Notifica inviata a {u['name']} ({u_id}) per #{proj_id}")
+            except Exception as e:
+                logger.error(f"Errore notifica: {e}")
 
     # Riconoscimento dello Step / Reparto
     detected_step = None
@@ -258,7 +397,20 @@ def process_voice_command(spoken_text: str) -> dict:
     is_blocked = any(w in t_lower for w in ["bloccat", "fermo", "manca", "pausa", "attesa"])
     is_progress = any(w in t_lower for w in ["in corso", "iniziato", "svolgimento", "al lavoro", "partito"])
 
-    headers = {"Authorization": MONDAY_TOKEN, "API-Version": "2024-10", "Content-Type": "application/json"}
+    # Se è stato pubblicato un aggiornamento/nota:
+    if update_published:
+        confirm_msg = f"Aggiornamento scritto pubblicato su '{proj_name}'"
+        if tagged_users:
+            confirm_msg += f" con notifica a {tags_text}"
+        confirm_msg += f": \"{msg_body}\""
+        return {
+            "success": True,
+            "transcription": spoken_text,
+            "project": proj_name,
+            "tagged_users": [u["name"] for u in tagged_users],
+            "update_body": msg_body,
+            "message": confirm_msg
+        }
 
     # CASO A: Aggiornamento di uno Step di Reparto (es. "finito il taglio in 2 ore")
     if detected_step:
