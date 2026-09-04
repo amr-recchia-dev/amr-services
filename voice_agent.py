@@ -9,7 +9,7 @@ Comprende comandi vocali in italiano per:
 - Fuzzy matching intelligente su nomi clienti e progetti reali di Monday.com
 """
 
-import os, re, json, difflib, logging, requests
+import os, re, json, difflib, logging, requests, base64
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,6 +21,50 @@ MONDAY_API_URL = "https://api.monday.com/v2"
 BOARD_GESTIONE_PROGETTI = "2136092569"
 BOARD_TAGLIO = "5086546323"
 BOARD_FINITURE = "5088215890"
+
+def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:
+    """Trascrive un file o stream audio registrato direttamente dall'utente tramite Gemini Flash."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        logger.error("GEMINI_API_KEY mancante per trascrizione audio.")
+        return ""
+
+    # Usa gemini-flash-latest con fallback su gemini-2.5-flash
+    for model_name in ["gemini-flash-latest", "gemini-2.5-flash", "gemini-3.5-flash"]:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        clean_mime = mime_type.split(";")[0].strip() if mime_type else "audio/webm"
+        b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"inline_data": {"mime_type": clean_mime, "data": b64_audio}},
+                    {"text": (
+                        "Ascolta con attenzione questo audio registrato in officina per AMR Recchia. "
+                        "Trascrivi fedelmente e per esteso le parole pronunciate in italiano (commesse, clienti, tempi, stati). "
+                        "Rispondi ESCLUSIVAMENTE con la trascrizione testuale esatta, senza virgolette e senza altri commenti."
+                    )}
+                ]
+            }],
+            "generationConfig": {"temperature": 0.1}
+        }
+
+        try:
+            resp = requests.post(url, json=payload, timeout=25)
+            if resp.status_code == 200:
+                data = resp.json()
+                parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                if parts:
+                    txt = parts[0].get("text", "").strip()
+                    logger.info(f"🎧 Trascrizione Gemini ({model_name}): \"{txt}\"")
+                    return txt
+            else:
+                logger.warning(f"Modello {model_name} status {resp.status_code}: {resp.text[:150]}")
+        except Exception as ex:
+            logger.error(f"Errore chiamata Gemini audio su {model_name}: {ex}")
+
+    return ""
+
 
 # Mappatura step e colonne per reparto
 DEPARTMENT_STEPS = {

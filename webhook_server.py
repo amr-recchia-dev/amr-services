@@ -199,24 +199,48 @@ def voice_view():
 
 
 @app.route("/api/voice-command", methods=["POST"])
+@app.route("/api/voice-command-audio", methods=["POST"])
 def api_voice_command():
     """
-    Riceve un comando vocale (trascritto via Web Speech o audio grezzo),
+    Riceve un comando vocale (trascritto via testo, multipart audio file o audio base64),
+    trascrive l'audio fedelmente con Gemini Flash (se inviato come audio),
     interpreta l'intento e aggiorna istantaneamente la commessa su Monday.com.
     """
-    data = request.get_json(silent=True) or {}
-    text = data.get("text", "").strip()
+    text = ""
 
-    # Se inviato come form data con file audio
+    # 1. Se inviato come JSON
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "").strip()
+        audio_b64 = data.get("audio_base64", "")
+        mime_type = data.get("mime_type", "audio/webm")
+        if not text and audio_b64:
+            try:
+                import base64
+                raw_bytes = base64.b64decode(audio_b64)
+                text = voice_agent.transcribe_audio_with_gemini(raw_bytes, mime_type)
+            except Exception as e:
+                logger.error(f"Errore decodifica base64 audio: {e}")
+
+    # 2. Se inviato come multipart/form-data con file audio (da MediaRecorder del browser)
     if not text and "audio" in request.files:
-        # In caso di file audio grezzo
-        text = "comando vocale ricevuto"
+        audio_file = request.files["audio"]
+        audio_bytes = audio_file.read()
+        mime_type = audio_file.content_type or "audio/webm"
+        logger.info(f"🎙️ Ricevuto file audio ({len(audio_bytes)} bytes, {mime_type}). Avvio trascrizione con Gemini...")
+        text = voice_agent.transcribe_audio_with_gemini(audio_bytes, mime_type)
 
     if not text:
-        return jsonify({"success": False, "message": "Nessun testo o audio fornito"}), 400
+        return jsonify({
+            "success": False,
+            "message": "Nessun testo o audio rilevato. Riprova tenendo premuto mentre parli."
+        }), 200
 
+    logger.info(f"📝 Testo finale per Voice Agent: \"{text}\"")
     result = voice_agent.process_voice_command(text)
+    result["transcription"] = text
     return jsonify(result), 200
+
 
 
 @app.route("/api/dashboard-data", methods=["GET"])

@@ -187,11 +187,14 @@
     AMR Recchia • Voice Engine v1.0 • Connesso in tempo reale a Monday.com
   </footer>
 
-  <!-- Web Speech & Logic Script -->
+  <!-- Voice Engine Script: MediaRecorder + Gemini Cloud AI -->
   <script>
     let isRecording = false;
-    let recognition = null;
-    let finalTranscript = '';
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordStream = null;
+    let recordingStartTime = 0;
+    let timerInterval = null;
     let audioCtx = null;
 
     function playBeep(freq, duration) {
@@ -210,71 +213,12 @@
       } catch(e) {}
     }
 
-    function initRecognition() {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        console.warn('SpeechRecognition not natively supported.');
-        return null;
-      }
-      const rec = new SpeechRecognition();
-      rec.lang = 'it-IT';
-      rec.continuous = false;
-      rec.interimResults = true;
-
-      rec.onstart = () => {
-        isRecording = true;
-        updateUI('recording');
-        playBeep(600, 0.15);
-      };
-
-      rec.onresult = (event) => {
-        let interim = '';
-        finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
-          }
-        }
-        document.getElementById('transcriptBox').classList.remove('hidden');
-        document.getElementById('transcriptText').innerText = finalTranscript || interim;
-      };
-
-      rec.onerror = (event) => {
-        console.error('Speech error event:', event.error);
-        stopRecording();
-        if (event.error === 'service-not-allowed' || event.error === 'not-allowed') {
-          showMicHelp('Il browser ha bloccato il servizio vocale (' + event.error + '). Abilita il microfono o usa la dettatura da tastiera.');
-        } else if (event.error === 'audio-capture') {
-          showMicHelp('Nessun microfono rilevato sul dispositivo.');
-        } else if (event.error !== 'no-speech') {
-          showMicHelp('Errore microfono: ' + event.error);
-        }
-      };
-
-      rec.onend = () => {
-        if (isRecording) {
-          stopRecording();
-          if (finalTranscript.trim().length > 2) {
-            sendCommand(finalTranscript);
-          }
-        }
-      };
-      return rec;
-    }
-
-    recognition = initRecognition();
-
     const micBtn = document.getElementById('micBtn');
     micBtn.addEventListener('click', async () => {
       if (!isRecording) {
         await startRecording();
       } else {
         stopRecording();
-        if (finalTranscript.trim().length > 2) {
-          sendCommand(finalTranscript);
-        }
       }
     });
 
@@ -282,45 +226,132 @@
       hideMicHelp();
       document.getElementById('resultBox').classList.add('hidden');
       document.getElementById('transcriptBox').classList.add('hidden');
-      document.getElementById('transcriptText').innerText = 'In ascolto...';
 
-      // Step 1: Explicitly request microphone stream to trigger OS / Browser permission prompt
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop()); // close test track immediately
-        } catch (err) {
-          console.warn('getUserMedia permission error:', err);
-          showMicHelp('Permesso microfono non concesso: ' + (err.message || err.name));
-          return;
-        }
-      }
-
-      // Step 2: Start Speech Recognition
-      if (!recognition) {
-        recognition = initRecognition();
-      }
-      if (!recognition) {
-        showMicHelp('Il tuo browser non supporta Web Speech API. Usa la casella di testo qui sotto (supporta la dettatura vocale della tastiera).');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showMicHelp('Il browser non supporta la cattura audio del microfono. Usa la casella di testo.');
         return;
       }
 
-      finalTranscript = '';
       try {
-        recognition.start();
-      } catch(e) {
-        console.error('Recognition start exception:', e);
-        showMicHelp('Impossibile avviare il microfono: ' + (e.message || e));
+        recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        console.error('getUserMedia error:', err);
+        showMicHelp('Accesso al microfono bloccato dal browser o dal sistema. Clicca sull\'icona del lucchetto 🔒 nella barra dell\'indirizzo per consentire.');
+        return;
       }
+
+      // Seleziona il mimeType supportato dal dispositivo (audio/webm su Chrome/Android, audio/mp4 su Safari/iOS)
+      let options = {};
+      if (window.MediaRecorder) {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+        } else if (MediaRecorder.isTypeSupported('audio/aac')) {
+          options = { mimeType: 'audio/aac' };
+        }
+      } else {
+        showMicHelp('MediaRecorder non supportato dal browser. Usa la casella di testo.');
+        return;
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(recordStream, options);
+      } catch (e) {
+        mediaRecorder = new MediaRecorder(recordStream);
+      }
+
+      audioChunks = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        if (recordStream) {
+          recordStream.getTracks().forEach(t => t.stop());
+        }
+        clearInterval(timerInterval);
+
+        const mime = mediaRecorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunks, { type: mime });
+
+        if (audioBlob.size < 500) {
+          updateUI('idle');
+          return;
+        }
+
+        await sendAudioBlob(audioBlob);
+      };
+
+      mediaRecorder.start(250);
+      isRecording = true;
+      recordingStartTime = Date.now();
+      updateUI('recording');
+      playBeep(600, 0.15);
+
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+        document.getElementById('micLabel').innerText = `${elapsed}s`;
+        document.getElementById('statusTitle').innerText = `Ti ascolto... (${elapsed}s)`;
+        document.getElementById('statusDesc').innerText = 'Parla liberamente. Tocca di nuovo quando hai finito.';
+      }, 500);
     }
 
     function stopRecording() {
       isRecording = false;
+      clearInterval(timerInterval);
       updateUI('processing');
       playBeep(400, 0.15);
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    async function sendAudioBlob(blob) {
+      updateUI('processing');
+      document.getElementById('transcriptBox').classList.remove('hidden');
+      document.getElementById('transcriptText').innerHTML = '<span class="text-[#D4B373] animate-pulse">🤖 Trascrizione AI con Gemini in corso...</span>';
+
+      const formData = new FormData();
+      const ext = blob.type.includes('mp4') ? 'mp4' : (blob.type.includes('ogg') ? 'ogg' : 'webm');
+      formData.append('audio', blob, 'voce.' + ext);
+
       try {
-        if (recognition) recognition.stop();
-      } catch(e) {}
+        const resp = await fetch('/api/voice-command-audio', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await resp.json();
+        updateUI('idle');
+
+        if (data.transcription) {
+          document.getElementById('transcriptBox').classList.remove('hidden');
+          document.getElementById('transcriptText').innerText = `"${data.transcription}"`;
+        } else {
+          document.getElementById('transcriptBox').classList.add('hidden');
+        }
+
+        if (data.success) {
+          playBeep(800, 0.2);
+          setTimeout(() => playBeep(1000, 0.3), 150);
+          document.getElementById('resultBox').classList.remove('hidden');
+          document.getElementById('resultText').innerText = data.message;
+        } else {
+          showMicHelp(data.message || 'Comando non compreso. Riprova parlando più chiaramente.');
+        }
+      } catch (err) {
+        updateUI('idle');
+        showMicHelp('Errore di connessione al server: ' + err);
+      }
     }
 
     function updateUI(state) {
@@ -333,15 +364,15 @@
       if (state === 'recording') {
         micBtn.classList.add('mic-recording');
         micRing.classList.add('hidden');
-        micLabel.innerText = 'Ascolto';
+        micLabel.innerText = '0s';
         statusTitle.innerText = 'Ti ascolto...';
-        statusDesc.innerText = 'Parla con calma, tocca di nuovo quando hai finito';
+        statusDesc.innerText = 'Parla liberamente. Tocca di nuovo quando hai finito.';
       } else if (state === 'processing') {
         micBtn.classList.remove('mic-recording');
         micRing.classList.remove('hidden');
         micLabel.innerText = 'Elaboro';
         statusTitle.innerText = 'Elaborazione in corso...';
-        statusDesc.innerText = 'Interpreto il comando vocale e aggiorno Monday';
+        statusDesc.innerText = 'Trascrivo con Gemini AI e aggiorno Monday.com';
       } else {
         micBtn.classList.remove('mic-recording');
         micRing.classList.remove('hidden');
@@ -353,6 +384,9 @@
 
     async function sendCommand(text) {
       updateUI('processing');
+      document.getElementById('transcriptBox').classList.remove('hidden');
+      document.getElementById('transcriptText').innerText = text;
+
       try {
         const resp = await fetch('/api/voice-command', {
           method: 'POST',
@@ -368,7 +402,7 @@
           document.getElementById('resultBox').classList.remove('hidden');
           document.getElementById('resultText').innerText = data.message;
         } else {
-          showMicHelp('Risposta server: ' + (data.message || 'Comando non riconosciuto'));
+          showMicHelp(data.message || 'Comando non riconosciuto');
         }
       } catch (err) {
         updateUI('idle');
@@ -377,20 +411,18 @@
     }
 
     function simulateText(txt) {
-      document.getElementById('transcriptBox').classList.remove('hidden');
-      document.getElementById('transcriptText').innerText = txt;
       sendCommand(txt);
     }
 
     function sendManual() {
       const val = document.getElementById('manualInput').value.trim();
       if (val) {
-        simulateText(val);
+        sendCommand(val);
         document.getElementById('manualInput').value = '';
       }
     }
 
-    // Support ENTER key in manual input
+    // Invio con tasto Enter
     document.getElementById('manualInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         sendManual();
