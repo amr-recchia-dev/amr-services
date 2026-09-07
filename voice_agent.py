@@ -22,16 +22,20 @@ BOARD_GESTIONE_PROGETTI = "2136092569"
 BOARD_TAGLIO = "5086546323"
 BOARD_FINITURE = "5088215890"
 
-def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/webm") -> str:
-    """Trascrive un file o stream audio registrato direttamente dall'utente tramite Gemini Flash."""
+def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/webm") -> dict:
+    """
+    Trascrive l'audio registrato dall'utente tramite Gemini Flash/Lite con supporto multilingua
+    (Italiano, Arabo standard e dialetti nordafricani come marocchino/darija o tunisino).
+    Restituisce un dizionario con la trascrizione originale, la lingua rilevata e la traduzione italiana.
+    """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         logger.error("GEMINI_API_KEY mancante per trascrizione audio.")
-        return ""
+        return {"text": "", "transcription": "", "language": "it", "italian_translation": ""}
 
     if len(audio_bytes) < 400:
         logger.warning(f"Audio troppo corto ({len(audio_bytes)} bytes), scartato.")
-        return ""
+        return {"text": "", "transcription": "", "language": "it", "italian_translation": ""}
 
     # Normalizzazione precisa del MIME type per le specifiche di Gemini
     raw_mime = (mime_type or "audio/webm").split(";")[0].strip().lower()
@@ -50,24 +54,37 @@ def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/web
 
     b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
 
-    # Usa gemini-flash-latest con fallback su gemini-3.5-flash e gemini-2.5-flash
-    for model_name in ["gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash"]:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    prompt_instructions = (
+        "Sei il modulo di trascrizione e comprensione vocale per l'officina dell'azienda italiana AMR Recchia "
+        "(reparti: taglio, fresa, pantografo, resine, finiture, verniciatura, assemblaggio, imballo, cantieri).\n"
+        "L'operatore in officina può parlare in italiano, in arabo (arabo standard o dialetti nordafricani come marocchino/darija o tunisino) oppure un mix.\n"
+        "Ascolta attentamente la nota vocale e restituisci ESCLUSIVAMENTE un JSON valido con questa struttura:\n"
+        "{\n"
+        '  "language": "it" oppure "ar" oppure "mixed",\n'
+        '  "transcription": "trascrizione fedele e letterale delle parole pronunciate nella lingua originale",\n'
+        '  "italian_translation": "traduzione e normalizzazione fedele in italiano, adatta al gergo di officina AMR (con i nomi corretti di commesse/clienti, reparti: taglio, fresa, resine, finiture, assemblaggio, cantieri, tempi di lavoro, stati ed eventuali colleghi da taggare)"\n'
+        "}\n"
+        "Se l'operatore parla già in italiano, 'italian_translation' sarà identica a 'transcription'."
+    )
 
+    models_to_try = [
+        "gemini-flash-lite-latest",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-flash-latest",
+        "gemini-2.5-flash"
+    ]
+
+    for model_name in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         payload = {
             "contents": [{
                 "parts": [
                     {"inline_data": {"mime_type": clean_mime, "data": b64_audio}},
-                    {"text": (
-                        "Ascolta attentamente questa nota vocale registrata in officina per l'azienda AMR Recchia. "
-                        "Trascrivi fedelmente e integralmente le parole pronunciate in lingua italiana. "
-                        "Rispondi ESCLUSIVAMENTE con il testo esatto della trascrizione, senza commenti, senza virgolette e senza preamboli."
-                    )}
+                    {"text": prompt_instructions}
                 ]
             }],
-            "generationConfig": {"temperature": 0.1}
+            "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
         }
-
 
         try:
             resp = requests.post(url, json=payload, timeout=25)
@@ -76,14 +93,76 @@ def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/web
                 parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
                 if parts:
                     txt = parts[0].get("text", "").strip()
-                    logger.info(f"🎧 Trascrizione Gemini ({model_name}): \"{txt}\"")
-                    return txt
+                    logger.info(f"🎧 Trascrizione Gemini ({model_name}): {txt[:200]}")
+                    try:
+                        parsed = json.loads(txt)
+                        lang = parsed.get("language", "it")
+                        trans = parsed.get("transcription", "").strip()
+                        it_trans = parsed.get("italian_translation", "").strip() or trans
+                        return {
+                            "text": it_trans,
+                            "italian_translation": it_trans,
+                            "transcription": trans,
+                            "language": lang
+                        }
+                    except Exception:
+                        return {
+                            "text": txt,
+                            "italian_translation": txt,
+                            "transcription": txt,
+                            "language": "it"
+                        }
             else:
                 logger.warning(f"Modello {model_name} status {resp.status_code}: {resp.text[:150]}")
         except Exception as ex:
             logger.error(f"Errore chiamata Gemini audio su {model_name}: {ex}")
 
-    return ""
+    return {"text": "", "transcription": "", "language": "it", "italian_translation": ""}
+
+
+def translate_arabic_to_italian_if_needed(text: str) -> dict:
+    """Se il testo contiene caratteri arabi, traduce e normalizza in italiano con Gemini."""
+    if not text:
+        return {"text": "", "transcription": "", "language": "it", "italian_translation": ""}
+    if not re.search(r"[\u0600-\u06FF]", text):
+        return {"text": text, "transcription": text, "language": "it", "italian_translation": text}
+    
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {"text": text, "transcription": text, "language": "ar", "italian_translation": text}
+        
+    prompt = f"""
+Sei il traduttore vocale di officina per l'azienda italiana AMR Recchia.
+L'operaio ha digitato o pronunciato questa frase in lingua araba:
+"{text}"
+Traduci fedelmente in italiano contestualizzato per officina (reparti: taglio, fresa, resina, finitura, verniciatura, assemblaggio, ore lavorate, nomi clienti/commesse).
+Restituisci ESCLUSIVAMENTE un JSON:
+{{
+  "language": "ar",
+  "transcription": "{text}",
+  "italian_translation": "testo tradotto e normalizzato in italiano"
+}}
+"""
+    for m in ["gemini-flash-lite-latest", "gemini-3.1-flash-lite-preview", "gemini-flash-latest"]:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+            resp = requests.post(url, json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.1, "response_mime_type": "application/json"}
+            }, timeout=8)
+            if resp.status_code == 200:
+                data = json.loads(resp.json()["candidates"][0]["content"]["parts"][0]["text"])
+                it_tr = data.get("italian_translation", text).strip()
+                return {
+                    "text": it_tr,
+                    "italian_translation": it_tr,
+                    "transcription": text,
+                    "language": "ar"
+                }
+        except Exception:
+            continue
+    return {"text": text, "transcription": text, "language": "ar", "italian_translation": text}
+
 
 
 # Mappatura step e colonne per reparto
@@ -310,11 +389,25 @@ def extract_update_and_tags(spoken_text: str) -> tuple[list, str, bool]:
 
 
 
-def process_voice_command(spoken_text: str) -> dict:
+def process_voice_command(spoken_text: str, original_text: str = None, detected_lang: str = "it") -> dict:
     """
-    Elabora un comando vocale in testo italiano, interpreta l'intento e aggiorna Monday.com.
+    Elabora un comando vocale (in italiano o arabo/multilingua), interpreta l'intento e aggiorna Monday.com.
+    Se il testo originale è in arabo, lo traduce per i record di Monday.com e per le schede di reparto.
     """
-    logger.info(f"🎙️ Elaborazione comando vocale: \"{spoken_text}\"")
+    if not original_text:
+        # Se contiene caratteri arabi, traduce prima in italiano
+        if re.search(r"[\u0600-\u06FF]", spoken_text):
+            tr_res = translate_arabic_to_italian_if_needed(spoken_text)
+            original_text = spoken_text
+            spoken_text = tr_res.get("text", spoken_text)
+            detected_lang = "ar"
+        else:
+            original_text = spoken_text
+            detected_lang = "it"
+
+    is_arabic = (detected_lang == "ar") or (original_text != spoken_text and bool(re.search(r"[\u0600-\u06FF]", original_text or "")))
+
+    logger.info(f"🎙️ Elaborazione comando vocale (lingua: {detected_lang}): \"{spoken_text}\" [Originale: \"{original_text}\"]")
     
     projects = get_active_projects_cache()
     matched_project = match_project_from_text(spoken_text, projects)
@@ -322,7 +415,9 @@ def process_voice_command(spoken_text: str) -> dict:
     if not matched_project:
         return {
             "success": False,
-            "transcription": spoken_text,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
             "message": "Non sono riuscito a identificare la commessa o il cliente. Prova a specificare chiaramente il nome (es. 'Su Bertone tavolo 2...')"
         }
 
@@ -339,12 +434,16 @@ def process_voice_command(spoken_text: str) -> dict:
         tags_html = " ".join([f"<b>@{u['name']}</b>" for u in tagged_users])
         tags_text = ", ".join([f"@{u['name']}" for u in tagged_users])
         
-        body_html = f"<p>🎙️ <b>Nota Vocale dall'Officina</b>"
+        lang_header = " (Trasmessa in Arabo ➔ Tradotta in Italiano)" if is_arabic else ""
+        body_html = f"<p>🎙️ <b>Nota Vocale dall'Officina{lang_header}</b>"
         if tags_html:
             body_html += f" per {tags_html}:"
         else:
             body_html += ":"
-        body_html += f"<br>{msg_body}</p>"
+        body_html += f"<br><b>{msg_body}</b>"
+        if is_arabic and original_text and original_text != msg_body:
+            body_html += f'<br><span style="color:#64748b; font-size:11px; font-style:italic;">Originale pronunciato: {original_text}</span>'
+        body_html += "</p>"
 
         mut_up = f'''
         mutation {{
@@ -363,7 +462,8 @@ def process_voice_command(spoken_text: str) -> dict:
         # Invia notifica su Monday a ciascun utente menzionato
         for u in tagged_users:
             u_id = u["id"]
-            notif_text = f"🎙️ Nota vocale su commessa {proj_name}: {msg_body[:90]}"
+            notif_prefix = "🎙️ [Arabo ➔ Tradotto]" if is_arabic else "🎙️"
+            notif_text = f"{notif_prefix} Nota vocale su commessa {proj_name}: {msg_body[:90]}"
             mut_notif = f'''
             mutation {{
               create_notification(
@@ -403,9 +503,13 @@ def process_voice_command(spoken_text: str) -> dict:
         if tagged_users:
             confirm_msg += f" con notifica a {tags_text}"
         confirm_msg += f": \"{msg_body}\""
+        if is_arabic:
+            confirm_msg = f"🇸🇦 Riconosciuto Arabo ➔ Tradotto: {confirm_msg}"
         return {
             "success": True,
-            "transcription": spoken_text,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
             "project": proj_name,
             "tagged_users": [u["name"] for u in tagged_users],
             "update_body": msg_body,
@@ -473,9 +577,13 @@ def process_voice_command(spoken_text: str) -> dict:
                 updates_done.append(f"Stato {step_name}: {new_label}")
 
         confirm_msg = f"Aggiornata commessa '{proj_name}': {', '.join(updates_done) if updates_done else 'ricevuto'}"
+        if is_arabic:
+            confirm_msg = f"🇸🇦 Riconosciuto Arabo ➔ Tradotto: {confirm_msg}"
         return {
             "success": True,
-            "transcription": spoken_text,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
             "project": proj_name,
             "step": step_name,
             "time": detected_time,
@@ -493,17 +601,26 @@ def process_voice_command(spoken_text: str) -> dict:
         """
         requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_gen, "variables": {"b": BOARD_GESTIONE_PROGETTI, "it": str(proj_id), "c": "color_mm45raj9", "val": json.dumps({"label": new_general_status})}}, timeout=10)
         confirm_msg = f"Stato commessa '{proj_name}' aggiornato a '{new_general_status}'"
+        if is_arabic:
+            confirm_msg = f"🇸🇦 Riconosciuto Arabo ➔ Tradotto: {confirm_msg}"
         return {
             "success": True,
-            "transcription": spoken_text,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
             "project": proj_name,
             "status": new_general_status,
             "message": confirm_msg
         }
 
+    confirm_fallback = f"Commessa '{proj_name}' identificata. Specificare l'azione (es. 'taglio fatto in 2 ore' o 'bloccato')."
+    if is_arabic:
+        confirm_fallback = f"🇸🇦 Riconosciuto Arabo ➔ Tradotto: {confirm_fallback}"
     return {
         "success": True,
-        "transcription": spoken_text,
+        "language": detected_lang,
+        "transcription": original_text or spoken_text,
+        "italian_translation": spoken_text,
         "project": proj_name,
-        "message": f"Commessa '{proj_name}' identificata. Specificare l'azione (es. 'taglio fatto in 2 ore' o 'bloccato')."
+        "message": confirm_fallback
     }

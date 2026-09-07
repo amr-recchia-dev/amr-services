@@ -61,7 +61,7 @@
               <span class="w-1.5 h-1.5 rounded-full bg-[var(--amr-red)] animate-pulse"></span> Voice Assistant
             </span>
           </div>
-          <p class="text-[10px] sm:text-[11px] text-[var(--amr-muted)] mt-0.5">Aggiornamento Commesse • Officina & Reparti</p>
+          <p class="text-[10px] sm:text-[11px] text-[var(--amr-muted)] mt-0.5">Aggiornamento Commesse • 🇮🇹 Italiano • 🇸🇦 العربية</p>
         </div>
       </div>
 
@@ -85,16 +85,23 @@
       <div id="statusIcon" class="text-3xl mb-2">🎙️</div>
       <h2 id="statusTitle" class="text-lg font-bold text-white mb-1">Tocca per parlare</h2>
       <p id="statusDesc" class="text-xs text-[var(--amr-muted)]">
-        Comunica l'avanzamento, le ore lavorate o lo stato di una commessa
+        Comunica in Italiano o Arabo l'avanzamento, le ore o lo stato
       </p>
 
-      <!-- Live Transcript Box -->
+      <!-- Live Transcript Box with Bilingual Translation support -->
       <div id="transcriptBox" class="hidden mt-4 p-3.5 bg-[var(--amr-black)] border border-[var(--amr-card-border)] rounded-xl text-left text-sm text-gray-200 shadow-inner">
-        <div class="text-[10px] uppercase font-bold text-[var(--amr-red)] tracking-wider mb-1 flex items-center gap-1">
-          <span class="w-1.5 h-1.5 rounded-full bg-[var(--amr-red)] animate-ping"></span>
-          <span>Trascrizione:</span>
+        <div class="text-[10px] uppercase font-bold text-[var(--amr-red)] tracking-wider mb-1 flex items-center justify-between">
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[var(--amr-red)] animate-ping"></span>
+            <span>Trascrizione:</span>
+          </div>
+          <span id="langBadge" class="hidden text-[9px] bg-red-950/80 text-red-300 border border-red-500/30 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span>
         </div>
         <p id="transcriptText" class="italic text-slate-300 font-mono text-xs">In ascolto...</p>
+        <div id="translationBox" class="hidden mt-2.5 pt-2 border-t border-slate-800">
+          <span class="text-[10px] font-bold text-emerald-400 block mb-0.5">🇮🇹 Tradotto per Monday.com:</span>
+          <p id="translationText" class="text-xs text-slate-200"></p>
+        </div>
       </div>
 
       <!-- Result Feedback Box -->
@@ -123,11 +130,19 @@
     <div class="w-full mt-6 text-left">
       <div class="text-[11px] uppercase font-bold text-[var(--amr-muted)] tracking-wider mb-2.5 flex items-center justify-between">
         <span>💡 Esempi di comandi vocali:</span>
+        <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700 flex items-center gap-1">
+          <span>🇮🇹 Italiano</span> <span>•</span> <span>🇸🇦 العربية</span>
+        </span>
       </div>
       <div class="space-y-2">
         <button onclick="simulateText('Ho finito il taglio su Bertone tavolo 2 in 2 ore e mezza')" 
           class="w-full text-left text-xs p-2.5 rounded-xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] hover:border-[var(--amr-red)] text-slate-300 hover:text-white transition flex items-center gap-2">
           <span>✂️</span> <span>"Ho finito il taglio su <b>Bertone tavolo 2</b> in 2 ore e mezza"</span>
+        </button>
+        <button onclick="simulateText('خلصت التقطيع لطاولة برتوني في ساعتين ونصف')" 
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] hover:border-[var(--amr-red)] text-slate-300 hover:text-white transition flex items-center justify-between gap-2">
+          <span class="flex items-center gap-2"><span>🇸🇦</span> <span dir="rtl" class="font-sans">"خلصت التقطيع لطاولة <b>Bertone</b> في ساعتين ونصف"</span></span>
+          <span class="text-[10px] text-slate-500 font-normal shrink-0 ml-2">(Taglio Bertone 2h 30m)</span>
         </button>
         <button onclick="simulateText('Sulla commessa Donna Karan di Noabrand carteggiatura finita tempo 3 ore')" 
           class="w-full text-left text-xs p-2.5 rounded-xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] hover:border-[var(--amr-red)] text-slate-300 hover:text-white transition flex items-center gap-2">
@@ -413,26 +428,47 @@
           return;
         }
 
-        updateUI('idle');
-
-        if (data.transcription) {
-          document.getElementById('transcriptBox').classList.remove('hidden');
-          document.getElementById('transcriptText').innerText = `"${data.transcription}"`;
-        } else {
-          document.getElementById('transcriptBox').classList.add('hidden');
-        }
-
-        if (data.success) {
-          playBeep(800, 0.2);
-          setTimeout(() => playBeep(1000, 0.3), 150);
-          document.getElementById('resultBox').classList.remove('hidden');
-          document.getElementById('resultText').innerText = data.message;
-        } else {
-          showMicHelp(data.message || 'Comando non compreso. Riprova parlando più chiaramente.');
-        }
+        displayVoiceResult(data);
       } catch (err) {
         updateUI('idle');
         showMicHelp('Errore di connessione: ' + (err.message || err));
+      }
+    }
+
+    function displayVoiceResult(data) {
+      updateUI('idle');
+      
+      const transcriptBox = document.getElementById('transcriptBox');
+      const transcriptText = document.getElementById('transcriptText');
+      const langBadge = document.getElementById('langBadge');
+      const translationBox = document.getElementById('translationBox');
+      const translationText = document.getElementById('translationText');
+
+      if (data.transcription) {
+        transcriptBox.classList.remove('hidden');
+        transcriptText.innerText = `"${data.transcription}"`;
+
+        const isArabic = data.language === 'ar' || (data.italian_translation && data.italian_translation !== data.transcription);
+        if (isArabic) {
+          langBadge.classList.remove('hidden');
+          langBadge.innerHTML = '🇸🇦 Arabo ➔ 🇮🇹 Italiano';
+          translationBox.classList.remove('hidden');
+          translationText.innerText = `"${data.italian_translation || data.transcription}"`;
+        } else {
+          langBadge.classList.add('hidden');
+          translationBox.classList.add('hidden');
+        }
+      } else {
+        transcriptBox.classList.add('hidden');
+      }
+
+      if (data.success) {
+        playBeep(800, 0.2);
+        setTimeout(() => playBeep(1000, 0.3), 150);
+        document.getElementById('resultBox').classList.remove('hidden');
+        document.getElementById('resultText').innerText = data.message;
+      } else {
+        showMicHelp(data.message || 'Comando non compreso. Riprova parlando più chiaramente.');
       }
     }
 
@@ -493,16 +529,7 @@
         }
 
         const data = await resp.json();
-        
-        updateUI('idle');
-        if (data.success) {
-          playBeep(800, 0.2);
-          setTimeout(() => playBeep(1000, 0.3), 150);
-          document.getElementById('resultBox').classList.remove('hidden');
-          document.getElementById('resultText').innerText = data.message;
-        } else {
-          showMicHelp(data.message || 'Comando non riconosciuto');
-        }
+        displayVoiceResult(data);
       } catch (err) {
         updateUI('idle');
         showMicHelp('Errore di connessione al server: ' + err);

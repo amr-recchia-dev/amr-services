@@ -289,7 +289,8 @@ def api_voice_command():
         }), 401
 
     text = ""
-
+    original_text = ""
+    detected_lang = "it"
 
     # 1. Se inviato come JSON
     if request.is_json:
@@ -301,7 +302,14 @@ def api_voice_command():
             try:
                 import base64
                 raw_bytes = base64.b64decode(audio_b64)
-                text = voice_agent.transcribe_audio_with_gemini(raw_bytes, mime_type)
+                trans_res = voice_agent.transcribe_audio_with_gemini(raw_bytes, mime_type)
+                if isinstance(trans_res, dict):
+                    text = trans_res.get("text", "")
+                    original_text = trans_res.get("transcription", text)
+                    detected_lang = trans_res.get("language", "it")
+                else:
+                    text = str(trans_res or "").strip()
+                    original_text = text
             except Exception as e:
                 logger.error(f"Errore decodifica base64 audio: {e}")
 
@@ -319,7 +327,14 @@ def api_voice_command():
         except Exception:
             pass
 
-        text = voice_agent.transcribe_audio_with_gemini(audio_bytes, mime_type)
+        trans_res = voice_agent.transcribe_audio_with_gemini(audio_bytes, mime_type)
+        if isinstance(trans_res, dict):
+            text = trans_res.get("text", "")
+            original_text = trans_res.get("transcription", text)
+            detected_lang = trans_res.get("language", "it")
+        else:
+            text = str(trans_res or "").strip()
+            original_text = text
 
     if not text:
         return jsonify({
@@ -327,16 +342,27 @@ def api_voice_command():
             "message": "Nessuna voce comprensibile rilevata nell'audio. Prova a parlare più vicino al microfono."
         }), 200
 
-    logger.info(f"📝 Testo finale per Voice Agent: \"{text}\"")
+    # Se testo inviato manualmente e non ancora tradotto:
+    if not original_text:
+        tr_info = voice_agent.translate_arabic_to_italian_if_needed(text)
+        original_text = tr_info.get("transcription", text)
+        text = tr_info.get("text", text)
+        detected_lang = tr_info.get("language", "it")
+
+    logger.info(f"📝 Testo per Voice Agent (lingua: {detected_lang}): \"{text}\" [Originale: \"{original_text}\"]")
     try:
-        result = voice_agent.process_voice_command(text)
-        result["transcription"] = text
+        result = voice_agent.process_voice_command(
+            spoken_text=text,
+            original_text=original_text,
+            detected_lang=detected_lang
+        )
         return jsonify(result), 200
     except Exception as e:
         logger.error(f"❌ Errore inatteso process_voice_command: {e}", exc_info=True)
         return jsonify({
             "success": False,
-            "transcription": text,
+            "transcription": original_text or text,
+            "language": detected_lang,
             "message": f"Errore interno elaborazione: {e}"
         }), 200
 
