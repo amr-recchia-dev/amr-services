@@ -6,15 +6,25 @@
   <title>AMR Recchia • Assistente Vocale Officina</title>
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --amr-black: #0d1117;
+      --amr-card: #161b26;
+      --amr-card-border: #232a3b;
+      --amr-red: #DF3131;
+      --amr-red-hover: #c42626;
+      --amr-steel: #2B5672;
+      --amr-text: #f8fafc;
+      --amr-muted: #94a3b8;
+    }
     body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      background-color: #0D1117;
-      color: #F8FAFC;
+      background-color: var(--amr-black);
+      color: var(--amr-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       -webkit-tap-highlight-color: transparent;
+    }
+    .brand-glow {
+      box-shadow: 0 0 30px -5px rgba(223, 49, 49, 0.35);
     }
     .mic-pulse {
       animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
@@ -33,57 +43,74 @@
     }
   </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between selection:bg-[#DF3131] selection:text-white">
+<body class="min-h-screen flex flex-col justify-between selection:bg-[var(--amr-red)] selection:text-white">
 
-  <!-- Header -->
-  <header class="border-b border-[#283548] bg-[#161B26]/90 backdrop-blur-md sticky top-0 z-50">
-    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+  <!-- TOP HEADER WITH OFFICIAL AMR RECCHIA LOGO (HARMONIZED WITH DASHBOARD) -->
+  <header class="border-b border-[var(--amr-card-border)] bg-[var(--amr-card)]/90 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-xl mx-auto px-4 py-3 sm:py-3.5 flex items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <a href="/dashboard">
-          <img src="/static/logo.png" alt="AMR Recchia Logo" class="h-8 object-contain">
+        <!-- Official Logo Container (White background badge identical to dashboard) -->
+        <a href="https://www.amrrecchia.it" target="_blank" class="bg-white p-1.5 sm:p-2 rounded-lg shadow-sm border border-slate-200 hover:opacity-90 transition-opacity flex items-center justify-center">
+          <img src="/static/logo.png" alt="AMR Recchia Logo" class="h-7 sm:h-8 object-contain">
         </a>
-        <div>
-          <h1 class="text-sm font-bold text-white tracking-wide uppercase">Voice Agent</h1>
-          <p class="text-[10px] text-gray-400">Aggiornamento Vocale Monday.com</p>
+        
+        <div class="border-l border-slate-700 pl-3">
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm sm:text-base font-black tracking-tight text-white uppercase">AMR Recchia</h1>
+            <span class="text-[0.65rem] uppercase font-bold tracking-wider bg-[var(--amr-red)]/15 text-[var(--amr-red)] border border-[var(--amr-red)]/30 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[var(--amr-red)] animate-pulse"></span> Voice Assistant
+            </span>
+          </div>
+          <p class="text-[10px] sm:text-[11px] text-[var(--amr-muted)] mt-0.5">Aggiornamento Commesse • Officina & Reparti</p>
         </div>
       </div>
-      <a href="/dashboard" class="text-xs px-3 py-1.5 rounded-lg border border-[#283548] hover:border-gray-500 text-gray-300 transition flex items-center gap-1.5">
-        📊 <span>Dashboard</span>
-      </a>
+
+      <div class="flex items-center gap-2">
+        <a href="/dashboard" class="text-xs bg-[var(--amr-card)] hover:bg-slate-800 active:scale-95 text-slate-200 font-semibold px-3 py-2 rounded-lg border border-[var(--amr-card-border)] flex items-center gap-1.5 transition-all shadow-sm">
+          <span>📊</span> <span class="hidden sm:inline">Dashboard</span>
+        </a>
+        <a href="https://amr-srl.monday.com/boards/2136092569" target="_blank" class="text-xs bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold px-3 py-2 rounded-lg transition-colors flex items-center gap-1 shadow-md shadow-red-950/40">
+          <span class="hidden sm:inline">Monday</span> <span>&rarr;</span>
+        </a>
+      </div>
     </div>
   </header>
 
   <!-- Main Content -->
-  <main class="flex-1 max-w-md mx-auto w-full px-4 py-6 flex flex-col items-center justify-center text-center">
+  <main class="flex-1 max-w-xl mx-auto w-full px-4 py-6 flex flex-col items-center justify-center text-center">
 
     <!-- Status Card -->
-    <div id="statusContainer" class="w-full bg-[#161B26] border border-[#283548] rounded-2xl p-5 mb-8 shadow-xl transition-all">
+    <div id="statusContainer" class="w-full bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-5 mb-6 shadow-xl transition-all relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-bl-full pointer-events-none"></div>
       <div id="statusIcon" class="text-3xl mb-2">🎙️</div>
       <h2 id="statusTitle" class="text-lg font-bold text-white mb-1">Tocca per parlare</h2>
-      <p id="statusDesc" class="text-xs text-gray-400">
-        Comunica l'avanzamento, le ore o lo stato di una commessa
+      <p id="statusDesc" class="text-xs text-[var(--amr-muted)]">
+        Comunica l'avanzamento, le ore lavorate o lo stato di una commessa
       </p>
 
       <!-- Live Transcript Box -->
-      <div id="transcriptBox" class="hidden mt-4 p-3 bg-[#0D1117] border border-[#283548] rounded-xl text-left text-sm text-gray-200">
-        <div class="text-[10px] uppercase font-bold text-[#DF3131] tracking-wider mb-1">Cosa ho capito:</div>
-        <p id="transcriptText" class="italic text-gray-300">In ascolto...</p>
+      <div id="transcriptBox" class="hidden mt-4 p-3.5 bg-[var(--amr-black)] border border-[var(--amr-card-border)] rounded-xl text-left text-sm text-gray-200 shadow-inner">
+        <div class="text-[10px] uppercase font-bold text-[var(--amr-red)] tracking-wider mb-1 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-[var(--amr-red)] animate-ping"></span>
+          <span>Trascrizione:</span>
+        </div>
+        <p id="transcriptText" class="italic text-slate-300 font-mono text-xs">In ascolto...</p>
       </div>
 
       <!-- Result Feedback Box -->
       <div id="resultBox" class="hidden mt-4 p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-left text-sm text-emerald-300">
-        <div class="font-bold text-emerald-400 flex items-center gap-1.5 mb-1">
-          <span>✅</span> Aggiornato con successo su Monday!
+        <div class="font-bold text-emerald-400 flex items-center gap-1.5 mb-1 text-xs">
+          <span>✅</span> Aggiornato con successo su Monday.com!
         </div>
-        <p id="resultText" class="text-xs text-gray-200"></p>
+        <p id="resultText" class="text-xs text-slate-200"></p>
       </div>
     </div>
 
     <!-- Big Microphone Button -->
     <div class="relative my-4 flex items-center justify-center">
-      <div id="micRing" class="absolute w-36 h-36 rounded-full bg-[#DF3131]/10 mic-pulse pointer-events-none"></div>
+      <div id="micRing" class="absolute w-36 h-36 rounded-full bg-[var(--amr-red)]/10 mic-pulse pointer-events-none"></div>
       <button id="micBtn" 
-        class="relative z-10 w-28 h-28 rounded-full bg-gradient-to-tr from-[#DF3131] to-[#FF5E5E] text-white shadow-2xl flex flex-col items-center justify-center transition transform active:scale-95 focus:outline-none cursor-pointer">
+        class="relative z-10 w-28 h-28 rounded-full bg-gradient-to-tr from-[var(--amr-red)] to-[#ff5e5e] text-white shadow-2xl flex flex-col items-center justify-center transition transform active:scale-95 focus:outline-none cursor-pointer brand-glow">
         <svg id="micIcon" class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
           <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
@@ -93,41 +120,41 @@
     </div>
 
     <!-- Instructions / Suggestions -->
-    <div class="w-full mt-8 text-left">
-      <div class="text-[11px] uppercase font-bold text-gray-400 tracking-wider mb-2.5 flex items-center justify-between">
+    <div class="w-full mt-6 text-left">
+      <div class="text-[11px] uppercase font-bold text-[var(--amr-muted)] tracking-wider mb-2.5 flex items-center justify-between">
         <span>💡 Esempi di comandi vocali:</span>
       </div>
       <div class="space-y-2">
         <button onclick="simulateText('Ho finito il taglio su Bertone tavolo 2 in 2 ore e mezza')" 
-          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] hover:border-[var(--amr-red)] text-slate-300 hover:text-white transition flex items-center gap-2">
           <span>✂️</span> <span>"Ho finito il taglio su <b>Bertone tavolo 2</b> in 2 ore e mezza"</span>
         </button>
         <button onclick="simulateText('Sulla commessa Donna Karan di Noabrand carteggiatura finita tempo 3 ore')" 
-          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] hover:border-[var(--amr-red)] text-slate-300 hover:text-white transition flex items-center gap-2">
           <span>🎨</span> <span>"Su <b>Donna Karan</b> carteggiatura finita tempo 3 ore"</span>
         </button>
         <button onclick="simulateText('Metti in pausa Mogg perché manca il materiale')" 
-          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] hover:border-[var(--amr-red)] text-slate-300 hover:text-white transition flex items-center gap-2">
           <span>⏸️</span> <span>"Metti in pausa <b>Mogg</b> perché manca il materiale"</span>
         </button>
         <button onclick="simulateText('Segna Ilas come fatto')" 
-          class="w-full text-left text-xs p-2.5 rounded-xl bg-[#161B26]/60 border border-[#283548] hover:border-[#DF3131] text-gray-300 transition flex items-center gap-2">
+          class="w-full text-left text-xs p-2.5 rounded-xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] hover:border-[var(--amr-red)] text-slate-300 hover:text-white transition flex items-center gap-2">
           <span>✅</span> <span>"Segna <b>Ilas</b> come fatto"</span>
         </button>
       </div>
     </div>
 
     <!-- Manual Input & Direct Typing Always Accessible -->
-    <div class="w-full mt-6 text-center">
-      <div class="p-4 rounded-2xl bg-[#161B26] border border-[#283548]">
-        <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+    <div class="w-full mt-5 text-center">
+      <div class="p-3.5 rounded-2xl bg-[var(--amr-card)] border border-[var(--amr-card-border)] shadow-sm">
+        <div class="text-[11px] font-bold text-[var(--amr-muted)] uppercase tracking-wider mb-2 flex items-center justify-between">
           <span>⌨️ Oppure scrivi / usa dettatura tastiera:</span>
-          <span class="text-[10px] text-gray-500">Tocca il 🎙️ sulla tastiera</span>
+          <span class="text-[10px] text-slate-500">Tocca il 🎙️ sulla tastiera</span>
         </div>
         <div class="flex gap-2">
           <input id="manualInput" type="text" placeholder="Es. Taglio finito su Bertone 2h" 
-            class="flex-1 text-xs bg-[#0D1117] border border-[#283548] rounded-xl px-3 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-[#DF3131]">
-          <button onclick="sendManual()" class="px-4 py-2.5 bg-[#DF3131] text-white rounded-xl text-xs font-bold hover:bg-red-600 transition flex items-center gap-1">
+            class="flex-1 text-xs bg-[var(--amr-black)] border border-[var(--amr-card-border)] rounded-xl px-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-[var(--amr-red)] transition-colors">
+          <button onclick="sendManual()" class="px-4 py-2.5 bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-md shadow-red-950/40">
             <span>Invia</span> <span>➔</span>
           </button>
         </div>
@@ -138,10 +165,10 @@
 
   <!-- Modal Guida Permessi Microfono -->
   <div id="micHelpModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-[#161B26] border border-[#DF3131]/40 rounded-2xl max-w-sm w-full p-6 text-left shadow-2xl relative">
-      <button onclick="hideMicHelp()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">✕</button>
+    <div class="bg-[var(--amr-card)] border border-[var(--amr-red)]/40 rounded-2xl max-w-sm w-full p-6 text-left shadow-2xl relative">
+      <button onclick="hideMicHelp()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
       
-      <div class="w-12 h-12 rounded-full bg-[#DF3131]/20 border border-[#DF3131]/40 flex items-center justify-center text-2xl mb-4">
+      <div class="w-12 h-12 rounded-full bg-[var(--amr-red)]/20 border border-[var(--amr-red)]/40 flex items-center justify-center text-2xl mb-4">
         🎙️
       </div>
 
@@ -150,21 +177,21 @@
         Il browser ha bloccato l'accesso al microfono (service-not-allowed).
       </p>
 
-      <div class="space-y-3 text-xs text-gray-300">
+      <div class="space-y-3 text-xs text-slate-300">
         <div class="flex gap-2.5 items-start">
-          <span class="font-bold text-[#DF3131] bg-[#DF3131]/10 px-2 py-0.5 rounded border border-[#DF3131]/30">1</span>
+          <span class="font-bold text-[var(--amr-red)] bg-[var(--amr-red)]/10 px-2 py-0.5 rounded border border-[var(--amr-red)]/30">1</span>
           <div>
             <b class="text-white">Nella barra dell'indirizzo</b>: tocca l'icona del lucchetto 🔒 o dei cursori a sinistra di <i>amr-services.onrender.com</i> e seleziona <b>Microfono: Consenti</b>.
           </div>
         </div>
         <div class="flex gap-2.5 items-start">
-          <span class="font-bold text-[#DF3131] bg-[#DF3131]/10 px-2 py-0.5 rounded border border-[#DF3131]/30">2</span>
+          <span class="font-bold text-[var(--amr-red)] bg-[var(--amr-red)]/10 px-2 py-0.5 rounded border border-[var(--amr-red)]/30">2</span>
           <div>
             <b class="text-white">Su Mac</b>: apri <i>Impostazioni di Sistema > Privacy e Sicurezza > Microfono</i> e attiva la levetta per Google Chrome / Safari.
           </div>
         </div>
         <div class="flex gap-2.5 items-start">
-          <span class="font-bold text-[#DF3131] bg-[#DF3131]/10 px-2 py-0.5 rounded border border-[#DF3131]/30">3</span>
+          <span class="font-bold text-[var(--amr-red)] bg-[var(--amr-red)]/10 px-2 py-0.5 rounded border border-[var(--amr-red)]/30">3</span>
           <div>
             <b class="text-white">Da Smartphone</b>: tocca la casella di testo qui sotto e usa il <b>tasto microfono 🎙️ integrato nella tastiera</b> del telefono.
           </div>
@@ -172,45 +199,48 @@
       </div>
 
       <div class="mt-6 flex flex-col gap-2">
-        <button onclick="requestMicPermissionAndRetry()" class="w-full py-2.5 bg-[#DF3131] hover:bg-red-600 text-white font-bold text-xs rounded-xl transition">
+        <button onclick="requestMicPermissionAndRetry()" class="w-full py-2.5 bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold text-xs rounded-xl transition shadow-md shadow-red-950/40">
           🔄 Riprova ad abilitare microfono
         </button>
-        <button onclick="hideMicHelpAndFocusInput()" class="w-full py-2.5 bg-[#283548] hover:bg-gray-700 text-gray-200 text-xs rounded-xl transition">
+        <button onclick="hideMicHelpAndFocusInput()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl transition border border-[var(--amr-card-border)]">
           ⌨️ Scrivi o detta da tastiera
         </button>
       </div>
-  <!-- Modal Blocco PIN Aziendale -->
-  <div id="pinModal" class="hidden fixed inset-0 z-50 bg-[#0D1117]/95 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-[#161B26] border border-[#283548] rounded-2xl max-w-xs w-full p-6 text-center shadow-2xl relative">
-      <div class="w-14 h-14 mx-auto rounded-full bg-[#DF3131]/15 border border-[#DF3131]/30 flex items-center justify-center text-2xl mb-3">
+    </div>
+  </div>
+
+  <!-- Modal Blocco PIN Aziendale (Harmonized with Dashboard) -->
+  <div id="pinModal" class="hidden fixed inset-0 z-50 bg-[var(--amr-black)]/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl max-w-xs w-full p-6 text-center shadow-2xl relative">
+      <div class="w-14 h-14 mx-auto rounded-full bg-[var(--amr-red)]/15 border border-[var(--amr-red)]/30 flex items-center justify-center text-2xl mb-3">
         🔐
       </div>
       <h3 class="text-base font-bold text-white mb-1">Accesso Riservato AMR</h3>
-      <p class="text-xs text-gray-400 mb-4">
+      <p class="text-xs text-[var(--amr-muted)] mb-4">
         Inserisci il PIN aziendale per abilitare l'assistente vocale sul dispositivo
       </p>
 
       <div class="space-y-3">
         <input id="pinInput" type="password" maxlength="8" inputmode="numeric" placeholder="Inserisci PIN (es. 2026)"
-          class="w-full text-center tracking-[0.25em] text-lg font-bold bg-[#0D1117] border border-[#283548] rounded-xl py-2.5 text-white placeholder:tracking-normal placeholder:text-xs placeholder:font-normal placeholder:text-gray-600 focus:outline-none focus:border-[#DF3131]">
+          class="w-full text-center tracking-[0.25em] text-lg font-bold bg-[var(--amr-black)] border border-[var(--amr-card-border)] rounded-xl py-2.5 text-white placeholder:tracking-normal placeholder:text-xs placeholder:font-normal placeholder:text-slate-600 focus:outline-none focus:border-[var(--amr-red)]">
         
         <p id="pinErrorMsg" class="hidden text-[11px] text-[#FF6B6B] font-medium"></p>
 
         <button onclick="submitPin()" id="pinSubmitBtn"
-          class="w-full py-2.5 bg-[#DF3131] hover:bg-red-600 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/50">
+          class="w-full py-2.5 bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/50">
           <span>Sblocca Dispositivo</span>
           <span>➔</span>
         </button>
       </div>
 
-      <p class="text-[10px] text-gray-500 mt-4">
+      <p class="text-[10px] text-slate-500 mt-4">
         Il PIN verrà memorizzato in sicurezza sul dispositivo.
       </p>
     </div>
   </div>
 
   <!-- Footer -->
-  <footer class="text-center py-4 border-t border-[#283548] text-[11px] text-gray-400">
+  <footer class="text-center py-4 border-t border-[var(--amr-card-border)] text-[11px] text-[var(--amr-muted)]">
     AMR Recchia • Voice Engine v1.0 • Connesso in tempo reale a Monday.com
   </footer>
 
