@@ -8,6 +8,8 @@ import os
 import json
 import logging
 import threading
+import time
+from collections import defaultdict
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from dotenv import load_dotenv
@@ -19,7 +21,56 @@ import voice_agent
 
 load_dotenv()
 
-# === Setup logging (compatibile con Railway: solo stdout se in cloud) ===
+# Configurazione Sicurezza: PIN di accesso aziendale
+AMR_ACCESS_PIN = os.getenv("AMR_ACCESS_PIN", "2026")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "amr_webhook_secret_2026")
+
+class SlidingWindowRateLimiter:
+    """Rate limiter thread-safe in memoria con finestra scorrevole per IP."""
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._requests = defaultdict(list)
+
+    def is_allowed(self, key: str, max_requests: int, window_seconds: int = 60) -> tuple[bool, int]:
+        now = time.time()
+        with self._lock:
+            timestamps = [ts for ts in self._requests[key] if now - ts < window_seconds]
+            if len(timestamps) >= max_requests:
+                oldest = timestamps[0]
+                retry_after = max(1, int(window_seconds - (now - oldest)))
+                self._requests[key] = timestamps
+                return False, retry_after
+            timestamps.append(now)
+            self._requests[key] = timestamps
+            return True, 0
+
+rate_limiter = SlidingWindowRateLimiter()
+
+def get_client_ip() -> str:
+    """Estrae l'indirizzo IP reale del client anche dietro Cloudflare / Render proxy."""
+    return (
+        request.headers.get("CF-Connecting-IP") or
+        request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or
+        request.remote_addr or
+        "127.0.0.1"
+    )
+
+def check_pin_auth() -> bool:
+    """Verifica la validità del PIN inviato via header, cookie o parametro."""
+    provided_pin = (
+        request.headers.get("X-AMR-PIN") or
+        request.cookies.get("amr_pin") or
+        request.args.get("pin")
+    )
+    if not provided_pin and request.is_json:
+        data = request.get_json(silent=True) or {}
+        provided_pin = data.get("pin")
+
+    if not provided_pin or str(provided_pin).strip() != str(AMR_ACCESS_PIN).strip():
+        return False
+    return True
+
+# === Setup logging (compatibile con Railway/Render: stdout se in cloud) ===
 log_handlers = [logging.StreamHandler()]
 if os.getenv("LOG_TO_FILE", "").lower() in ("1", "true", "yes"):
     log_handlers.append(logging.FileHandler("webhook.log"))
@@ -198,6 +249,19 @@ def voice_view():
     return render_template("voice.html")
 
 
+@app.route("/api/verify-pin", methods=["GET", "POST"])
+def api_verify_pin():
+    """Endpoint per verificare la validità del PIN aziendale inserito dall'utente."""
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"pin_{ip}", max_requests=10, window_seconds=60)
+    if not allowed:
+        return jsonify({"valid": False, "error": f"Troppi tentativi errati. Riprova tra {retry_after}s."}), 429
+
+    if check_pin_auth():
+        return jsonify({"valid": True, "message": "PIN aziendale valido"}), 200
+    return jsonify({"valid": False, "error": "PIN non corretto"}), 401
+
+
 @app.route("/api/voice-command", methods=["POST"])
 @app.route("/api/voice-command-audio", methods=["POST"])
 def api_voice_command():
@@ -206,7 +270,26 @@ def api_voice_command():
     trascrive l'audio fedelmente con Gemini Flash (se inviato come audio),
     interpreta l'intento e aggiorna istantaneamente la commessa su Monday.com.
     """
+    ip = get_client_ip()
+    is_audio = "audio" in request.endpoint or "audio" in request.files or (request.is_json and request.get_json(silent=True) and request.get_json(silent=True).get("audio_base64"))
+    max_reqs = 10 if is_audio else 20
+    allowed, retry_after = rate_limiter.is_allowed(f"voice_{ip}", max_requests=max_reqs, window_seconds=60)
+    if not allowed:
+        return jsonify({
+            "success": False,
+            "message": f"Troppe richieste vocali ravvicinate. Riprova tra {retry_after} secondi (Rate Limit)."
+        }), 429
+
+    # Controllo Autenticazione con PIN aziendale
+    if not check_pin_auth():
+        return jsonify({
+            "success": False,
+            "message": "Accesso non autorizzato. Inserisci il PIN aziendale per utilizzare l'assistente vocale.",
+            "auth_required": True
+        }), 401
+
     text = ""
+
 
     # 1. Se inviato come JSON
     if request.is_json:
@@ -262,7 +345,15 @@ def api_voice_command():
 
 @app.route("/api/dashboard-data", methods=["GET"])
 def api_dashboard_data():
-    """Restituisce i dati dei progetti da Monday.com in tempo reale (cache 30s)."""
+    """Restituisce i dati dei progetti da Monday.com in tempo reale (cache 30s) con rate limit e PIN auth."""
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"dash_{ip}", max_requests=30, window_seconds=60)
+    if not allowed:
+        return jsonify({"error": f"Troppe richieste. Riprova tra {retry_after}s.", "rate_limited": True}), 429
+
+    if not check_pin_auth():
+        return jsonify({"error": "Accesso non autorizzato. Inserisci il PIN aziendale.", "auth_required": True}), 401
+
     import time
     import requests
 
@@ -328,7 +419,11 @@ def api_dashboard_data():
 
 @app.route("/status", methods=["GET"])
 def status():
-    """Stato dettagliato dell'ultima archiviazione."""
+    """Stato dettagliato dell'ultima archiviazione protetto da PIN o admin secret."""
+    if not check_pin_auth():
+        admin_secret = request.headers.get("X-Admin-Secret") or request.args.get("secret")
+        if admin_secret != WEBHOOK_SECRET:
+            return jsonify({"error": "Unauthorized"}), 401
     return jsonify(last_status), 200
 
 
@@ -379,6 +474,14 @@ def webhook_status_change():
 @app.route("/api/night-guardian", methods=["GET", "POST"])
 def night_guardian_status():
     """Restituisce lo stato del Guardiano Notturno e gli step attualmente in svolgimento."""
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"guard_{ip}", max_requests=30, window_seconds=60)
+    if not allowed:
+        return jsonify({"error": f"Rate limit superato. Riprova tra {retry_after}s."}), 429
+
+    if not check_pin_auth():
+        return jsonify({"error": "Accesso non autorizzato. Inserisci il PIN aziendale.", "auth_required": True}), 401
+
     is_off_hours = step_time_tracker.is_night_or_weekend()
     active_steps = step_time_tracker.get_active_tracked_steps()
     return jsonify({
@@ -394,9 +497,13 @@ def night_guardian_status():
     }), 200
 
 
-@app.route("/test/<item_id>", methods=["GET"])
+@app.route("/test/<item_id>", methods=["GET", "POST"])
 def test_archive(item_id: str):
-    """Endpoint di test per archiviare manualmente un item."""
+    """Endpoint di test per archiviare manualmente un item (protetto da admin secret)."""
+    admin_secret = request.headers.get("X-Admin-Secret") or request.args.get("secret")
+    if not admin_secret or admin_secret != WEBHOOK_SECRET:
+        return jsonify({"error": "Unauthorized"}), 403
+
     if last_status["running"]:
         return jsonify({"status": "busy"}), 200
     thread = threading.Thread(
@@ -406,6 +513,7 @@ def test_archive(item_id: str):
     )
     thread.start()
     return jsonify({"status": "started", "item_id": item_id}), 200
+
 
 
 def start_email_agent_loop():

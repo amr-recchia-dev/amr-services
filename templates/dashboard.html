@@ -245,19 +245,139 @@
 
   </div>
 
+  <!-- Modal Blocco PIN Aziendale per Dashboard -->
+  <div id="pinModal" class="hidden fixed inset-0 z-50 bg-[#0d1117]/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl max-w-xs w-full p-6 text-center shadow-2xl relative">
+      <div class="w-14 h-14 mx-auto rounded-full bg-[var(--amr-red)]/15 border border-[var(--amr-red)]/30 flex items-center justify-center text-2xl mb-3">
+        🔐
+      </div>
+      <h3 class="text-base font-bold text-white mb-1">Accesso Riservato Dashboard</h3>
+      <p class="text-xs text-[var(--amr-muted)] mb-4">
+        Inserisci il PIN aziendale AMR per visualizzare l'avanzamento commesse
+      </p>
+
+      <div class="space-y-3">
+        <input id="pinInput" type="password" maxlength="8" inputmode="numeric" placeholder="PIN (es. 2026)"
+          class="w-full text-center tracking-[0.25em] text-lg font-bold bg-[#0d1117] border border-[var(--amr-card-border)] rounded-xl py-2.5 text-white placeholder:tracking-normal placeholder:text-xs placeholder:font-normal placeholder:text-gray-600 focus:outline-none focus:border-[var(--amr-red)]">
+        
+        <p id="pinErrorMsg" class="hidden text-[11px] text-[#FF6B6B] font-medium"></p>
+
+        <button onclick="submitPin()" id="pinSubmitBtn"
+          class="w-full py-2.5 bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/50">
+          <span>Accedi alla Dashboard</span>
+          <span>➔</span>
+        </button>
+      </div>
+
+      <p class="text-[10px] text-gray-500 mt-4">
+        Memorizzato localmente sul browser di questo dispositivo.
+      </p>
+    </div>
+  </div>
+
   <script>
     let projectsData = [];
     let currentStatus = "all";
     let currentDept = "all";
     let searchQuery = "";
 
+    function getStoredPin() {
+      return localStorage.getItem('amr_pin') || '';
+    }
+
+    function savePin(pin) {
+      localStorage.setItem('amr_pin', pin);
+      document.cookie = `amr_pin=${pin}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+
+    function showPinModal(msg) {
+      const modal = document.getElementById('pinModal');
+      const err = document.getElementById('pinErrorMsg');
+      if (msg) {
+        err.innerText = msg;
+        err.classList.remove('hidden');
+      } else {
+        err.classList.add('hidden');
+      }
+      modal.classList.remove('hidden');
+      setTimeout(() => document.getElementById('pinInput').focus(), 150);
+    }
+
+    function hidePinModal() {
+      document.getElementById('pinModal').classList.add('hidden');
+    }
+
+    async function submitPin() {
+      const input = document.getElementById('pinInput');
+      const pin = input.value.trim();
+      const btn = document.getElementById('pinSubmitBtn');
+      const err = document.getElementById('pinErrorMsg');
+
+      if (!pin) {
+        err.innerText = 'Inserisci il PIN aziendale';
+        err.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = 'Verifica in corso...';
+      try {
+        const resp = await fetch('/api/verify-pin', {
+          method: 'POST',
+          headers: { 'X-AMR-PIN': pin }
+        });
+        const data = await resp.json();
+        if (resp.ok && data.valid) {
+          savePin(pin);
+          hidePinModal();
+          input.value = '';
+          err.classList.add('hidden');
+          fetchLiveData();
+        } else {
+          err.innerText = data.error || 'PIN errato';
+          err.classList.remove('hidden');
+        }
+      } catch (e) {
+        err.innerText = 'Errore di connessione';
+        err.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Accedi alla Dashboard</span> <span>➔</span>';
+      }
+    }
+
+    document.getElementById('pinInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitPin();
+    });
+
     async function fetchLiveData() {
+      const pin = getStoredPin();
+      if (!pin) {
+        showPinModal();
+        return;
+      }
+
       const spinner = document.getElementById("refresh-spinner");
       spinner.classList.add("animate-spin");
       document.getElementById("last-updated-label").textContent = "Sincronizzazione...";
 
       try {
-        const resp = await fetch("/api/dashboard-data");
+        const resp = await fetch("/api/dashboard-data", {
+          headers: { 'X-AMR-PIN': pin }
+        });
+
+        if (resp.status === 401) {
+          localStorage.removeItem('amr_pin');
+          showPinModal('PIN richiesto o non più valido.');
+          document.getElementById("last-updated-label").textContent = "Accesso non autorizzato";
+          return;
+        }
+
+        if (resp.status === 429) {
+          document.getElementById("last-updated-label").textContent = "Rate limit (riprova tra poco)";
+          return;
+        }
+
         if (resp.ok) {
           const data = await resp.json();
           projectsData = data.projects || [];
@@ -265,7 +385,7 @@
           updateKPIs();
           renderTable();
         } else {
-          document.getElementById("last-updated-label").textContent = "Errore connessione";
+          document.getElementById("last-updated-label").textContent = "Errore connessione (" + resp.status + ")";
         }
       } catch (err) {
         console.error("Fetch error:", err);
@@ -397,8 +517,10 @@
       renderTable();
     });
 
-    // Initial fetch
-    fetchLiveData();
+    // Controllo iniziale PIN
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchLiveData();
+    });
   </script>
 </body>
 </html>

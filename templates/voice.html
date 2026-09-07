@@ -179,6 +179,33 @@
           ⌨️ Scrivi o detta da tastiera
         </button>
       </div>
+  <!-- Modal Blocco PIN Aziendale -->
+  <div id="pinModal" class="hidden fixed inset-0 z-50 bg-[#0D1117]/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-[#161B26] border border-[#283548] rounded-2xl max-w-xs w-full p-6 text-center shadow-2xl relative">
+      <div class="w-14 h-14 mx-auto rounded-full bg-[#DF3131]/15 border border-[#DF3131]/30 flex items-center justify-center text-2xl mb-3">
+        🔐
+      </div>
+      <h3 class="text-base font-bold text-white mb-1">Accesso Riservato AMR</h3>
+      <p class="text-xs text-gray-400 mb-4">
+        Inserisci il PIN aziendale per abilitare l'assistente vocale sul dispositivo
+      </p>
+
+      <div class="space-y-3">
+        <input id="pinInput" type="password" maxlength="8" inputmode="numeric" placeholder="Inserisci PIN (es. 2026)"
+          class="w-full text-center tracking-[0.25em] text-lg font-bold bg-[#0D1117] border border-[#283548] rounded-xl py-2.5 text-white placeholder:tracking-normal placeholder:text-xs placeholder:font-normal placeholder:text-gray-600 focus:outline-none focus:border-[#DF3131]">
+        
+        <p id="pinErrorMsg" class="hidden text-[11px] text-[#FF6B6B] font-medium"></p>
+
+        <button onclick="submitPin()" id="pinSubmitBtn"
+          class="w-full py-2.5 bg-[#DF3131] hover:bg-red-600 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/50">
+          <span>Sblocca Dispositivo</span>
+          <span>➔</span>
+        </button>
+      </div>
+
+      <p class="text-[10px] text-gray-500 mt-4">
+        Il PIN verrà memorizzato in sicurezza sul dispositivo.
+      </p>
     </div>
   </div>
 
@@ -326,10 +353,24 @@
       formData.append('audio', blob, 'voce.' + ext);
 
       try {
+        const pin = getStoredPin();
         const resp = await fetch('/api/voice-command-audio', {
           method: 'POST',
+          headers: { 'X-AMR-PIN': pin },
           body: formData
         });
+
+        if (resp.status === 401) {
+          updateUI('idle');
+          showPinModal('PIN aziendale richiesto per inviare comandi vocali.');
+          return;
+        }
+
+        if (resp.status === 429) {
+          updateUI('idle');
+          showMicHelp('Rate limit superato: troppi comandi inviati in un minuto. Attendi qualche secondo.');
+          return;
+        }
         
         const rawText = await resp.text();
         let data;
@@ -399,11 +440,28 @@
       document.getElementById('transcriptText').innerText = text;
 
       try {
+        const pin = getStoredPin();
         const resp = await fetch('/api/voice-command', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'X-AMR-PIN': pin
+          },
           body: JSON.stringify({text: text})
         });
+
+        if (resp.status === 401) {
+          updateUI('idle');
+          showPinModal('PIN aziendale richiesto per inviare comandi vocali.');
+          return;
+        }
+
+        if (resp.status === 429) {
+          updateUI('idle');
+          showMicHelp('Rate limit superato: troppe richieste inviate in un minuto. Riprova a breve.');
+          return;
+        }
+
         const data = await resp.json();
         
         updateUI('idle');
@@ -462,6 +520,90 @@
       hideMicHelp();
       await startRecording();
     }
+
+    // === PIN AUTHENTICATION LOGIC ===
+    function getStoredPin() {
+      return localStorage.getItem('amr_pin') || '';
+    }
+
+    function savePin(pin) {
+      localStorage.setItem('amr_pin', pin);
+      document.cookie = `amr_pin=${pin}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+
+    function showPinModal(errorMsg) {
+      const modal = document.getElementById('pinModal');
+      const err = document.getElementById('pinErrorMsg');
+      if (errorMsg) {
+        err.innerText = errorMsg;
+        err.classList.remove('hidden');
+      } else {
+        err.classList.add('hidden');
+      }
+      modal.classList.remove('hidden');
+      setTimeout(() => document.getElementById('pinInput').focus(), 150);
+    }
+
+    function hidePinModal() {
+      document.getElementById('pinModal').classList.add('hidden');
+    }
+
+    async function submitPin() {
+      const input = document.getElementById('pinInput');
+      const pin = input.value.trim();
+      const btn = document.getElementById('pinSubmitBtn');
+      const err = document.getElementById('pinErrorMsg');
+
+      if (!pin) {
+        err.innerText = 'Inserisci il PIN aziendale';
+        err.classList.remove('hidden');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = 'Verifica in corso...';
+      try {
+        const resp = await fetch('/api/verify-pin', {
+          method: 'POST',
+          headers: { 'X-AMR-PIN': pin }
+        });
+        const data = await resp.json();
+        if (resp.ok && data.valid) {
+          savePin(pin);
+          hidePinModal();
+          input.value = '';
+          err.classList.add('hidden');
+        } else {
+          err.innerText = data.error || 'PIN errato';
+          err.classList.remove('hidden');
+        }
+      } catch (e) {
+        err.innerText = 'Errore di connessione al server';
+        err.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>Sblocca Dispositivo</span> <span>➔</span>';
+      }
+    }
+
+    document.getElementById('pinInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitPin();
+    });
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const pin = getStoredPin();
+      if (!pin) {
+        showPinModal();
+      } else {
+        try {
+          const resp = await fetch('/api/verify-pin', { headers: { 'X-AMR-PIN': pin } });
+          if (!resp.ok) {
+            localStorage.removeItem('amr_pin');
+            showPinModal('PIN non più valido o modificato.');
+          }
+        } catch (e) {}
+      }
+    });
   </script>
 </body>
 </html>
