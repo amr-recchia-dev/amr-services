@@ -120,10 +120,14 @@ def load_mapping() -> dict:
     if MAPPING_FILE.exists():
         try:
             with open(MAPPING_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                d = json.load(f)
+                d.setdefault("commerciale", {})
+                d.setdefault("progetti", {})
+                d.setdefault("archived", {"commerciale": [], "progetti": []})
+                return d
         except Exception:
             pass
-    return {"commerciale": {}, "progetti": {}}
+    return {"commerciale": {}, "progetti": {}, "archived": {"commerciale": [], "progetti": []}}
 
 
 def save_mapping(mapping: dict) -> None:
@@ -210,6 +214,7 @@ def sync_commerciale() -> None:
     logger.info("── Avvio sincronizzazione COMMERCIALE (Old <-> New) ──")
     mapping = load_mapping()
     comm_map = mapping.setdefault("commerciale", {})  # old_id <-> new_id
+    archived_comm = set(str(x) for x in mapping.setdefault("archived", {}).setdefault("commerciale", []))
 
     old_items = fetch_all_items(BOARD_OLD_COMMERCIALE)
     new_items = fetch_all_items(BOARD_NEW_COMMERCIALE)
@@ -244,85 +249,117 @@ def sync_commerciale() -> None:
 
     save_mapping(mapping)
 
-    # 2. Copia elementi da OLD -> NEW se mancanti
+    # 2. Sincronizzazione ARCHIVIAZIONI bidirezionale
+    # Se un elemento mappato non è più attivo su una board, propaga l'archiviazione all'altra (MAI ricreare!)
+    for old_id, new_id in list(comm_map.items()):
+        old_id_str, new_id_str = str(old_id), str(new_id)
+        if old_id_str in archived_comm or new_id_str in archived_comm:
+            continue
+
+        old_active = old_id in old_by_id
+        new_active = new_id in new_by_id
+
+        if not old_active and new_active:
+            logger.info("📦 Archiviazione propagata [OLD -> NEW]: '%s' (new_id: %s)", new_by_id[new_id]["name"], new_id)
+            q = f'mutation {{ archive_item(item_id: "{new_id}") {{ id }} }}'
+            monday_query(q)
+            archived_comm.add(old_id_str)
+            archived_comm.add(new_id_str)
+            mapping["archived"]["commerciale"] = list(archived_comm)
+            save_mapping(mapping)
+            continue
+        elif old_active and not new_active:
+            logger.info("📦 Archiviazione propagata [NEW -> OLD]: '%s' (old_id: %s)", old_by_id[old_id]["name"], old_id)
+            q = f'mutation {{ archive_item(item_id: "{old_id}") {{ id }} }}'
+            monday_query(q)
+            archived_comm.add(old_id_str)
+            archived_comm.add(new_id_str)
+            mapping["archived"]["commerciale"] = list(archived_comm)
+            save_mapping(mapping)
+            continue
+
+    # 3. Copia elementi da OLD -> NEW SOLO se GENUINAMENTE NUOVI (mai visti e mai archiviati)
     for old_it in old_items:
         old_id = old_it["id"]
-        if old_id not in comm_map or comm_map[old_id] not in new_by_id:
-            old_name = old_it["name"].strip()
-            # Verifica se non esiste già con nome simile
-            if old_name.lower() in new_by_name:
-                comm_map[old_id] = new_by_name[old_name.lower()]["id"]
-                continue
+        if old_id in comm_map or str(old_id) in archived_comm:
+            continue
+        old_name = old_it["name"].strip()
+        if old_name.lower() in new_by_name:
+            comm_map[old_id] = new_by_name[old_name.lower()]["id"]
+            save_mapping(mapping)
+            continue
 
-            logger.info("➕ Creazione elemento da OLD a NEW: '%s' (old_id: %s)", old_name, old_id)
-            cols = extract_cols(old_it)
-            create_vals = {}
-            for col_id in COMMERCIALE_SHARED_COLS:
-                if col_id in cols and cols[col_id]["value"]:
-                    try:
-                        create_vals[col_id] = json.loads(cols[col_id]["value"])
-                    except Exception:
-                        pass
+        logger.info("➕ Creazione elemento da OLD a NEW: '%s' (old_id: %s)", old_name, old_id)
+        cols = extract_cols(old_it)
+        create_vals = {}
+        for col_id in COMMERCIALE_SHARED_COLS:
+            if col_id in cols and cols[col_id]["value"]:
+                try:
+                    create_vals[col_id] = json.loads(cols[col_id]["value"])
+                except Exception:
+                    pass
 
-            q = """
-            mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
-              create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
-                id
-                name
-              }
-            }
-            """
-            res = monday_query(q, {
-                "board_id": BOARD_NEW_COMMERCIALE,
-                "item_name": old_name,
-                "column_values": json.dumps(create_vals)
-            })
-            new_id = res.get("create_item", {}).get("id")
-            if new_id:
-                logger.info("✅ Creato su NEW COMMERCIALE: '%s' (new_id: %s)", old_name, new_id)
-                comm_map[old_id] = new_id
-                save_mapping(mapping)
-                time.sleep(1)
+        q = """
+        mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
+          create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
+            id
+            name
+          }
+        }
+        """
+        res = monday_query(q, {
+            "board_id": BOARD_NEW_COMMERCIALE,
+            "item_name": old_name,
+            "column_values": json.dumps(create_vals)
+        })
+        new_id = res.get("create_item", {}).get("id")
+        if new_id:
+            logger.info("✅ Creato su NEW COMMERCIALE: '%s' (new_id: %s)", old_name, new_id)
+            comm_map[old_id] = new_id
+            save_mapping(mapping)
+            time.sleep(1)
 
-    # 3. Copia elementi da NEW -> OLD se mancanti (es. creati da email agent)
+    # 4. Copia elementi da NEW -> OLD SOLO se GENUINAMENTE NUOVI (es. creati da email agent)
     reverse_map = {nid: oid for oid, nid in comm_map.items()}
     for new_it in new_items:
         new_id = new_it["id"]
-        if new_id not in reverse_map or reverse_map[new_id] not in old_by_id:
-            new_name = new_it["name"].strip()
-            if new_name.lower() in old_by_name:
-                comm_map[old_by_name[new_name.lower()]["id"]] = new_id
-                continue
+        if new_id in reverse_map or str(new_id) in archived_comm:
+            continue
+        new_name = new_it["name"].strip()
+        if new_name.lower() in old_by_name:
+            comm_map[old_by_name[new_name.lower()]["id"]] = new_id
+            save_mapping(mapping)
+            continue
 
-            logger.info("➕ Creazione elemento da NEW a OLD: '%s' (new_id: %s)", new_name, new_id)
-            cols = extract_cols(new_it)
-            create_vals = {}
-            for col_id in COMMERCIALE_SHARED_COLS:
-                if col_id in cols and cols[col_id]["value"]:
-                    try:
-                        create_vals[col_id] = json.loads(cols[col_id]["value"])
-                    except Exception:
-                        pass
+        logger.info("➕ Creazione elemento da NEW a OLD: '%s' (new_id: %s)", new_name, new_id)
+        cols = extract_cols(new_it)
+        create_vals = {}
+        for col_id in COMMERCIALE_SHARED_COLS:
+            if col_id in cols and cols[col_id]["value"]:
+                try:
+                    create_vals[col_id] = json.loads(cols[col_id]["value"])
+                except Exception:
+                    pass
 
-            q = """
-            mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
-              create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
-                id
-                name
-              }
-            }
-            """
-            res = monday_query(q, {
-                "board_id": BOARD_OLD_COMMERCIALE,
-                "item_name": new_name,
-                "column_values": json.dumps(create_vals)
-            })
-            old_id = res.get("create_item", {}).get("id")
-            if old_id:
-                logger.info("✅ Creato su OLD COMMERCIALE: '%s' (old_id: %s)", new_name, old_id)
-                comm_map[old_id] = new_id
-                save_mapping(mapping)
-                time.sleep(1)
+        q = """
+        mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
+          create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
+            id
+            name
+          }
+        }
+        """
+        res = monday_query(q, {
+            "board_id": BOARD_OLD_COMMERCIALE,
+            "item_name": new_name,
+            "column_values": json.dumps(create_vals)
+        })
+        old_id = res.get("create_item", {}).get("id")
+        if old_id:
+            logger.info("✅ Creato su OLD COMMERCIALE: '%s' (old_id: %s)", new_name, old_id)
+            comm_map[old_id] = new_id
+            save_mapping(mapping)
+            time.sleep(1)
 
     # 4. Sincronizzazione Stati (bidirezionale con conflict resolution su updated_at)
     for old_id, new_id in comm_map.items():
@@ -365,6 +402,7 @@ def sync_gestione_progetti() -> None:
     logger.info("── Avvio sincronizzazione GESTIONE PROGETTI (Old <-> New) ──")
     mapping = load_mapping()
     prog_map = mapping.setdefault("progetti", {})
+    archived_prog = set(str(x) for x in mapping.setdefault("archived", {}).setdefault("progetti", []))
 
     old_items = fetch_all_items(BOARD_OLD_PROGETTI)
     new_items = fetch_all_items(BOARD_NEW_PROGETTI)
@@ -377,7 +415,7 @@ def sync_gestione_progetti() -> None:
     old_by_name = {it["name"].strip().lower(): it for it in old_items}
     new_by_name = {it["name"].strip().lower(): it for it in new_items}
 
-    # 1. Matching per nome
+    # 1. Matching per nome tra elementi attivi
     for old_it in old_items:
         old_id = old_it["id"]
         old_name = old_it["name"].strip().lower()
@@ -393,82 +431,117 @@ def sync_gestione_progetti() -> None:
 
     save_mapping(mapping)
 
-    # 2. Copia elementi mancanti da OLD a NEW (es. pardgroup GOPPION, linealight 6684/4)
+    # 2. Sincronizzazione ARCHIVIAZIONI bidirezionale
+    # Se un progetto mappato non è più presente tra gli attivi di una board, propaga l'archiviazione (MAI ricreare!)
+    for old_id, new_id in list(prog_map.items()):
+        old_id_str, new_id_str = str(old_id), str(new_id)
+        if old_id_str in archived_prog or new_id_str in archived_prog:
+            continue
+
+        old_active = old_id in old_by_id
+        new_active = new_id in new_by_id
+
+        if not old_active and new_active:
+            # Gary ha archiviato su OLD -> archivia anche su NEW!
+            logger.info("📦 Gary/utente ha archiviato su OLD PROGETTI -> archiviazione su NEW: '%s' (new_id: %s)", new_by_id[new_id]["name"], new_id)
+            q = f'mutation {{ archive_item(item_id: "{new_id}") {{ id }} }}'
+            monday_query(q)
+            archived_prog.add(old_id_str)
+            archived_prog.add(new_id_str)
+            mapping["archived"]["progetti"] = list(archived_prog)
+            save_mapping(mapping)
+            continue
+        elif old_active and not new_active:
+            # Archiviazione su NEW -> propaga su OLD!
+            logger.info("📦 Archiviazione su NEW PROGETTI -> archiviazione su OLD: '%s' (old_id: %s)", old_by_id[old_id]["name"], old_id)
+            q = f'mutation {{ archive_item(item_id: "{old_id}") {{ id }} }}'
+            monday_query(q)
+            archived_prog.add(old_id_str)
+            archived_prog.add(new_id_str)
+            mapping["archived"]["progetti"] = list(archived_prog)
+            save_mapping(mapping)
+            continue
+
+    # 3. Copia elementi da OLD -> NEW SOLO se GENUINAMENTE NUOVI (mai visti e mai archiviati)
     for old_it in old_items:
         old_id = old_it["id"]
-        if old_id not in prog_map or prog_map[old_id] not in new_by_id:
-            old_name = old_it["name"].strip()
-            if old_name.lower() in new_by_name:
-                prog_map[old_id] = new_by_name[old_name.lower()]["id"]
-                continue
+        if old_id in prog_map or str(old_id) in archived_prog:
+            continue
+        old_name = old_it["name"].strip()
+        if old_name.lower() in new_by_name:
+            prog_map[old_id] = new_by_name[old_name.lower()]["id"]
+            save_mapping(mapping)
+            continue
 
-            logger.info("➕ Creazione progetto da OLD a NEW: '%s' (old_id: %s)", old_name, old_id)
-            cols = extract_cols(old_it)
-            old_status = cols.get("project_status", {}).get("text", "")
-            new_status_label = OLD_TO_NEW_PROGETTI_STATUS.get(old_status, "Da iniziare")
+        logger.info("➕ Creazione progetto da OLD a NEW: '%s' (old_id: %s)", old_name, old_id)
+        cols = extract_cols(old_it)
+        old_status = cols.get("project_status", {}).get("text", "")
+        new_status_label = OLD_TO_NEW_PROGETTI_STATUS.get(old_status, "Da iniziare")
 
-            create_vals = {
-                "color_mm45raj9": {"label": new_status_label}
-            }
+        create_vals = {
+            "color_mm45raj9": {"label": new_status_label}
+        }
 
-            q = """
-            mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
-              create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
-                id
-                name
-              }
-            }
-            """
-            res = monday_query(q, {
-                "board_id": BOARD_NEW_PROGETTI,
-                "item_name": old_name,
-                "column_values": json.dumps(create_vals)
-            })
-            new_id = res.get("create_item", {}).get("id")
-            if new_id:
-                logger.info("✅ Creato su GESTIONE PROGETTI NEW: '%s' (new_id: %s)", old_name, new_id)
-                prog_map[old_id] = new_id
-                save_mapping(mapping)
-                time.sleep(1)
+        q = """
+        mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
+          create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
+            id
+            name
+          }
+        }
+        """
+        res = monday_query(q, {
+            "board_id": BOARD_NEW_PROGETTI,
+            "item_name": old_name,
+            "column_values": json.dumps(create_vals)
+        })
+        new_id = res.get("create_item", {}).get("id")
+        if new_id:
+            logger.info("✅ Creato su GESTIONE PROGETTI NEW: '%s' (new_id: %s)", old_name, new_id)
+            prog_map[old_id] = new_id
+            save_mapping(mapping)
+            time.sleep(1)
 
-    # 3. Copia elementi da NEW a OLD se mancanti
+    # 4. Copia elementi da NEW -> OLD SOLO se GENUINAMENTE NUOVI (mai visti e mai archiviati)
     rev_prog_map = {nid: oid for oid, nid in prog_map.items()}
     for new_it in new_items:
         new_id = new_it["id"]
-        if new_id not in rev_prog_map or rev_prog_map[new_id] not in old_by_id:
-            new_name = new_it["name"].strip()
-            if new_name.lower() in old_by_name:
-                prog_map[old_by_name[new_name.lower()]["id"]] = new_id
-                continue
+        if new_id in rev_prog_map or str(new_id) in archived_prog:
+            continue
+        new_name = new_it["name"].strip()
+        if new_name.lower() in old_by_name:
+            prog_map[old_by_name[new_name.lower()]["id"]] = new_id
+            save_mapping(mapping)
+            continue
 
-            logger.info("➕ Creazione progetto da NEW a OLD: '%s' (new_id: %s)", new_name, new_id)
-            cols = extract_cols(new_it)
-            new_status = cols.get("color_mm45raj9", {}).get("text", "")
-            old_status_label = NEW_TO_OLD_PROGETTI_STATUS.get(new_status, "non in produzione")
+        logger.info("➕ Creazione progetto da NEW a OLD: '%s' (new_id: %s)", new_name, new_id)
+        cols = extract_cols(new_it)
+        new_status = cols.get("color_mm45raj9", {}).get("text", "")
+        old_status_label = NEW_TO_OLD_PROGETTI_STATUS.get(new_status, "non in produzione")
 
-            create_vals = {
-                "project_status": {"label": old_status_label}
-            }
+        create_vals = {
+            "project_status": {"label": old_status_label}
+        }
 
-            q = """
-            mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
-              create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
-                id
-                name
-              }
-            }
-            """
-            res = monday_query(q, {
-                "board_id": BOARD_OLD_PROGETTI,
-                "item_name": new_name,
-                "column_values": json.dumps(create_vals)
-            })
-            old_id = res.get("create_item", {}).get("id")
-            if old_id:
-                logger.info("✅ Creato su OLD GESTIONE PROGETTI: '%s' (old_id: %s)", new_name, old_id)
-                prog_map[old_id] = new_id
-                save_mapping(mapping)
-                time.sleep(1)
+        q = """
+        mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) {
+          create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) {
+            id
+            name
+          }
+        }
+        """
+        res = monday_query(q, {
+            "board_id": BOARD_OLD_PROGETTI,
+            "item_name": new_name,
+            "column_values": json.dumps(create_vals)
+        })
+        old_id = res.get("create_item", {}).get("id")
+        if old_id:
+            logger.info("✅ Creato su OLD GESTIONE PROGETTI: '%s' (old_id: %s)", new_name, old_id)
+            prog_map[old_id] = new_id
+            save_mapping(mapping)
+            time.sleep(1)
 
     # 4. Sincronizzazione Stati Progetto (bidirezionale)
     for old_id, new_id in prog_map.items():
