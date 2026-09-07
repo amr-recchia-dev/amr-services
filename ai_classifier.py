@@ -17,11 +17,12 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.5-flash"
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{GEMINI_MODEL}:generateContent"
-)
+GEMINI_MODELS = [
+    os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
+    "gemini-flash-latest",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-2.5-flash",
+]
 
 
 @dataclass
@@ -204,25 +205,40 @@ Classifica questa email secondo le istruzioni del sistema."""
     }
 
     raw_text = ""
-    try:
-        response = requests.post(
-            GEMINI_URL,
-            params={"key": GEMINI_API_KEY},
-            json=payload,
-            timeout=30,
-        )
-        response.raise_for_status()
-        resp_json = response.json()
+    last_err = None
+    for model_name in GEMINI_MODELS:
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+        try:
+            response = requests.post(
+                gemini_url,
+                params={"key": GEMINI_API_KEY},
+                json=payload,
+                timeout=30,
+            )
+            if response.status_code in (429, 503):
+                logger.warning("Gemini %s ha risposto con %d, provo fallback...", model_name, response.status_code)
+                continue
+            response.raise_for_status()
+            resp_json = response.json()
 
-        # Estrai il testo dalla risposta
-        raw_text = (
-            resp_json
-            .get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
-            .strip()
-        )
+            # Estrai il testo dalla risposta
+            raw_text = (
+                resp_json
+                .get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+                .strip()
+            )
+            if raw_text:
+                break
+        except Exception as e:
+            last_err = e
+            logger.warning("Errore con modello Gemini %s: %s, provo fallback...", model_name, e)
+
+    try:
+        if not raw_text and last_err:
+            raise last_err
 
         # Pulisci ```json ... ``` se presenti
         raw_text = re.sub(r"^```(?:json)?\s*", "", raw_text)

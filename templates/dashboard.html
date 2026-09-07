@@ -62,7 +62,7 @@
           <span>🎙️</span>
           <span>Assistente Vocale</span>
         </a>
-        <button onclick="fetchLiveData()" id="refresh-btn" 
+        <button onclick="fetchLiveData(true)" id="refresh-btn" 
                 class="text-xs bg-[var(--amr-card)] hover:bg-slate-800 active:scale-95 text-slate-200 font-semibold px-4 py-2.5 rounded-lg border border-[var(--amr-card-border)] flex items-center gap-2 transition-all shadow-sm">
           <svg id="refresh-spinner" class="w-3.5 h-3.5 text-[var(--amr-red)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -350,7 +350,7 @@
       if (e.key === 'Enter') submitPin();
     });
 
-    async function fetchLiveData() {
+    async function fetchLiveData(isManualFresh = false) {
       const pin = getStoredPin();
       if (!pin) {
         showPinModal();
@@ -359,10 +359,11 @@
 
       const spinner = document.getElementById("refresh-spinner");
       spinner.classList.add("animate-spin");
-      document.getElementById("last-updated-label").textContent = "Sincronizzazione...";
+      document.getElementById("last-updated-label").textContent = isManualFresh ? "Sincronizzazione in corso..." : "Aggiornamento...";
 
       try {
-        const resp = await fetch("/api/dashboard-data", {
+        const url = isManualFresh ? "/api/dashboard-data?fresh=1" : "/api/dashboard-data";
+        const resp = await fetch(url, {
           headers: { 'X-AMR-PIN': pin }
         });
 
@@ -381,7 +382,7 @@
         if (resp.ok) {
           const data = await resp.json();
           projectsData = data.projects || [];
-          document.getElementById("last-updated-label").textContent = "Aggiornato: " + new Date().toLocaleTimeString();
+          document.getElementById("last-updated-label").textContent = "Aggiornato: " + new Date().toLocaleTimeString() + " (Live Sync)";
           updateKPIs();
           renderTable();
         } else {
@@ -517,9 +518,16 @@
       renderTable();
     });
 
-    // Controllo iniziale PIN
+    // Controllo iniziale PIN e auto-sincronizzazione continua ogni 30 secondi
     window.addEventListener('DOMContentLoaded', () => {
-      fetchLiveData();
+      fetchLiveData(false);
+
+      // Auto-refresh ogni 30 secondi per mantenere la dashboard costantemente sincronizzata
+      setInterval(() => {
+        if (!document.hidden) {
+          fetchLiveData(false);
+        }
+      }, 30000);
     });
   </script>
 </body>

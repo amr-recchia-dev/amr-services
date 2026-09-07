@@ -111,6 +111,11 @@ def _normalize_ref(ref: str) -> str:
     return re.sub(r"[\s\-_/.]", "", ref).upper()
 
 
+def _normalize_text(text: str) -> str:
+    """Normalizza testo per confronto parole chiave (lowercase, no punteggiatura)."""
+    return re.sub(r"[^\w\s]", " ", text or "").lower().strip()
+
+
 def _load_client_patterns() -> Dict[str, str]:
     """
     Carica il file client_patterns.json (se esiste).
@@ -499,15 +504,15 @@ def _search_by_order_ref(ref: str) -> MatchResult:
     return MatchResult(found=False)
 
 
-def _search_by_client_name(client_name: str, varianti: List[str]) -> MatchResult:
+def _search_by_client_name(client_name: str, varianti: List[str], nome_progetto: str = "") -> MatchResult:
     """
     Cerca per nome cliente con fuzzy matching su entrambe le board.
-    Considera anche le varianti del nome trovate nell'email, il file client_patterns.json
-    e la knowledge base clienti (client_knowledge_base.json).
+    Considera anche le varianti del nome trovate nell'email, il file client_patterns.json,
+    il nome progetto per disambiguare e la knowledge base clienti.
 
     Restituisce:
-    - found=True, ambiguous=False → un solo candidato sopra la soglia
-    - found=True, ambiguous=True  → più candidati con score simile
+    - found=True, ambiguous=False → candidato individuato o selezionato il più recente
+    - found=True, ambiguous=True  → ambiguità reale tra clienti diversi
     - found=False                 → nessun candidato sopra la soglia
     """
     if not client_name:
@@ -531,7 +536,6 @@ def _search_by_client_name(client_name: str, varianti: List[str]) -> MatchResult
     search_names = unique_names
 
     # ── Arricchisci con la knowledge base clienti ──────────────────────────
-    # Aggiunge tutti i nomi_usati / alias dalla KB per il cliente corrispondente
     search_names = _expand_variants_from_kb(search_names)
 
     candidates = []
@@ -550,11 +554,19 @@ def _search_by_client_name(client_name: str, varianti: List[str]) -> MatchResult
             )
 
             if best_score >= MATCH_THRESHOLD:
+                # Estrai eventuale nome progetto dall'item
+                proj_col = ""
+                for cv in item.get("column_values", []):
+                    if cv.get("id") in ("testo_mkn1sqb4", "text_mm51yk45"):
+                        proj_col = (cv.get("text") or "").strip()
+                        break
+
                 candidates.append({
                     "id": item["id"],
                     "name": item_name,
                     "board_id": board_id,
                     "score": best_score,
+                    "project": proj_col,
                 })
 
     if not candidates:
@@ -564,17 +576,63 @@ def _search_by_client_name(client_name: str, varianti: List[str]) -> MatchResult
         )
         return MatchResult(found=False)
 
-    # Ordina per score decrescente
-    candidates.sort(key=lambda x: x["score"], reverse=True)
+    # Ordina per score decrescente e poi per ID decrescente (più recente)
+    candidates.sort(key=lambda x: (x["score"], int(x["id"]) if x["id"].isdigit() else 0), reverse=True)
     best = candidates[0]
 
-    # Ambiguità: ci sono più candidati con score > 0.75?
     high_score_candidates = [c for c in candidates if c["score"] >= 0.75]
-    ambiguous = len(high_score_candidates) > 1
 
-    if ambiguous:
+    # Se ci sono più candidati dello stesso cliente:
+    if len(high_score_candidates) > 1:
+        # 1. Prova a disambiguare tramite parole chiave del nome progetto
+        if nome_progetto:
+            proj_tokens = set(_normalize_text(nome_progetto).split())
+            best_proj_match = None
+            max_common = 0
+            for c in high_score_candidates:
+                cand_tokens = set(_normalize_text(c.get("project", "") + " " + c["name"]).split())
+                common = len(proj_tokens & cand_tokens)
+                if common > max_common:
+                    max_common = common
+                    best_proj_match = c
+            if best_proj_match and max_common >= 1:
+                logger.info(
+                    "🎯 Disambiguazione riuscita tramite progetto ('%s') → item '%s' (id: %s)",
+                    nome_progetto, best_proj_match["name"], best_proj_match["id"]
+                )
+                return MatchResult(
+                    found=True,
+                    item_id=best_proj_match["id"],
+                    item_name=best_proj_match["name"],
+                    board_id=best_proj_match["board_id"],
+                    confidence=best_proj_match["score"],
+                    ambiguous=False,
+                    candidates=high_score_candidates,
+                )
+
+        # 2. Se tutti i candidati si riferiscono allo stesso cliente (es. MLM Consulting duplicato):
+        # Seleziona l'item più recente senza creare una nuova commessa fittizia
+        names_in_candidates = {c["name"].lower().strip() for c in high_score_candidates}
+        if len(names_in_candidates) <= 2:
+            # Ordina per ID decrescente (il più recente su Monday)
+            high_score_candidates.sort(key=lambda x: int(x["id"]) if x["id"].isdigit() else 0, reverse=True)
+            chosen = high_score_candidates[0]
+            logger.info(
+                "🎯 Client con più item esistenti: selezionato il più recente '%s' (id: %s) evitando duplicati",
+                chosen["name"], chosen["id"]
+            )
+            return MatchResult(
+                found=True,
+                item_id=chosen["id"],
+                item_name=chosen["name"],
+                board_id=chosen["board_id"],
+                confidence=chosen["score"],
+                ambiguous=False,
+                candidates=high_score_candidates,
+            )
+
         logger.warning(
-            "⚠️ Match ambiguo per '%s': %d candidati (best score: %.2f)",
+            "⚠️ Match ambiguo per '%s': %d candidati distinti (best score: %.2f)",
             client_name, len(high_score_candidates), best["score"]
         )
         return MatchResult(
@@ -627,11 +685,12 @@ def find_commessa(classification) -> MatchResult:
         if result.found:
             return result
 
-    # Strategia 2: fuzzy match per nome cliente
+    # Strategia 2: fuzzy match per nome cliente con supporto al nome progetto
     client_name = getattr(classification, "azienda", "") or ""
     varianti = getattr(classification, "cliente_varianti", []) or []
-    logger.info("🔍 Ricerca fuzzy per cliente: '%s' (varianti: %s)", client_name, varianti)
-    result = _search_by_client_name(client_name, varianti)
+    nome_progetto = getattr(classification, "nome_progetto", "") or ""
+    logger.info("🔍 Ricerca fuzzy per cliente: '%s' (progetto: '%s', varianti: %s)", client_name, nome_progetto, varianti)
+    result = _search_by_client_name(client_name, varianti, nome_progetto=nome_progetto)
     return result
 
 
@@ -643,6 +702,8 @@ def add_email_update(
 ) -> bool:
     """
     Aggiunge un update/commento all'item esistente con i dettagli dell'email ricevuta.
+    Include DEDUPLICAZIONE RIGOROSA: se un commento per questa email o sintesi esiste già,
+    non viene reinserito.
 
     Args:
         item_id:        ID dell'item Monday.com da aggiornare
@@ -651,9 +712,44 @@ def add_email_update(
         email_subject:  Oggetto originale dell'email
 
     Returns:
-        True se l'update è stato aggiunto con successo, False altrimenti.
+        True se l'update è stato aggiunto con successo (o già presente), False in caso di errore.
     """
     try:
+        # ── 1. Deduplicazione: verifica commenti già presenti su Monday.com ──
+        check_query = """
+        query ($item_id: [ID!]) {
+          items(ids: $item_id) {
+            updates(limit: 25) {
+              id
+              body
+            }
+          }
+        }
+        """
+        existing_data = _graphql(check_query, {"item_id": [item_id]})
+        items_res = existing_data.get("items", [])
+        if items_res:
+            existing_updates = items_res[0].get("updates", [])
+            clean_sub = email_subject.strip().lower()
+            clean_note = (getattr(classification, "note", "") or "").strip()[:60].lower()
+
+            for upd in existing_updates:
+                upd_body = (upd.get("body") or "").lower()
+                # Controllo oggetto email
+                if clean_sub and clean_sub in upd_body:
+                    logger.info(
+                        "⏭️ Update già presente per l'item %s: '%s' — duplicato evitato",
+                        item_id, email_subject
+                    )
+                    return True
+                # Controllo sintesi
+                if clean_note and len(clean_note) > 15 and clean_note in upd_body:
+                    logger.info(
+                        "⏭️ Update con sintesi identica già presente per l'item %s — duplicato evitato",
+                        item_id
+                    )
+                    return True
+
         tipo_label = classification.tipo.replace("_", " ").title()
         ref = getattr(classification, "riferimento_ordine", None)
         ref_line = f"**Rif. Ordine**: {ref}\n" if ref else ""

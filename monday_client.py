@@ -180,6 +180,44 @@ def create_item(classification) -> Optional[str]:
         # Costruisce i valori colonna con ID diretti
         column_values, item_name = _build_column_values_direct(classification)
 
+        # ── Controllo di sicurezza anti-duplicato ─────────────────────────
+        # Verifica se un item per questo cliente e progetto esiste già tra i recenti
+        try:
+            check_q = """
+            query ($board_id: [ID!]) {
+              boards(ids: $board_id) {
+                items_page(limit: 50) {
+                  items {
+                    id
+                    name
+                    column_values(ids: ["testo_mkn1sqb4"]) {
+                      text
+                    }
+                  }
+                }
+              }
+            }
+            """
+            existing = _graphql(check_q, {"board_id": [MONDAY_BOARD_ID]})
+            recent_items = existing.get("boards", [{}])[0].get("items_page", {}).get("items", [])
+            norm_item_name = item_name.strip().lower()
+            norm_proj = (classification.nome_progetto or "").strip().lower()
+
+            for it in recent_items:
+                it_name = it.get("name", "").strip().lower()
+                cols = it.get("column_values", [])
+                it_proj = (cols[0].get("text") or "").strip().lower() if cols else ""
+                # Se il cliente coincide e il progetto coincide (o entrambi hanno lo stesso progetto):
+                if it_name == norm_item_name and norm_proj and (norm_proj in it_proj or it_proj in norm_proj):
+                    logger.info(
+                        "⚠️ Item per '%s' - '%s' già esistente su Monday (id: %s). Aggiorno l'item invece di duplicarlo.",
+                        item_name, classification.nome_progetto, it["id"]
+                    )
+                    _add_update_to_item(it["id"], classification)
+                    return it["id"]
+        except Exception as check_err:
+            logger.warning("Controllo preliminare duplicati fallito (procedo con cautela): %s", check_err)
+
         query = """
         mutation CreateItem(
             $board_id: ID!,

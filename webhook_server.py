@@ -358,7 +358,8 @@ def api_dashboard_data():
     import requests
 
     now = time.time()
-    if dashboard_cache["data"] and (now - dashboard_cache["timestamp"] < 30):
+    force_fresh = request.args.get("fresh", "").lower() in ("1", "true", "yes")
+    if not force_fresh and dashboard_cache["data"] and (now - dashboard_cache["timestamp"] < 30):
         return jsonify({"projects": dashboard_cache["data"], "cached": True})
 
     token = os.getenv("MONDAY_API_TOKEN")
@@ -552,6 +553,38 @@ email_thread = threading.Thread(
     name="email-agent-loop"
 )
 email_thread.start()
+
+
+def start_board_sync_loop():
+    """Loop continuo in background per mantenere perfettamente sincronizzate le board Monday.com."""
+    import time
+    from board_sync_guardian import run_full_sync
+
+    logger.info("🔄 [SYNC GUARDIAN] Avvio thread demone sincronizzazione board in background...")
+    # Attesa iniziale prima del primo ciclo per non intasare l'avvio di gunicorn
+    time.sleep(30)
+
+    while True:
+        try:
+            logger.info("🔄 [SYNC GUARDIAN] Esecuzione sync bidirezionale board...")
+            run_full_sync()
+            logger.info("🔄 [SYNC GUARDIAN] Sync completato con successo.")
+            # Invalida cache dashboard per riflettere immediatamente i nuovi dati
+            dashboard_cache["timestamp"] = 0
+        except Exception as e:
+            logger.error(f"❌ [SYNC GUARDIAN] Errore critico nel sync delle board: {e}", exc_info=True)
+
+        # Ripeti ogni 5 minuti (300 secondi)
+        time.sleep(300)
+
+
+# Avvio del thread di sincronizzazione continua delle board
+sync_thread = threading.Thread(
+    target=start_board_sync_loop,
+    daemon=True,
+    name="board-sync-loop"
+)
+sync_thread.start()
 
 
 if __name__ == "__main__":
