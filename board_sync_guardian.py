@@ -581,11 +581,8 @@ def sync_gestione_progetti() -> None:
 
 def run_full_sync():
     """Esegue un ciclo completo di sincronizzazione."""
-    try:
-        sync_commerciale()
-        sync_gestione_progetti()
-    except Exception as e:
-        logger.error("Errore critico durante la sincronizzazione: %s", e, exc_info=True)
+    logger.warning("⛔ [SYNC GUARDIAN] Sincronizzazione DISABILITATA globalmente.")
+    return
 
 
 if __name__ == "__main__":
