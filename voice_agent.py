@@ -271,7 +271,6 @@ TEAM_USERS = [
     {"id": "71489364", "name": "Gary Innocente", "keywords": ["gary", "innocente", "gary innocente"]},
     {"id": "71533503", "name": "Maurizio Nordio", "keywords": ["maurizio", "nordio", "maurizio nordio"]},
     {"id": "71533953", "name": "Andrea Moscon", "keywords": ["andrea", "moscon", "andrea moscon"]},
-    {"id": "71533963", "name": "Alessandro Buosi", "keywords": ["buosi", "alessandro buosi"]},
     {"id": "71533986", "name": "Taglio AMR", "keywords": ["taglio", "reparto taglio"]},
     {"id": "78115008", "name": "Antonio Ambrosino", "keywords": ["antonio", "ambrosino"]},
     {"id": "78744209", "name": "Jamal Sriti", "keywords": ["jamal", "sriti"]}

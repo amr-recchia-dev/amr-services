@@ -486,9 +486,9 @@ def webhook_status_change():
 
     logger.info(f"📥 Ricevuto cambio stato Monday: Board {board_id}, Item #{item_id}, Colonna {column_id} -> '{label}'")
     
-    # 1. Se l'evento proviene da GESTIONE PROGETTI NEW (2136092569) -> Inoltro a schede Reparto (Taglio / Finiture)
-    if board_id == "2136092569":
-        logger.info(f"⚙️ Evento da GESTIONE PROGETTI NEW: avvio sincronizzazione con reparti per #{item_id}...")
+    # 1. Se l'evento proviene da GESTIONE PROGETTI NEW (2136092569) o NEW COMMERCIALE (2133436509) -> Inoltro a schede Reparto (Taglio / Finiture / Progettazione)
+    if board_id in ("2136092569", "2133436509"):
+        logger.info(f"⚙️ Evento da Board {board_id}: avvio sincronizzazione con reparti per #{item_id}...")
         dept_res = department_syncer.sync_project_to_departments(item_id)
         return jsonify({"status": "processed", "type": "department_sync", "result": dept_res}), 200
 
@@ -586,13 +586,37 @@ def start_board_sync_loop():
     logger.warning("⛔ [SYNC GUARDIAN] Sincronizzazione tra vecchie e nuove schede DISABILITATA.")
     return
 
-# Thread disabilitato su richiesta utente
-# sync_thread = threading.Thread(
-#     target=start_board_sync_loop,
-#     daemon=True,
-#     name="board-sync-loop"
-# )
-# sync_thread.start()
+
+def start_department_sync_loop():
+    """
+    Loop periodico di sicurezza (ogni 10 minuti) per inoltrare automaticamente
+    tutti i progetti da GESTIONE PROGETTI NEW verso
+    i reparti TAGLIO E FRESA, FINITURE e PROGETTAZIONE NEW.
+    NON tocca MAI le vecchie board.
+    """
+    import time
+    from department_syncer import sync_all_active_departments
+
+    logger.info("🔄 [DEPT GUARDIAN] Avvio thread periodico inoltro reparti (ogni 10 min)...")
+    time.sleep(45)
+
+    while True:
+        try:
+            logger.info("🔄 [DEPT GUARDIAN] Controllo progetti assegnati ai reparti...")
+            res = sync_all_active_departments()
+            logger.info(f"🔄 [DEPT GUARDIAN] Inoltro reparti completato: {res}")
+        except Exception as e:
+            logger.error(f"❌ [DEPT GUARDIAN] Errore ciclo reparti: {e}", exc_info=True)
+
+        time.sleep(600)
+
+
+dept_thread = threading.Thread(
+    target=start_department_sync_loop,
+    daemon=True,
+    name="dept-sync-loop"
+)
+dept_thread.start()
 
 
 if __name__ == "__main__":
