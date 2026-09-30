@@ -57,8 +57,22 @@ def get_client_ip() -> str:
         "127.0.0.1"
     )
 
-def get_current_user_from_request() -> dict | None:
-    """Estrae e convalida il profilo utente a partire dal PIN inviato via header, cookie o JSON."""
+def get_current_user_from_request() -> dict:
+    """Estrae e convalida il profilo utente a partire dal nome dipendente o dal PIN inviato via header, cookie, query o JSON."""
+    import urllib.parse
+
+    # 1. Ricerca per nome dipendente (da selezione rapida senza PIN)
+    user_name = request.headers.get("X-AMR-USER") or request.cookies.get("amr_user_name") or request.args.get("user")
+    if user_name:
+        try:
+            user_name_dec = urllib.parse.unquote(user_name).strip()
+            u = user_auth.get_user_by_name(user_name_dec)
+            if u:
+                return u
+        except Exception:
+            pass
+
+    # 2. Ricerca per PIN (retrocompatibilità se presente)
     provided_pin = (
         request.headers.get("X-AMR-PIN") or
         request.cookies.get("amr_pin") or
@@ -67,14 +81,28 @@ def get_current_user_from_request() -> dict | None:
     if not provided_pin and request.is_json:
         data = request.get_json(silent=True) or {}
         provided_pin = data.get("pin")
+        if data.get("user_name"):
+            u = user_auth.get_user_by_name(data.get("user_name"))
+            if u:
+                return u
 
-    if not provided_pin:
-        return None
-    return user_auth.get_user_by_pin(provided_pin)
+    if provided_pin:
+        u = user_auth.get_user_by_pin(provided_pin)
+        if u:
+            return u
+
+    # 3. Default aperto per reparto produzione se non specificato (nessun blocco all'ingresso)
+    return {
+        "name": "Operatore Produzione",
+        "email": "produzione@amrrecchia.it",
+        "department": "Reparto Produzione",
+        "is_commercial": False,
+        "label": "Reparto Produzione AMR"
+    }
 
 def check_pin_auth() -> bool:
-    """Verifica se la richiesta proviene da un PIN aziendale valido."""
-    return get_current_user_from_request() is not None
+    """Nessun blocco per l'assistente vocale: accesso aperto a tutti gli operatori."""
+    return True
 
 # === Setup logging (compatibile con Railway/Render: stdout se in cloud) ===
 log_handlers = [logging.StreamHandler()]
@@ -255,28 +283,47 @@ def voice_view():
     return render_template("voice.html")
 
 
+@app.route("/api/employees", methods=["GET"])
+def api_employees():
+    """Restituisce l'elenco di tutti i dipendenti aziendali registrati per la selezione rapida con 1 tocco."""
+    return jsonify({
+        "employees": user_auth.get_all_employees()
+    }), 200
+
+
 @app.route("/api/verify-pin", methods=["GET", "POST"])
+@app.route("/api/select-user", methods=["POST"])
 def api_verify_pin():
-    """Endpoint per verificare la validità del PIN aziendale inserito dall'utente."""
-    ip = get_client_ip()
-    allowed, retry_after = rate_limiter.is_allowed(f"pin_{ip}", max_requests=10, window_seconds=60)
-    if not allowed:
-        return jsonify({"valid": False, "error": f"Troppi tentativi errati. Riprova tra {retry_after}s."}), 429
+    """Endpoint per selezionare il dipendente o verificare il PIN."""
+    data = request.get_json(silent=True) or {}
+    name = data.get("name") or request.args.get("name")
+    if name:
+        u = user_auth.get_user_by_name(name)
+        if u:
+            return jsonify({
+                "valid": True,
+                "message": f"Bentornato {u['name']}",
+                "user": {
+                    "name": u["name"],
+                    "email": u["email"],
+                    "department": u["department"],
+                    "is_commercial": u.get("is_commercial", False),
+                    "label": u.get("label", u["department"])
+                }
+            }), 200
 
     user = get_current_user_from_request()
-    if user:
-        return jsonify({
-            "valid": True,
-            "message": f"Bentornato {user['name']}",
-            "user": {
-                "name": user["name"],
-                "email": user["email"],
-                "department": user["department"],
-                "is_commercial": user.get("is_commercial", False),
-                "label": user.get("label", user["department"])
-            }
-        }), 200
-    return jsonify({"valid": False, "error": "PIN non corretto"}), 401
+    return jsonify({
+        "valid": True,
+        "message": f"Bentornato {user['name']}",
+        "user": {
+            "name": user["name"],
+            "email": user["email"],
+            "department": user["department"],
+            "is_commercial": user.get("is_commercial", False),
+            "label": user.get("label", user["department"])
+        }
+    }), 200
 
 
 @app.route("/api/voice-command", methods=["POST"])
@@ -368,13 +415,20 @@ def api_voice_command():
 
     curr_user = get_current_user_from_request()
     user_label = curr_user.get("name") if curr_user else "Anonimo"
-    logger.info(f"📝 Testo per Voice Agent (lingua: {detected_lang}, utente: {user_label}): \"{text}\" [Originale: \"{original_text}\"]")
+    
+    req_payload = request.get_json(silent=True) or {} if request.is_json else {}
+    target_project_id = req_payload.get("project_id") or request.form.get("project_id")
+    if target_project_id:
+        target_project_id = str(target_project_id).strip()
+
+    logger.info(f"📝 Testo per Voice Agent (lingua: {detected_lang}, utente: {user_label}, project_id: {target_project_id}): \"{text}\" [Originale: \"{original_text}\"]")
     try:
         result = voice_agent.process_voice_command(
             spoken_text=text,
             original_text=original_text,
             detected_lang=detected_lang,
-            current_user=curr_user
+            current_user=curr_user,
+            project_id=target_project_id
         )
         return jsonify(result), 200
     except Exception as e:
@@ -483,6 +537,30 @@ def api_voice_preview():
             "language": detected_lang,
             "message": f"Errore anteprima: {e}"
         }), 200
+
+
+@app.route("/api/voice-feedback", methods=["POST"])
+def api_voice_feedback():
+    """
+    Riceve il feedback o la correzione manuale dell'utente su una commessa
+    (es. disambiguazione tra più commesse di Henoto o correzione nome).
+    Registra l'apprendimento permanente nello store locale per migliorare la precisione futura.
+    """
+    import voice_learning
+    data = request.get_json(silent=True) or {}
+    phrase = data.get("phrase", "").strip()
+    proj_id = data.get("project_id", "").strip()
+    proj_name = data.get("project_name", "").strip()
+    board_id = data.get("board_id", "").strip()
+
+    if not phrase or not proj_id:
+        return jsonify({"success": False, "message": "Parametri phrase o project_id mancanti"}), 400
+
+    voice_learning.learn_project_alias(phrase, proj_id, proj_name, board_id)
+    return jsonify({
+        "success": True,
+        "message": f"Associazione appresa con successo per '{proj_name}'"
+    }), 200
 
 
 @app.route("/api/dashboard-data", methods=["GET"])

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>AMR Recchia • Assistente Vocale Officina</title>
+  <title>AMR Recchia • Assistente Vocale Produzione</title>
   <link rel="icon" type="image/png" href="/static/favicon.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -76,19 +76,19 @@
     </div>
   </header>
 
-  <!-- Logged User Status Bar (Shows Authenticated User & Permissions) -->
-  <div id="userBar" class="hidden border-b border-[var(--amr-card-border)] bg-[var(--amr-card)]/70 backdrop-blur-sm py-2 px-4">
+  <!-- Logged User Status Bar (Shows Selected Employee & Permissions) -->
+  <div id="userBar" class="border-b border-[var(--amr-card-border)] bg-[var(--amr-card)]/80 backdrop-blur-sm py-2 px-4">
     <div class="max-w-xl mx-auto flex items-center justify-between text-xs">
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity" onclick="openEmployeePicker()">
         <span class="text-sm" id="userIcon">👤</span>
         <div class="text-left">
-          <span id="userName" class="font-bold text-white"></span>
+          <span id="userName" class="font-bold text-white">Operatore Produzione</span>
           <span id="userDept" class="text-[10px] text-slate-400 ml-1"></span>
         </div>
-        <span id="userRoleBadge" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ml-1"></span>
+        <span id="userRoleBadge" class="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ml-1 bg-blue-950/80 text-blue-300 border border-blue-500/40">Accesso Produzione</span>
       </div>
-      <button onclick="logoutPin()" class="text-[11px] text-slate-400 hover:text-red-400 hover:underline flex items-center gap-1 transition-colors cursor-pointer">
-        <span>Cambia PIN</span> <span>↪</span>
+      <button onclick="openEmployeePicker()" class="text-[11px] text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer">
+        <span>Chi sei?</span> <span>▾</span>
       </button>
     </div>
   </div>
@@ -140,7 +140,7 @@
         </div>
 
         <!-- Target Project & Action -->
-        <div class="space-y-1.5 mb-3 text-xs">
+        <div class="space-y-1.5 mb-2.5 text-xs">
           <div class="flex items-start gap-1.5">
             <span class="text-slate-400 font-medium shrink-0">🎯 Commessa:</span>
             <span id="previewProjectName" class="font-bold text-white"></span>
@@ -156,6 +156,17 @@
           <div id="previewTranslationRow" class="hidden flex items-start gap-1.5 pt-0.5">
             <span class="text-amber-400 font-medium shrink-0">🇮🇹 Tradotto:</span>
             <span id="previewTranslation" class="italic text-amber-200 font-mono text-[11px]"></span>
+          </div>
+        </div>
+
+        <!-- Disambiguazione Automatica tra Più Commesse Simili (es. Henoto) -->
+        <div id="candidatesDisambiguationBox" class="hidden mb-3 p-2.5 rounded-xl bg-slate-800/90 border border-amber-500/40 text-left">
+          <div class="text-[11px] font-bold text-amber-300 flex items-center justify-between mb-1.5">
+            <span class="flex items-center gap-1.5"><span>❓</span> <span>Trovate più commesse per questo cliente:</span></span>
+            <span class="text-[9px] bg-amber-950 text-amber-200 px-1.5 py-0.5 rounded border border-amber-600/40">Auto-apprendimento</span>
+          </div>
+          <div id="candidatesList" class="flex flex-col gap-1.5">
+            <!-- Candidate buttons popolate dinamicamente -->
           </div>
         </div>
 
@@ -309,39 +320,27 @@
     </div>
   </div>
 
-  <!-- Modal Blocco PIN Aziendale (Harmonized with Dashboard) -->
-  <div id="pinModal" class="hidden fixed inset-0 z-50 bg-[var(--amr-black)]/95 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl relative">
-      <div class="w-14 h-14 mx-auto rounded-full bg-[var(--amr-red)]/15 border border-[var(--amr-red)]/30 flex items-center justify-center text-2xl mb-3">
-        🔐
+  <!-- Modal Selezione Dipendente AMR (Zero PIN, 1 Tocco Rapido) -->
+  <div id="employeePickerModal" class="hidden fixed inset-0 z-50 bg-[var(--amr-black)]/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl max-w-sm w-full p-5 text-center shadow-2xl relative max-h-[85vh] flex flex-col">
+      <button onclick="closeEmployeePicker()" class="absolute top-3.5 right-4 text-slate-400 hover:text-white text-xl cursor-pointer">✕</button>
+      
+      <div class="w-12 h-12 mx-auto rounded-full bg-[var(--amr-red)]/15 border border-[var(--amr-red)]/30 flex items-center justify-center text-xl mb-2">
+        👤
       </div>
-      <h3 class="text-base font-bold text-white mb-1">Accesso Riservato AMR</h3>
-      <p class="text-xs text-[var(--amr-muted)] mb-3">
-        Inserisci il tuo PIN personale (4 cifre) o il PIN aziendale
+      <h3 class="text-base font-bold text-white mb-0.5">Chi sta usando l'app?</h3>
+      <p class="text-[11px] text-[var(--amr-muted)] mb-3">
+        Tocca il tuo nome una sola volta. Il telefono lo ricorderà per tutti i prossimi utilizzi.
       </p>
 
-      <div class="space-y-3">
-        <input id="pinInput" type="password" maxlength="8" inputmode="numeric" placeholder="Inserisci PIN"
-          class="w-full text-center tracking-[0.25em] text-lg font-bold bg-[var(--amr-black)] border border-[var(--amr-card-border)] rounded-xl py-2.5 text-white placeholder:tracking-normal placeholder:text-xs placeholder:font-normal placeholder:text-slate-600 focus:outline-none focus:border-[var(--amr-red)]">
-        
-        <p id="pinErrorMsg" class="hidden text-[11px] text-[#FF6B6B] font-medium"></p>
-
-        <button onclick="submitPin()" id="pinSubmitBtn"
-          class="w-full py-2.5 bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 shadow-lg shadow-red-950/50 cursor-pointer">
-          <span>Accedi all'Assistente</span>
-          <span>➔</span>
-        </button>
+      <div id="employeesListContainer" class="overflow-y-auto space-y-1.5 pr-1 text-left flex-1 max-h-[55vh]">
+        <!-- Popolato dinamicamente da fetchEmployees() -->
+        <div class="p-4 text-center text-xs text-slate-400 animate-pulse">Caricamento dipendenti...</div>
       </div>
 
-      <div class="mt-4 pt-3 border-t border-slate-800 text-[10px] text-slate-400 text-left space-y-1">
-        <div class="flex items-center gap-1.5 text-amber-400 font-semibold">
-          <span>💼</span> <span>Account Commerciali & Direzione</span>
-        </div>
-        <p class="text-slate-500 pl-5">ordini@, info@, amministrazione@, riccardo.g@ (accesso a COMMERCIALE e tutte le schede)</p>
-        <div class="flex items-center gap-1.5 text-blue-400 font-semibold pt-1">
-          <span>⚙️</span> <span>Reparti Officina & Produzione</span>
-        </div>
-        <p class="text-slate-500 pl-5">Accesso a PRODUZIONE, GESTIONE PROGETTI, INSTALLAZIONI, INVENTARIO, ecc.</p>
+      <div class="mt-3 pt-3 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+        <span>Nessun PIN richiesto</span>
+        <button onclick="selectGenericOperator()" class="text-slate-400 hover:text-white underline cursor-pointer">Continua come Generico</button>
       </div>
     </div>
   </div>
@@ -365,6 +364,8 @@
     // Safety preview state
     let previewTimer = null;
     let previewCleanText = "";
+    let selectedProjectId = null;
+    let currentCandidates = [];
 
     function playBeep(freq, duration) {
       try {
@@ -541,18 +542,12 @@
       formData.append('audio', blob, 'voce.' + ext);
 
       try {
-        const pin = getStoredPin();
+        const headers = getAuthHeaders();
         const resp = await fetch('/api/voice-preview-audio', {
           method: 'POST',
-          headers: { 'X-AMR-PIN': pin },
+          headers: headers,
           body: formData
         });
-
-        if (resp.status === 401) {
-          updateUI('idle');
-          showPinModal('PIN aziendale richiesto per inviare comandi vocali.');
-          return;
-        }
 
         if (resp.status === 429) {
           updateUI('idle');
@@ -585,21 +580,15 @@
       document.getElementById('transcriptText').innerText = text;
 
       try {
-        const pin = getStoredPin();
+        const headers = {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        };
         const resp = await fetch('/api/voice-preview', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-AMR-PIN': pin
-          },
-          body: JSON.stringify({text: text})
+          headers: headers,
+          body: JSON.stringify({text: text, user_name: getStoredUserName()})
         });
-
-        if (resp.status === 401) {
-          updateUI('idle');
-          showPinModal('PIN aziendale richiesto per inviare comandi.');
-          return;
-        }
 
         if (resp.status === 429) {
           updateUI('idle');
@@ -663,6 +652,8 @@
       const sendNowBtn = document.getElementById('sendNowBtn');
 
       previewCleanText = data.clean_text || data.italian_translation || data.transcription || "";
+      selectedProjectId = data.project_id || null;
+      currentCandidates = data.candidates || [];
 
       if (data.matched) {
         projNameEl.innerHTML = `<span class="text-white">${data.project_name}</span>`;
@@ -682,6 +673,16 @@
         previewTransItEl.innerText = `"${data.italian_translation}"`;
       } else {
         translationRow.classList.add('hidden');
+      }
+
+      // Gestione Disambiguazione / Multi-candidati (es. più commesse di Henoto)
+      const candBox = document.getElementById('candidatesDisambiguationBox');
+      if (data.has_multiple_candidates && currentCandidates.length > 1) {
+        candBox.classList.remove('hidden');
+        renderCandidatesPills(currentCandidates, selectedProjectId);
+      } else {
+        candBox.classList.add('hidden');
+        document.getElementById('candidatesList').innerHTML = '';
       }
 
       // Controllo Permessi (RBAC)
@@ -716,8 +717,83 @@
       playBeep(700, 0.12);
 
       // Avvia Countdown di sicurezza 3.5 secondi
+      startCountdown();
+    }
+
+    function renderCandidatesPills(candidates, currentId) {
+      const candList = document.getElementById('candidatesList');
+      if (!candList) return;
+      let cHtml = '';
+      candidates.forEach((cand, idx) => {
+        const isCurrent = (String(cand.id) === String(currentId)) || (!currentId && idx === 0);
+        const activeClass = isCurrent
+          ? 'border-amber-400 bg-amber-950/70 text-amber-100 shadow-sm'
+          : 'border-slate-700 hover:border-amber-500/50 bg-slate-900/80 text-slate-300 hover:bg-slate-800';
+        const candDataEsc = encodeURIComponent(JSON.stringify(cand));
+
+        cHtml += `
+          <button onclick="pickCandidateAndLearn('${candDataEsc}')"
+            class="w-full text-left p-2 rounded-xl border ${activeClass} flex items-center justify-between transition-all cursor-pointer active:scale-[0.99]">
+            <div class="flex items-center gap-2">
+              <span class="text-xs">🎯</span>
+              <div>
+                <div class="text-xs font-bold">${cand.name}</div>
+                <div class="text-[9px] text-slate-400 font-mono">${cand.board_name}</div>
+              </div>
+            </div>
+            <div class="text-[10px] font-bold ${isCurrent ? 'text-emerald-400' : 'text-slate-400'}">
+              ${isCurrent ? '● Selezionata' : 'Tocca per scegliere'}
+            </div>
+          </button>
+        `;
+      });
+      candList.innerHTML = cHtml;
+    }
+
+    function pickCandidateAndLearn(candJsonStr) {
+      try {
+        const cand = JSON.parse(decodeURIComponent(candJsonStr));
+        selectedProjectId = cand.id;
+
+        // Aggiorna nome commessa in preview
+        const projNameEl = document.getElementById('previewProjectName');
+        const boardBadgeEl = document.getElementById('previewBoardBadge');
+        projNameEl.innerHTML = `<span class="text-white">${cand.name}</span> <span class="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-bold ml-1">✓ Scelto a mano</span>`;
+        boardBadgeEl.innerText = cand.board_name || "Monday";
+
+        // Re-render pills con la nuova selezione attiva
+        renderCandidatesPills(currentCandidates, cand.id);
+
+        // Feedback immediato al server per auto-apprendimento
+        fetch('/api/voice-feedback', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeaders()
+          },
+          body: JSON.stringify({
+            phrase: previewCleanText,
+            project_id: cand.id,
+            project_name: cand.name,
+            board_id: cand.board_id
+          })
+        }).catch(err => console.error('Errore auto-apprendimento:', err));
+
+        playBeep(750, 0.12);
+        // Riavvia countdown di sicurezza 3.5s per dare tempo di confermare
+        startCountdown();
+      } catch (e) {
+        console.error('Errore selezione candidato:', e);
+      }
+    }
+
+    function startCountdown() {
+      clearPreviewTimer();
       const TOTAL_MS = 3500;
       let remainingMs = TOTAL_MS;
+      const progressBar = document.getElementById('previewProgressBar');
+      const countdownText = document.getElementById('previewCountdownText');
+      if (!progressBar || !countdownText) return;
       progressBar.style.width = '100%';
       countdownText.innerText = `Invio automatico tra 3.5s...`;
 
@@ -770,21 +846,19 @@
       document.getElementById('statusDesc').innerText = 'Invio definitivo delle modifiche in corso';
 
       try {
-        const pin = getStoredPin();
+        const headers = {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        };
         const resp = await fetch('/api/voice-command', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-AMR-PIN': pin
-          },
-          body: JSON.stringify({ text: text })
+          headers: headers,
+          body: JSON.stringify({ 
+            text: text, 
+            project_id: selectedProjectId, 
+            user_name: getStoredUserName() 
+          })
         });
-
-        if (resp.status === 401) {
-          updateUI('idle');
-          showPinModal('PIN aziendale richiesto per inviare comandi vocali.');
-          return;
-        }
 
         if (resp.status === 429) {
           updateUI('idle');
@@ -907,131 +981,161 @@
       await startRecording();
     }
 
-    // === PIN AUTHENTICATION & USER PROFILE LOGIC ===
+    // === GESTIONE DIPENDENTI E PROFILO (ZERO PIN, 1 TOCCO) ===
+    let allEmployees = [];
+
+    function getStoredUser() {
+      try {
+        const u = localStorage.getItem('amr_user');
+        return u ? JSON.parse(u) : null;
+      } catch(e) { return null; }
+    }
+
+    function getStoredUserName() {
+      const u = getStoredUser();
+      return u ? u.name : (localStorage.getItem('amr_user_name') || 'Operatore Produzione');
+    }
+
     function getStoredPin() {
       return localStorage.getItem('amr_pin') || '';
     }
 
-    function savePin(pin, user) {
-      localStorage.setItem('amr_pin', pin);
-      if (user) {
-        localStorage.setItem('amr_user', JSON.stringify(user));
-        updateUserBar(user);
+    function getAuthHeaders() {
+      const headers = {};
+      const u = getStoredUser();
+      if (u && u.name) {
+        headers['X-AMR-USER'] = encodeURIComponent(u.name);
       }
-      document.cookie = `amr_pin=${pin}; path=/; max-age=31536000; SameSite=Lax`;
+      const pin = getStoredPin();
+      if (pin) {
+        headers['X-AMR-PIN'] = pin;
+      }
+      return headers;
     }
 
     function updateUserBar(user) {
-      if (!user) return;
       const bar = document.getElementById('userBar');
       const name = document.getElementById('userName');
       const dept = document.getElementById('userDept');
       const badge = document.getElementById('userRoleBadge');
       const icon = document.getElementById('userIcon');
 
-      name.innerText = user.name || 'Utente';
-      dept.innerText = user.label ? `(${user.label})` : (user.department ? `(${user.department})` : '');
+      const u = user || { name: 'Operatore Produzione', department: 'Produzione', is_commercial: false };
 
-      if (user.is_commercial) {
+      name.innerText = u.name || 'Operatore Produzione';
+      dept.innerText = u.label ? `(${u.label})` : (u.department ? `(${u.department})` : '');
+
+      if (u.is_commercial) {
         icon.innerText = '💼';
         badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ml-1 bg-amber-950/80 text-amber-300 border border-amber-500/40';
         badge.innerText = 'Commerciale & Tutte le Schede';
       } else {
         icon.innerText = '⚙️';
         badge.className = 'text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ml-1 bg-blue-950/80 text-blue-300 border border-blue-500/40';
-        badge.innerText = 'Accesso Officina';
+        badge.innerText = 'Accesso Produzione';
       }
       bar.classList.remove('hidden');
     }
 
-    function logoutPin() {
-      localStorage.removeItem('amr_pin');
-      localStorage.removeItem('amr_user');
-      document.cookie = 'amr_pin=; path=/; max-age=0';
-      document.getElementById('userBar').classList.add('hidden');
-      showPinModal('Inserisci il PIN per cambiare account o accedere.');
-    }
-
-    function showPinModal(errorMsg) {
-      const modal = document.getElementById('pinModal');
-      const err = document.getElementById('pinErrorMsg');
-      if (errorMsg) {
-        err.innerText = errorMsg;
-        err.classList.remove('hidden');
-      } else {
-        err.classList.add('hidden');
+    async function fetchEmployees() {
+      try {
+        const resp = await fetch('/api/employees');
+        if (resp.ok) {
+          const data = await resp.json();
+          allEmployees = data.employees || [];
+          renderEmployeesList();
+        }
+      } catch(e) {
+        console.error('Errore caricamento lista dipendenti:', e);
       }
-      modal.classList.remove('hidden');
-      setTimeout(() => document.getElementById('pinInput').focus(), 150);
     }
 
-    function hidePinModal() {
-      document.getElementById('pinModal').classList.add('hidden');
-    }
+    function renderEmployeesList() {
+      const container = document.getElementById('employeesListContainer');
+      if (!container) return;
 
-    async function submitPin() {
-      const input = document.getElementById('pinInput');
-      const pin = input.value.trim();
-      const btn = document.getElementById('pinSubmitBtn');
-      const err = document.getElementById('pinErrorMsg');
-
-      if (!pin) {
-        err.innerText = 'Inserisci il PIN personale aziendale';
-        err.classList.remove('hidden');
+      if (!allEmployees || allEmployees.length === 0) {
+        container.innerHTML = '<div class="p-3 text-center text-xs text-slate-400">Nessun dipendente trovato.</div>';
         return;
       }
 
-      btn.disabled = true;
-      btn.innerText = 'Verifica in corso...';
+      const currentUser = getStoredUser();
+      const currentName = currentUser ? currentUser.name : '';
+
+      let html = '';
+      allEmployees.forEach(emp => {
+        const isSelected = (emp.name === currentName);
+        const activeBorder = isSelected ? 'border-[var(--amr-red)] bg-slate-800' : 'border-slate-800 hover:border-slate-700 bg-slate-900/80';
+        const roleIcon = emp.is_commercial ? '💼' : '⚙️';
+        const roleColor = emp.is_commercial ? 'text-amber-400' : 'text-slate-400';
+
+        html += `
+          <button onclick="selectEmployee('${encodeURIComponent(JSON.stringify(emp))}')"
+            class="w-full p-2.5 rounded-xl border ${activeBorder} flex items-center justify-between text-left transition-all active:scale-[0.98] cursor-pointer hover:bg-slate-800">
+            <div class="flex items-center gap-2.5">
+              <span class="text-base">${roleIcon}</span>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>${emp.name}</span>
+                  ${isSelected ? '<span class="text-[9px] bg-red-950 text-red-300 border border-red-500/40 px-1.5 py-0.5 rounded font-bold">ATTIVO</span>' : ''}
+                </div>
+                <div class="text-[10px] ${roleColor}">${emp.label || emp.department}</div>
+              </div>
+            </div>
+            <span class="text-slate-500 text-xs">➔</span>
+          </button>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function selectEmployee(empJsonStr) {
       try {
-        const resp = await fetch('/api/verify-pin', {
-          method: 'POST',
-          headers: { 'X-AMR-PIN': pin }
-        });
-        const data = await resp.json();
-        if (resp.ok && data.valid) {
-          savePin(pin, data.user);
-          hidePinModal();
-          input.value = '';
-          err.classList.add('hidden');
-        } else {
-          err.innerText = data.error || 'PIN errato';
-          err.classList.remove('hidden');
-        }
-      } catch (e) {
-        err.innerText = 'Errore di connessione al server';
-        err.classList.remove('hidden');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span>Accedi all\'Assistente</span> <span>➔</span>';
+        const emp = JSON.parse(decodeURIComponent(empJsonStr));
+        localStorage.setItem('amr_user', JSON.stringify(emp));
+        localStorage.setItem('amr_user_name', emp.name);
+        document.cookie = `amr_user_name=${encodeURIComponent(emp.name)}; path=/; max-age=31536000; SameSite=Lax`;
+        updateUserBar(emp);
+        closeEmployeePicker();
+        playBeep(700, 0.15);
+      } catch(e) {
+        console.error(e);
       }
     }
 
-    document.getElementById('pinInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') submitPin();
-    });
+    function selectGenericOperator() {
+      const generic = {
+        name: "Operatore Produzione",
+        department: "Reparto Produzione",
+        is_commercial: false,
+        label: "Reparto Produzione AMR"
+      };
+      localStorage.setItem('amr_user', JSON.stringify(generic));
+      localStorage.setItem('amr_user_name', generic.name);
+      document.cookie = `amr_user_name=${encodeURIComponent(generic.name)}; path=/; max-age=31536000; SameSite=Lax`;
+      updateUserBar(generic);
+      closeEmployeePicker();
+      playBeep(500, 0.15);
+    }
+
+    function openEmployeePicker() {
+      renderEmployeesList();
+      document.getElementById('employeePickerModal').classList.remove('hidden');
+    }
+
+    function closeEmployeePicker() {
+      document.getElementById('employeePickerModal').classList.add('hidden');
+    }
 
     window.addEventListener('DOMContentLoaded', async () => {
-      const pin = getStoredPin();
-      const cachedUserStr = localStorage.getItem('amr_user');
-      if (cachedUserStr) {
-        try { updateUserBar(JSON.parse(cachedUserStr)); } catch (e) {}
-      }
-      if (!pin) {
-        showPinModal();
+      await fetchEmployees();
+      const stored = getStoredUser();
+      if (stored) {
+        updateUserBar(stored);
       } else {
-        try {
-          const resp = await fetch('/api/verify-pin', { headers: { 'X-AMR-PIN': pin } });
-          const data = await resp.json();
-          if (resp.ok && data.valid) {
-            savePin(pin, data.user);
-          } else {
-            localStorage.removeItem('amr_pin');
-            localStorage.removeItem('amr_user');
-            document.getElementById('userBar').classList.add('hidden');
-            showPinModal('PIN non più valido o modificato.');
-          }
-        } catch (e) {}
+        updateUserBar(null);
+        // Suggerisci la scelta con delicatezza al primo accesso (chiudibile con ✕)
+        setTimeout(() => openEmployeePicker(), 350);
       }
     });
   </script>

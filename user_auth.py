@@ -132,15 +132,15 @@ AUTH_USERS = {
         "label": "Reparto Taglio e Fresa"
     },
 
-    # ── 3. PIN Master / Condiviso Officina ──
+    # ── 3. Profilo Generico Reparto Produzione ──
     str(AMR_MASTER_PIN).strip(): {
         "pin": str(AMR_MASTER_PIN).strip(),
-        "name": "Operatore Officina",
-        "email": "officina@amrrecchia.it",
-        "department": "Officina Produzione",
+        "name": "Operatore Produzione",
+        "email": "produzione@amrrecchia.it",
+        "department": "Reparto Produzione",
         "is_commercial": False,
         "monday_id": None,
-        "label": "Officina Produzione AMR"
+        "label": "Reparto Produzione AMR"
     }
 }
 
@@ -189,6 +189,39 @@ def get_user_by_pin(pin: str) -> dict | None:
     return AUTH_USERS.get(p)
 
 
+def get_user_by_name(name: str) -> dict | None:
+    """Restituisce le informazioni del profilo utente cercando per nome o cognome."""
+    if not name:
+        return None
+    name_clean = str(name).strip().lower()
+    for u in AUTH_USERS.values():
+        if u["name"].lower() == name_clean:
+            return u
+    for u in AUTH_USERS.values():
+        if name_clean in u["name"].lower() or u["name"].lower() in name_clean:
+            return u
+    return None
+
+
+def get_all_employees() -> list[dict]:
+    """Restituisce la lista di tutti i dipendenti registrati dal sistema di timbratura per la selezione rapida."""
+    res = []
+    seen = set()
+    for u in AUTH_USERS.values():
+        n = u["name"]
+        if n not in seen and n not in ["Operatore Produzione", "Operatore Officina"]:
+            seen.add(n)
+            res.append({
+                "name": u["name"],
+                "department": u["department"],
+                "is_commercial": u.get("is_commercial", False),
+                "label": u.get("label", u["department"])
+            })
+    # Commerciali prima, poi produzione alfabetico
+    res.sort(key=lambda x: (not x["is_commercial"], x["name"]))
+    return res
+
+
 def is_board_restricted(board_id: str) -> bool:
     """Indica se la scheda indicata richiede permessi commerciali/direzionali."""
     return str(board_id) in RESTRICTED_BOARDS
@@ -204,7 +237,7 @@ def can_user_access_board(user: dict | None, board_id: str) -> tuple[bool, str]:
     
     board_name = RESTRICTED_BOARDS.get(str(board_id), "RISERVATA")
     if not user:
-        return False, f"La scheda {board_name} richiede autenticazione con PIN aziendale commerciale."
+        return False, f"La scheda {board_name} richiede autorizzazione commerciale o direzione."
     
     if user.get("is_commercial"):
         return True, ""
@@ -214,3 +247,4 @@ def can_user_access_board(user: dict | None, board_id: str) -> tuple[bool, str]:
         f"Accesso limitato: la scheda {board_name} è riservata all'ufficio commerciale e direzione "
         f"(ordini@, info@, amministrazione@, riccardo.g@). L'utente '{user_name}' non è autorizzato a modificarla."
     )
+

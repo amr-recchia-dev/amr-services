@@ -102,18 +102,18 @@ def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/web
 
     b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
     hint = get_active_commesse_hint()
-    hint_text = f"\nClienti e commesse attualmente attivi in officina: {hint}\n" if hint else ""
+    hint_text = f"\nClienti e commesse attualmente attivi in produzione: {hint}\n" if hint else ""
 
     prompt_instructions = (
-        "Sei il modulo di trascrizione e comprensione vocale per l'officina dell'azienda italiana AMR Recchia "
+        "Sei il modulo di trascrizione e comprensione vocale per il reparto produzione dell'azienda italiana AMR Recchia "
         "(reparti: taglio, fresa, pantografo, resine, finiture, verniciatura, assemblaggio, imballo, cantieri).\n"
         f"{hint_text}"
-        "L'operatore in officina può parlare in italiano, in arabo (arabo standard o dialetti nordafricani come marocchino/darija o tunisino) oppure un mix.\n"
+        "L'operatore in produzione può parlare in italiano, in arabo (arabo standard o dialetti nordafricani come marocchino/darija o tunisino) oppure un mix.\n"
         "Ascolta attentamente la nota vocale e restituisci ESCLUSIVAMENTE un JSON valido con questa struttura:\n"
         "{\n"
         '  "language": "it" oppure "ar" oppure "mixed",\n'
         '  "transcription": "trascrizione fedele e letterale delle parole pronunciate nella lingua originale",\n'
-        '  "italian_translation": "traduzione e normalizzazione fedele in italiano, adatta al gergo di officina AMR (con i nomi corretti di commesse/clienti, reparti: taglio, fresa, resine, finiture, assemblaggio, cantieri, tempi di lavoro, stati ed eventuali colleghi da taggare)"\n'
+        '  "italian_translation": "traduzione e normalizzazione fedele in italiano, adatta al gergo di produzione AMR (con i nomi corretti di commesse/clienti, reparti: taglio, fresa, resine, finiture, assemblaggio, cantieri, tempi di lavoro, stati ed eventuali colleghi da taggare)"\n'
         "}\n"
         "Se l'operatore parla già in italiano, 'italian_translation' sarà identica a 'transcription'."
     )
@@ -183,10 +183,10 @@ def translate_arabic_to_italian_if_needed(text: str) -> dict:
         return {"text": text, "transcription": text, "language": "ar", "italian_translation": text}
         
     prompt = f"""
-Sei il traduttore vocale di officina per l'azienda italiana AMR Recchia.
+Sei il traduttore vocale di produzione per l'azienda italiana AMR Recchia.
 L'operaio ha digitato o pronunciato questa frase in lingua araba:
 "{text}"
-Traduci fedelmente in italiano contestualizzato per officina (reparti: taglio, fresa, resina, finitura, verniciatura, assemblaggio, ore lavorate, nomi clienti/commesse).
+Traduci fedelmente in italiano contestualizzato per il reparto produzione (reparti: taglio, fresa, resina, finitura, verniciatura, assemblaggio, ore lavorate, nomi clienti/commesse).
 Restituisci ESCLUSIVAMENTE un JSON:
 {{
   "language": "ar",
@@ -485,8 +485,23 @@ def normalize_continuous(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
-def match_project_from_text(text: str, projects: list, tagged_users: list = None) -> dict:
-    """Identifica con altissima precisione il progetto citato nel comando vocale."""
+def match_project_from_text(text: str, projects: list, tagged_users: list = None, return_candidates: bool = False):
+    """
+    Identifica il progetto citato nel comando vocale sfruttando:
+    1. Memoria di auto-apprendimento (voice_learning)
+    2. Matching continuo, esatto e fuzzy su tutte le schede Monday
+    Se return_candidates=True, restituisce (best_match, top_candidates) per consentire
+    all'utente di disambiguare commesse simili dello stesso cliente (es. più commesse di Henoto).
+    """
+    import voice_learning
+
+    # 0. Verifica apprendimento permanente
+    learned = voice_learning.get_learned_match(text, projects)
+    if learned:
+        if return_candidates:
+            return learned, [learned]
+        return learned
+
     t_clean = text.lower()
     t_continuous = normalize_continuous(text)
     t_words = [w for w in re.split(r"[\s\-_/.,;:?!]+", t_clean) if len(w) >= 3]
@@ -501,8 +516,7 @@ def match_project_from_text(text: str, projects: list, tagged_users: list = None
             for kw in u.get("keywords", []):
                 tagged_colleague_words.add(kw.lower())
 
-    best_match = None
-    best_score = 0.0
+    scored_candidates = []
 
     for p in projects:
         p_name = p["name"].lower()
@@ -525,7 +539,7 @@ def match_project_from_text(text: str, projects: list, tagged_users: list = None
             if c_norm and len(c_norm) >= 3 and c_norm in t_continuous:
                 score += 200.0
 
-        # 2. Matching parola intera sul nome core (es. \bpermasteelisa\b, \bextreme\b, \bzanesco\b)
+        # 2. Matching parola intera sul nome core (es. \bhenoto\b, \bpermasteelisa\b, \bextreme\b, \bzanesco\b)
         if len(core_name) >= 3 and core_name not in tagged_colleague_words:
             if re.search(r"\b" + re.escape(core_name) + r"\b", t_clean):
                 score += 180.0
@@ -566,13 +580,31 @@ def match_project_from_text(text: str, projects: list, tagged_users: list = None
         elif b_id in [BOARD_PROGETTAZIONE, BOARD_INSTALLAZIONI]:
             score += 8.0
 
-        if score > best_score:
-            best_score = score
-            best_match = p
+        if score >= 35.0:
+            scored_candidates.append((score, p))
 
-    if best_score >= 35.0:
-        return best_match
-    return None
+    scored_candidates.sort(key=lambda x: x[0], reverse=True)
+
+    best_match = scored_candidates[0][1] if scored_candidates else None
+
+    # Estrai candidati per disambiguazione dello stesso cliente o score ravvicinato
+    top_candidates = []
+    if scored_candidates:
+        top_score = scored_candidates[0][0]
+        first_word_best = scored_candidates[0][1]["name"].split()[0].strip().lower()
+        seen_cand_ids = set()
+        for sc, cand in scored_candidates[:6]:
+            cid = str(cand["id"])
+            if cid in seen_cand_ids:
+                continue
+            cand_first = cand["name"].split()[0].strip().lower()
+            if cand_first == first_word_best or sc >= top_score * 0.7:
+                top_candidates.append(cand)
+                seen_cand_ids.add(cid)
+
+    if return_candidates:
+        return best_match, top_candidates
+    return best_match
 
 
 def extract_update_and_tags(spoken_text: str) -> tuple[list, str, bool]:
@@ -625,13 +657,13 @@ def extract_update_and_tags(spoken_text: str) -> tuple[list, str, bool]:
 
 
 
-def process_voice_command(spoken_text: str, original_text: str = None, detected_lang: str = "it", current_user: dict = None) -> dict:
+def process_voice_command(spoken_text: str, original_text: str = None, detected_lang: str = "it", current_user: dict = None, project_id: str = None) -> dict:
     """
     Elabora un comando vocale (in italiano o arabo/multilingua), interpreta l'intento e aggiorna Monday.com.
     Supporta tutte le 10 schede ufficiali del Workspace AMR applicando i permessi di accesso:
     - Schede riservate (COMMERCIALE, AMMINISTRAZIONE, APPUNTAMENTI): consentite solo a utenti commerciali/direzione
     - Schede operative (PRODUZIONE, GESTIONE PROGETTI, PROGETTAZIONE, INSTALLAZIONI, INVENTARIO, PALLET EPS, CONTESTAZIONI):
-      accessibili a tutti gli utenti dell'officina.
+      accessibili a tutti gli utenti del reparto produzione.
     """
     if not original_text:
         # Se contiene caratteri arabi, traduce prima in italiano
@@ -646,13 +678,22 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
 
     is_arabic = (detected_lang == "ar") or (original_text != spoken_text and bool(re.search(r"[\u0600-\u06FF]", original_text or "")))
 
-    logger.info(f"🎙️ Elaborazione comando vocale (lingua: {detected_lang}, utente: {current_user.get('name') if current_user else 'Anonimo'}): \"{spoken_text}\" [Originale: \"{original_text}\"]")
+    logger.info(f"🎙️ Elaborazione comando vocale (lingua: {detected_lang}, utente: {current_user.get('name') if current_user else 'Anonimo'}): \"{spoken_text}\" [Originale: \"{original_text}\"] [ProjectID: {project_id}]")
     
     # Estrazione di eventuali utenti da taggare e del corpo del messaggio
     tagged_users, msg_body, is_update = extract_update_and_tags(spoken_text)
 
     projects = get_active_projects_cache()
-    matched_project = match_project_from_text(spoken_text, projects, tagged_users=tagged_users)
+    matched_project = None
+    if project_id:
+        for p in projects:
+            if str(p.get("id")) == str(project_id):
+                matched_project = p
+                logger.info(f"🎯 Commessa forzata direttamente via project_id={project_id}: '{p.get('name')}'")
+                break
+
+    if not matched_project:
+        matched_project = match_project_from_text(spoken_text, projects, tagged_users=tagged_users)
     
     if not matched_project:
         return {
@@ -683,6 +724,13 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             "board": target_board_name,
             "message": f"🔒 {access_reason}"
         }
+
+    # ── APPRENDIMENTO CONTINUO (AUTO-LEARNING) ──
+    try:
+        import voice_learning
+        voice_learning.learn_project_alias(spoken_text, str(proj_id), proj_name, target_board_id)
+    except Exception as learn_err:
+        logger.warning(f"Errore registrazione apprendimento: {learn_err}")
 
     # Indicatori di stato comuni
     is_done = any(w in t_lower for w in ["fatto", "completat", "finito", "terminat", "pronto", "chiuso"])
@@ -874,7 +922,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
         tags_text = ", ".join([f"@{u['name']}" for u in tagged_users])
         
         lang_header = " (Trasmessa in Arabo ➔ Tradotta in Italiano)" if is_arabic else ""
-        body_html = f"<p>🎙️ <b>Nota Vocale dall'Officina{lang_header}</b>"
+        body_html = f"<p>🎙️ <b>Nota Vocale dal Reparto Produzione{lang_header}</b>"
         if tags_html:
             body_html += f" per {tags_html}:"
         else:
@@ -1098,7 +1146,7 @@ def preview_voice_command(spoken_text: str, original_text: str = None, detected_
 
     tagged_users, msg_body, is_update = extract_update_and_tags(spoken_text)
     projects = get_active_projects_cache()
-    matched_project = match_project_from_text(spoken_text, projects, tagged_users=tagged_users)
+    matched_project, candidates = match_project_from_text(spoken_text, projects, tagged_users=tagged_users, return_candidates=True)
 
     if not matched_project:
         return {
@@ -1114,6 +1162,8 @@ def preview_voice_command(spoken_text: str, original_text: str = None, detected_
             "can_access": True,
             "access_reason": "",
             "clean_text": spoken_text,
+            "has_multiple_candidates": False,
+            "candidates": [],
             "message": "Non ho individuato la commessa. Puoi toccare ✏️ Modifica per inserire o correggere il nome."
         }
 
@@ -1165,7 +1215,7 @@ def preview_voice_command(spoken_text: str, original_text: str = None, detected_
             action_summary += f" • \"{snippet}\""
 
     else:
-        # Reparti Officina (PRODUZIONE e GESTIONE PROGETTI)
+        # Reparti Produzione (PRODUZIONE e GESTIONE PROGETTI)
         step_name = None
         for kw, step_info in DEPARTMENT_STEPS.items():
             if kw in t_lower:
@@ -1199,6 +1249,16 @@ def preview_voice_command(spoken_text: str, original_text: str = None, detected_
 
         action_summary = " • ".join(action_parts) if action_parts else "Avanzamento commessa"
 
+    candidates_list = [
+        {
+            "id": str(c["id"]),
+            "name": c["name"],
+            "board_name": c.get("board_name") or ALL_ACTIVE_BOARDS.get(str(c.get("board_id")), "Monday"),
+            "board_id": str(c.get("board_id"))
+        }
+        for c in (candidates or [])
+    ]
+
     return {
         "success": True,
         "matched": True,
@@ -1206,10 +1266,13 @@ def preview_voice_command(spoken_text: str, original_text: str = None, detected_
         "italian_translation": spoken_text,
         "language": detected_lang,
         "project_name": proj_name,
+        "project_id": str(proj_id if 'proj_id' in locals() else matched_project["id"]),
         "board_name": target_board_name,
         "board_id": target_board_id,
         "action_summary": action_summary,
         "can_access": can_access,
         "access_reason": access_reason if not can_access else "",
-        "clean_text": spoken_text
+        "clean_text": spoken_text,
+        "has_multiple_candidates": len(candidates_list) > 1,
+        "candidates": candidates_list
     }
