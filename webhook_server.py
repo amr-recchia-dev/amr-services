@@ -4,6 +4,7 @@ webhook_server.py - Server Flask che riceve webhook da Monday.com
 Quando "Avvia Esportazione" viene cliccato, archivia il progetto su Google Drive.
 """
 
+from __future__ import annotations
 import os
 import json
 import logging
@@ -18,6 +19,7 @@ import step_time_tracker
 import business_time
 import department_syncer
 import voice_agent
+import user_auth
 
 load_dotenv()
 
@@ -55,8 +57,8 @@ def get_client_ip() -> str:
         "127.0.0.1"
     )
 
-def check_pin_auth() -> bool:
-    """Verifica la validità del PIN inviato via header, cookie o parametro."""
+def get_current_user_from_request() -> dict | None:
+    """Estrae e convalida il profilo utente a partire dal PIN inviato via header, cookie o JSON."""
     provided_pin = (
         request.headers.get("X-AMR-PIN") or
         request.cookies.get("amr_pin") or
@@ -66,9 +68,13 @@ def check_pin_auth() -> bool:
         data = request.get_json(silent=True) or {}
         provided_pin = data.get("pin")
 
-    if not provided_pin or str(provided_pin).strip() != str(AMR_ACCESS_PIN).strip():
-        return False
-    return True
+    if not provided_pin:
+        return None
+    return user_auth.get_user_by_pin(provided_pin)
+
+def check_pin_auth() -> bool:
+    """Verifica se la richiesta proviene da un PIN aziendale valido."""
+    return get_current_user_from_request() is not None
 
 # === Setup logging (compatibile con Railway/Render: stdout se in cloud) ===
 log_handlers = [logging.StreamHandler()]
@@ -257,8 +263,19 @@ def api_verify_pin():
     if not allowed:
         return jsonify({"valid": False, "error": f"Troppi tentativi errati. Riprova tra {retry_after}s."}), 429
 
-    if check_pin_auth():
-        return jsonify({"valid": True, "message": "PIN aziendale valido"}), 200
+    user = get_current_user_from_request()
+    if user:
+        return jsonify({
+            "valid": True,
+            "message": f"Bentornato {user['name']}",
+            "user": {
+                "name": user["name"],
+                "email": user["email"],
+                "department": user["department"],
+                "is_commercial": user.get("is_commercial", False),
+                "label": user.get("label", user["department"])
+            }
+        }), 200
     return jsonify({"valid": False, "error": "PIN non corretto"}), 401
 
 
@@ -349,12 +366,15 @@ def api_voice_command():
         text = tr_info.get("text", text)
         detected_lang = tr_info.get("language", "it")
 
-    logger.info(f"📝 Testo per Voice Agent (lingua: {detected_lang}): \"{text}\" [Originale: \"{original_text}\"]")
+    curr_user = get_current_user_from_request()
+    user_label = curr_user.get("name") if curr_user else "Anonimo"
+    logger.info(f"📝 Testo per Voice Agent (lingua: {detected_lang}, utente: {user_label}): \"{text}\" [Originale: \"{original_text}\"]")
     try:
         result = voice_agent.process_voice_command(
             spoken_text=text,
             original_text=original_text,
-            detected_lang=detected_lang
+            detected_lang=detected_lang,
+            current_user=curr_user
         )
         return jsonify(result), 200
     except Exception as e:

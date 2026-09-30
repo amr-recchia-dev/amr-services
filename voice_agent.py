@@ -9,6 +9,7 @@ Comprende comandi vocali in italiano per:
 - Fuzzy matching intelligente su nomi clienti e progetti reali di Monday.com
 """
 
+from __future__ import annotations
 import os, re, json, difflib, logging, requests, base64, time
 from dotenv import load_dotenv
 
@@ -18,13 +19,26 @@ logger = logging.getLogger("voice_agent")
 MONDAY_TOKEN = os.getenv("MONDAY_API_TOKEN")
 MONDAY_API_URL = "https://api.monday.com/v2"
 
-# Schede Ufficiali Workspace AMR (Monday Originali)
-BOARD_GESTIONE_PROGETTI = "1865197409"  # GESTIONE PROGETTI (Originale)
-BOARD_PRODUZIONE = "1865050352"         # PRODUZIONE (Originale)
-BOARD_COMMERCIALE = "1865049112"        # COMMERCIALE (Originale)
-BOARD_PROGETTAZIONE = "1988908927"      # PROGETTAZIONE (Originale)
-BOARD_TAGLIO = "5086546323"
-BOARD_FINITURE = "5088215890"
+from user_auth import (
+    AUTH_USERS,
+    BOARD_COMMERCIALE,
+    BOARD_PRODUZIONE,
+    BOARD_GESTIONE_PROGETTI,
+    BOARD_APPUNTAMENTI,
+    BOARD_PROGETTAZIONE,
+    BOARD_INVENTARIO,
+    BOARD_AMMINISTRAZIONE,
+    BOARD_CONTESTAZIONI,
+    BOARD_INSTALLAZIONI,
+    BOARD_PALLET_EPS,
+    BOARD_TAGLIO,
+    BOARD_FINITURE,
+    RESTRICTED_BOARDS,
+    ALL_ACTIVE_BOARDS,
+    get_user_by_pin,
+    can_user_access_board,
+    is_board_restricted
+)
 
 # Mappatura stati per le schede originali di Monday
 STATUS_GESTIONE_PROGETTI = {
@@ -41,14 +55,14 @@ STATUS_PRODUZIONE = {
 }
 
 def get_active_commesse_hint() -> str:
-    """Restituisce una sintesi dei clienti e numeri commessa attivi per guidare la trascrizione Gemini."""
+    """Restituisce una sintesi dei clienti e numeri commessa attivi su tutte le schede per guidare la trascrizione Gemini."""
     try:
         projs = get_active_projects_cache()
         hints = []
-        for p in projs[:28]:
+        for p in projs[:50]:
             c = p.get("commessa")
             n = p.get("name")
-            if c and n:
+            if c and n and c not in n:
                 hints.append(f"{n} ({c})")
             elif n:
                 hints.append(n)
@@ -269,10 +283,16 @@ PROJECTS_CACHE_TTL = 45  # secondi
 
 def get_active_projects_cache(force_refresh: bool = False) -> list:
     """
-    Recupera e mette in cache la lista dei progetti e commesse attive interrogando sia la scheda nuova
-    (GESTIONE PROGETTI NEW) sia le schede storiche/vecchie (GESTIONE PROGETTI e COMMERCIALE),
-    arricchendoli con i link bidirezionali per consentire l'uso simultaneo sia delle
-    nuove che delle vecchie schede da parte degli operai in officina.
+    Recupera e mette in cache tutti i progetti, commesse, installazioni, materiali e appuntamenti
+    attivi interrogando le 10 schede ufficiali del Workspace AMR visibili su Monday:
+    - GESTIONE PROGETTI & PRODUZIONE (officina e produzione)
+    - COMMERCIALE (preventivi e trattative, accesso riservato)
+    - PROGETTAZIONE (disegni e 3D)
+    - INSTALLAZIONI (cantieri ed esterni)
+    - INVENTARIO MATERIALI / PRODOTTI
+    - APPUNTAMENTI (visite e incontri)
+    - AMMINISTRAZIONE & CONTESTAZIONI
+    - PALLET EPS COMPATTATO 2025
     """
     global _PROJECTS_CACHE, _PROJECTS_CACHE_TIME
     now = time.time()
@@ -281,17 +301,33 @@ def get_active_projects_cache(force_refresh: bool = False) -> list:
 
     headers = {"Authorization": MONDAY_TOKEN, "API-Version": "2024-10"}
 
+    board_ids = [
+        BOARD_GESTIONE_PROGETTI,
+        BOARD_PRODUZIONE,
+        BOARD_COMMERCIALE,
+        BOARD_PROGETTAZIONE,
+        BOARD_INSTALLAZIONI,
+        BOARD_INVENTARIO,
+        BOARD_APPUNTAMENTI,
+        BOARD_AMMINISTRAZIONE,
+        BOARD_CONTESTAZIONI,
+        BOARD_PALLET_EPS
+    ]
+
     q = f"""
     query {{
-      boards(ids: ["{BOARD_GESTIONE_PROGETTI}", "{BOARD_PRODUZIONE}", "{BOARD_COMMERCIALE}"]) {{
+      boards(ids: {json.dumps(board_ids)}) {{
         id
         name
-        items_page(limit: 120) {{
+        items_page(limit: 100) {{
           items {{
             id
             name
             state
-            column_values(ids: ["testo_mkmnxqsk", "project_status", "color_mm1v12gx", "testo_mkn1sqb4", "color_mkn4s77r"]) {{
+            column_values(ids: [
+              "testo_mkmnxqsk", "project_status", "color_mm1v12gx",
+              "testo_mkn1sqb4", "color_mkn4s77r", "label_mkn37zp7"
+            ]) {{
               id
               text
             }}
@@ -301,23 +337,31 @@ def get_active_projects_cache(force_refresh: bool = False) -> list:
     }}
     """
     try:
-        resp = requests.post(MONDAY_API_URL, headers=headers, json={"query": q}, timeout=12)
+        resp = requests.post(MONDAY_API_URL, headers=headers, json={"query": q}, timeout=15)
         boards_data = {str(b.get("id")): b for b in resp.json().get("data", {}).get("boards", [])}
 
-        # Mappa item produzione per nome
+        # 1. Mappatura PRODUZIONE per nome normalizzato
         prod_map = {}
         for it in boards_data.get(BOARD_PRODUZIONE, {}).get("items_page", {}).get("items", []):
             if it.get("state") == "active":
                 prod_map[it["name"].strip().lower()] = str(it["id"])
 
-        # Mappa item commerciale per nome
+        # 2. Mappatura COMMERCIALE per nome normalizzato
         comm_map = {}
         for it in boards_data.get(BOARD_COMMERCIALE, {}).get("items_page", {}).get("items", []):
             if it.get("state") == "active":
                 comm_map[it["name"].strip().lower()] = str(it["id"])
 
+        # 3. Mappatura GESTIONE PROGETTI per nome normalizzato
+        gp_map = {}
+        for it in boards_data.get(BOARD_GESTIONE_PROGETTI, {}).get("items_page", {}).get("items", []):
+            if it.get("state") == "active":
+                gp_map[it["name"].strip().lower()] = str(it["id"])
+
         clean = []
-        # 1. Progetti principali da GESTIONE PROGETTI (1865197409)
+        seen_item_ids = set()
+
+        # Priorità 1: GESTIONE PROGETTI (1865197409)
         for it in boards_data.get(BOARD_GESTIONE_PROGETTI, {}).get("items_page", {}).get("items", []):
             if it.get("state") != "active":
                 continue
@@ -327,16 +371,41 @@ def get_active_projects_cache(force_refresh: bool = False) -> list:
             clean.append({
                 "id": str(it["id"]),
                 "board_id": BOARD_GESTIONE_PROGETTI,
+                "board_name": "GESTIONE PROGETTI",
                 "name": clean_name,
                 "commessa": cols.get("testo_mkmnxqsk", ""),
                 "progetto": "",
                 "stato": cols.get("project_status", ""),
                 "produzione_id": prod_map.get(norm_name),
-                "commerciale_id": comm_map.get(norm_name)
+                "commerciale_id": comm_map.get(norm_name),
+                "requires_commercial": False
             })
+            seen_item_ids.add(str(it["id"]))
 
-        # 2. Preventivi o richieste da COMMERCIALE non ancora in Gestione Progetti
+        # Priorità 2: PRODUZIONE (item non presenti su Gestione Progetti)
         existing_names = {p["name"].lower() for p in clean}
+        for it in boards_data.get(BOARD_PRODUZIONE, {}).get("items_page", {}).get("items", []):
+            if it.get("state") != "active":
+                continue
+            norm_name = it["name"].strip().lower()
+            if norm_name not in existing_names:
+                cols = {cv["id"]: cv.get("text") for cv in it.get("column_values", []) if cv.get("text")}
+                clean.append({
+                    "id": str(it["id"]),
+                    "board_id": BOARD_PRODUZIONE,
+                    "board_name": "PRODUZIONE",
+                    "name": it["name"].strip(),
+                    "commessa": "",
+                    "progetto": "",
+                    "stato": cols.get("color_mm1v12gx", ""),
+                    "produzione_id": str(it["id"]),
+                    "gestione_id": gp_map.get(norm_name),
+                    "requires_commercial": False
+                })
+                existing_names.add(norm_name)
+                seen_item_ids.add(str(it["id"]))
+
+        # Priorità 3: COMMERCIALE (1865049112 - preventivi / ordini commerciali)
         for it in boards_data.get(BOARD_COMMERCIALE, {}).get("items_page", {}).get("items", []):
             if it.get("state") != "active":
                 continue
@@ -346,34 +415,69 @@ def get_active_projects_cache(force_refresh: bool = False) -> list:
                 clean.append({
                     "id": str(it["id"]),
                     "board_id": BOARD_COMMERCIALE,
+                    "board_name": "COMMERCIALE",
                     "name": it["name"].strip(),
                     "commessa": "",
                     "progetto": cols.get("testo_mkn1sqb4", ""),
                     "stato": cols.get("color_mkn4s77r", ""),
+                    "preventivo_accettato": cols.get("label_mkn37zp7", ""),
                     "produzione_id": prod_map.get(norm_name),
-                    "commerciale_id": str(it["id"])
+                    "gestione_id": gp_map.get(norm_name),
+                    "requires_commercial": True
                 })
                 existing_names.add(norm_name)
+                seen_item_ids.add(str(it["id"]))
+
+        # Priorità 4: Tutte le altre schede operative e amministrative dello screenshot
+        other_board_specs = [
+            (BOARD_PROGETTAZIONE, "PROGETTAZIONE", False),
+            (BOARD_INSTALLAZIONI, "INSTALLAZIONI", False),
+            (BOARD_INVENTARIO, "INVENTARIO MATERIALI / PRODOTTI", False),
+            (BOARD_APPUNTAMENTI, "APPUNTAMENTI", True),
+            (BOARD_AMMINISTRAZIONE, "AMMINISTRAZIONE", True),
+            (BOARD_CONTESTAZIONI, "CONTESTAZIONI", False),
+            (BOARD_PALLET_EPS, "PALLET EPS COMPATTATO 2025", False)
+        ]
+        for b_id, b_title, req_comm in other_board_specs:
+            for it in boards_data.get(b_id, {}).get("items_page", {}).get("items", []):
+                if it.get("state") != "active":
+                    continue
+                s_id = str(it["id"])
+                if s_id in seen_item_ids:
+                    continue
+                cols = {cv["id"]: cv.get("text") for cv in it.get("column_values", []) if cv.get("text")}
+                clean.append({
+                    "id": s_id,
+                    "board_id": b_id,
+                    "board_name": b_title,
+                    "name": it["name"].strip(),
+                    "commessa": "",
+                    "progetto": "",
+                    "stato": cols.get("project_status") or cols.get("color_mkn4s77r") or "",
+                    "requires_commercial": req_comm
+                })
+                seen_item_ids.add(s_id)
 
         _PROJECTS_CACHE = clean
         _PROJECTS_CACHE_TIME = now
-        logger.info(f"✅ Cache schede originali AMR aggiornata: {len(clean)} commesse attive caricate.")
+        logger.info(f"✅ Cache 10 schede ufficiali AMR aggiornata: {len(clean)} item attivi caricati.")
         return clean
     except Exception as e:
-        logger.error(f"Errore caricamento progetti schede originali: {e}")
+        logger.error(f"Errore caricamento schede AMR: {e}")
         return _PROJECTS_CACHE or []
 
 
 # Mappatura membri del team AMR per tag e notifiche
 TEAM_USERS = [
-    {"id": "71533914", "name": "Riccardo Gazzola", "keywords": ["riccardo", "gazzola", "riccardo gazzola"]},
-    {"id": "71478506", "name": "Alessandro Recchia", "keywords": ["alessandro recchia", "alessandro", "recchia"]},
-    {"id": "71489364", "name": "Gary Innocente", "keywords": ["gary", "innocente", "gary innocente"]},
-    {"id": "71533503", "name": "Maurizio Nordio", "keywords": ["maurizio", "nordio", "maurizio nordio"]},
-    {"id": "71533953", "name": "Andrea Moscon", "keywords": ["andrea", "moscon", "andrea moscon"]},
+    {"id": "71533914", "name": "Riccardo Gazzola", "keywords": ["riccardo", "gazzola", "riccardo gazzola", "tech"]},
+    {"id": "71478506", "name": "Alessandro Recchia", "keywords": ["alessandro recchia", "alessandro", "recchia", "amministrazione"]},
+    {"id": "71489364", "name": "Gary Innocente", "keywords": ["gary innocente", "gary", "innocente", "ordini", "ufficio ordini"]},
+    {"id": "71533482", "name": "Massimo Recchia", "keywords": ["massimo recchia", "massimo", "info", "commerciale"]},
+    {"id": "71533503", "name": "Maurizio Nordio", "keywords": ["maurizio", "nordio", "maurizio nordio", "produzione"]},
+    {"id": "71533953", "name": "Andrea Moscon", "keywords": ["andrea", "moscon", "andrea moscon", "finiture"]},
     {"id": "71533986", "name": "Taglio AMR", "keywords": ["tagga taglio", "avvisa taglio", "reparto taglio"]},
-    {"id": "78115008", "name": "Antonio Ambrosino", "keywords": ["antonio", "ambrosino"]},
-    {"id": "78744209", "name": "Jamal Sriti", "keywords": ["jamal", "sriti"]}
+    {"id": "78115008", "name": "Antonio Ambrosino", "keywords": ["antonio", "ambrosino", "sicurezza", "hse"]},
+    {"id": "78744209", "name": "Jamal Sriti", "keywords": ["jamal", "sriti", "verniciatura"]}
 ]
 
 def normalize_continuous(s: str) -> str:
@@ -381,12 +485,22 @@ def normalize_continuous(s: str) -> str:
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
-def match_project_from_text(text: str, projects: list) -> dict:
+def match_project_from_text(text: str, projects: list, tagged_users: list = None) -> dict:
     """Identifica con altissima precisione il progetto citato nel comando vocale."""
     t_clean = text.lower()
     t_continuous = normalize_continuous(text)
     t_words = [w for w in re.split(r"[\s\-_/.,;:?!]+", t_clean) if len(w) >= 3]
     
+    # Raccogli parole chiave associate ai colleghi menzionati per evitare che "tagga Alessandro"
+    # venga scambiato per una commessa/appuntamento chiamata "Alessandro"
+    tagged_colleague_words = set()
+    if tagged_users:
+        for u in tagged_users:
+            tagged_colleague_words.add(u["name"].lower())
+            tagged_colleague_words.update(u["name"].lower().split())
+            for kw in u.get("keywords", []):
+                tagged_colleague_words.add(kw.lower())
+
     best_match = None
     best_score = 0.0
 
@@ -394,8 +508,16 @@ def match_project_from_text(text: str, projects: list) -> dict:
         p_name = p["name"].lower()
         p_proj = (p.get("progetto") or "").lower()
         p_comm = (p.get("commessa") or "").lower()
-        
+        b_id = str(p.get("board_id"))
+
+        # Se l'item è sulla scheda APPUNTAMENTI e il suo nome coincide con il collega taggato, ignoralo
+        if b_id == BOARD_APPUNTAMENTI and p_name in tagged_colleague_words:
+            continue
+
         score = 0.0
+
+        # Nome pulito della commessa (senza date finali es. "permasteelisa 22.07.26" -> "permasteelisa")
+        core_name = re.sub(r"\s+\d{1,2}[\./\-]\d{1,2}[\./\-]\d{2,4}.*", "", p_name).strip()
         
         # 1. Matching continuo sul codice commessa (es. 26_565, 26 565, 26_24)
         if p_comm:
@@ -403,21 +525,26 @@ def match_project_from_text(text: str, projects: list) -> dict:
             if c_norm and len(c_norm) >= 3 and c_norm in t_continuous:
                 score += 200.0
 
-        # 2. Matching continuo sul primo token / parola chiave cliente (es. 'extreme', 'zanesco', 'led4led')
-        p_first_word = normalize_continuous(p_name.split()[0])
-        if len(p_first_word) >= 3 and p_first_word in t_continuous:
-            score += 120.0
+        # 2. Matching parola intera sul nome core (es. \bpermasteelisa\b, \bextreme\b, \bzanesco\b)
+        if len(core_name) >= 3 and core_name not in tagged_colleague_words:
+            if re.search(r"\b" + re.escape(core_name) + r"\b", t_clean):
+                score += 180.0
+            elif len(core_name) >= 4 and normalize_continuous(core_name) in t_continuous:
+                score += 100.0
 
-        # 3. Matching continuo su tutto il nome del progetto
-        p_full_cont = normalize_continuous(p_name)
-        if len(p_full_cont) >= 4 and (p_full_cont in t_continuous or t_continuous in p_full_cont):
-            score += 150.0
+        # 3. Matching prima parola come parola intera
+        first_word = p_name.split()[0].strip().lower()
+        if len(first_word) >= 3 and first_word not in tagged_colleague_words:
+            if re.search(r"\b" + re.escape(first_word) + r"\b", t_clean):
+                score += 120.0
 
         p_tokens = [tok for tok in re.split(r"[\s\-_/.,]+", p_name) if len(tok) >= 3]
         if p_proj:
             p_tokens.extend([tok for tok in re.split(r"[\s\-_/.,]+", p_proj) if len(tok) >= 3])
 
         for w in t_words:
+            if w in tagged_colleague_words:
+                continue
             if w in p_tokens:
                 score += 20.0
             elif w in p_name:
@@ -429,9 +556,15 @@ def match_project_from_text(text: str, projects: list) -> dict:
                 if close:
                     score += 8.0
 
-        # Priorità a GESTIONE PROGETTI rispetto a COMMERCIALE
-        if p.get("board_id") == BOARD_GESTIONE_PROGETTI:
+        # Priorità a schede di commessa e produzione rispetto ad altre
+        if b_id == BOARD_GESTIONE_PROGETTI:
+            score += 15.0
+        elif b_id == BOARD_PRODUZIONE:
+            score += 12.0
+        elif b_id == BOARD_COMMERCIALE:
             score += 10.0
+        elif b_id in [BOARD_PROGETTAZIONE, BOARD_INSTALLAZIONI]:
+            score += 8.0
 
         if score > best_score:
             best_score = score
@@ -492,10 +625,13 @@ def extract_update_and_tags(spoken_text: str) -> tuple[list, str, bool]:
 
 
 
-def process_voice_command(spoken_text: str, original_text: str = None, detected_lang: str = "it") -> dict:
+def process_voice_command(spoken_text: str, original_text: str = None, detected_lang: str = "it", current_user: dict = None) -> dict:
     """
     Elabora un comando vocale (in italiano o arabo/multilingua), interpreta l'intento e aggiorna Monday.com.
-    Se il testo originale è in arabo, lo traduce per i record di Monday.com e per le schede di reparto.
+    Supporta tutte le 10 schede ufficiali del Workspace AMR applicando i permessi di accesso:
+    - Schede riservate (COMMERCIALE, AMMINISTRAZIONE, APPUNTAMENTI): consentite solo a utenti commerciali/direzione
+    - Schede operative (PRODUZIONE, GESTIONE PROGETTI, PROGETTAZIONE, INSTALLAZIONI, INVENTARIO, PALLET EPS, CONTESTAZIONI):
+      accessibili a tutti gli utenti dell'officina.
     """
     if not original_text:
         # Se contiene caratteri arabi, traduce prima in italiano
@@ -510,10 +646,13 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
 
     is_arabic = (detected_lang == "ar") or (original_text != spoken_text and bool(re.search(r"[\u0600-\u06FF]", original_text or "")))
 
-    logger.info(f"🎙️ Elaborazione comando vocale (lingua: {detected_lang}): \"{spoken_text}\" [Originale: \"{original_text}\"]")
+    logger.info(f"🎙️ Elaborazione comando vocale (lingua: {detected_lang}, utente: {current_user.get('name') if current_user else 'Anonimo'}): \"{spoken_text}\" [Originale: \"{original_text}\"]")
     
+    # Estrazione di eventuali utenti da taggare e del corpo del messaggio
+    tagged_users, msg_body, is_update = extract_update_and_tags(spoken_text)
+
     projects = get_active_projects_cache()
-    matched_project = match_project_from_text(spoken_text, projects)
+    matched_project = match_project_from_text(spoken_text, projects, tagged_users=tagged_users)
     
     if not matched_project:
         return {
@@ -526,11 +665,208 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
 
     proj_name = matched_project["name"]
     proj_id = matched_project["id"]
+    target_board_id = str(matched_project.get("board_id"))
+    target_board_name = matched_project.get("board_name") or ALL_ACTIVE_BOARDS.get(target_board_id, "Monday")
     t_lower = spoken_text.lower()
     headers = {"Authorization": MONDAY_TOKEN, "API-Version": "2024-10", "Content-Type": "application/json"}
 
-    # 1. VERIFICA SE È UNA NOTA / AGGIORNAMENTO SCRITTO CON MENZIONI O TAG
-    tagged_users, msg_body, is_update = extract_update_and_tags(spoken_text)
+    # ── CONTROLLO ACCESSO E PERMESSI (RBAC) ──
+    can_access, access_reason = can_user_access_board(current_user, target_board_id)
+    if not can_access:
+        logger.warning(f"⛔ Accesso negato per {current_user} sulla scheda {target_board_name} (#{proj_id})")
+        return {
+            "success": False,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
+            "project": proj_name,
+            "board": target_board_name,
+            "message": f"🔒 {access_reason}"
+        }
+
+    # Indicatori di stato comuni
+    is_done = any(w in t_lower for w in ["fatto", "completat", "finito", "terminat", "pronto", "chiuso"])
+    is_blocked = any(w in t_lower for w in ["bloccat", "fermo", "manca", "pausa", "attesa", "problema"])
+    is_progress = any(w in t_lower for w in ["in corso", "iniziato", "svolgimento", "al lavoro", "partito", "in produzione", "arrivati"])
+
+    # ══════════════════════════════════════════════════════════════════
+    # CASO 1: SCHEDA COMMERCIALE (1865049112) - Riservata Ordini/Info/Amministrazione
+    # ══════════════════════════════════════════════════════════════════
+    if target_board_id == BOARD_COMMERCIALE:
+        comm_updates = []
+        is_accepted = any(w in t_lower for w in ["accettat", "confermat", "approvat", "vinto", "preso", "confermato"])
+        is_rejected = any(w in t_lower for w in ["rifiutat", "annullat", "perso", "bocciat", "scartat", "cancellat"])
+        is_pending = any(w in t_lower for w in ["in attesa", "inviato", "in trattativa", "da inviare"])
+
+        # Aggiornamento stato preventivo su Monday
+        if is_accepted:
+            mut_c = """
+            mutation ($b: ID!, $it: ID!, $c1: String!, $v1: JSON!, $c2: String!, $v2: JSON!) {
+              c1: change_column_value(board_id: $b, item_id: $it, column_id: $c1, value: $v1) { id }
+              c2: change_column_value(board_id: $b, item_id: $it, column_id: $c2, value: $v2) { id }
+            }
+            """
+            requests.post(MONDAY_API_URL, headers=headers, json={
+                "query": mut_c,
+                "variables": {
+                    "b": BOARD_COMMERCIALE, "it": str(proj_id),
+                    "c1": "color_mkn4s77r", "v1": json.dumps({"label": "FATTO"}),
+                    "c2": "label_mkn37zp7", "v2": json.dumps({"label": "SI"})
+                }
+            }, timeout=10)
+            comm_updates.append("Preventivo Accettato (SI / FATTO)")
+        elif is_rejected:
+            mut_c = """
+            mutation ($b: ID!, $it: ID!, $c1: String!, $v1: JSON!, $c2: String!, $v2: JSON!) {
+              c1: change_column_value(board_id: $b, item_id: $it, column_id: $c1, value: $v1) { id }
+              c2: change_column_value(board_id: $b, item_id: $it, column_id: $c2, value: $v2) { id }
+            }
+            """
+            requests.post(MONDAY_API_URL, headers=headers, json={
+                "query": mut_c,
+                "variables": {
+                    "b": BOARD_COMMERCIALE, "it": str(proj_id),
+                    "c1": "color_mkn4s77r", "v1": json.dumps({"label": "RIFIUTATO"}),
+                    "c2": "label_mkn37zp7", "v2": json.dumps({"label": "NO"})
+                }
+            }, timeout=10)
+            comm_updates.append("Preventivo Rifiutato (NO / RIFIUTATO)")
+        elif is_pending:
+            mut_c = """
+            mutation ($b: ID!, $it: ID!, $c1: String!, $v1: JSON!, $c2: String!, $v2: JSON!) {
+              c1: change_column_value(board_id: $b, item_id: $it, column_id: $c1, value: $v1) { id }
+              c2: change_column_value(board_id: $b, item_id: $it, column_id: $c2, value: $v2) { id }
+            }
+            """
+            requests.post(MONDAY_API_URL, headers=headers, json={
+                "query": mut_c,
+                "variables": {
+                    "b": BOARD_COMMERCIALE, "it": str(proj_id),
+                    "c1": "color_mkn4s77r", "v1": json.dumps({"label": "IN ATTESA"}),
+                    "c2": "label_mkn37zp7", "v2": json.dumps({"label": "In attesa"})
+                }
+            }, timeout=10)
+            comm_updates.append("Preventivo in Attesa")
+
+        # Pubblica nota di aggiornamento commerciale su Monday
+        note_text = msg_body or spoken_text
+        user_name = current_user.get("name") if current_user else "Ufficio Commerciale"
+        tags_html = " ".join([f"<b>@{u['name']}</b>" for u in tagged_users])
+        comm_note_html = f"<p>💼 <b>Aggiornamento Commerciale ({user_name})</b>"
+        if tags_html:
+            comm_note_html += f" per {tags_html}:"
+        else:
+            comm_note_html += ":"
+        comm_note_html += f"<br><b>{note_text}</b>"
+        if comm_updates:
+            comm_note_html += f"<br><span style='color:#037f4c;'>📌 Stato preventivo: {', '.join(comm_updates)}</span>"
+        comm_note_html += "</p>"
+
+        mut_up = f'mutation {{ create_update(item_id: "{proj_id}", body: {json.dumps(comm_note_html)}) {{ id }} }}'
+        requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up}, timeout=10)
+
+        # Invia notifiche agli utenti taggati
+        for u in tagged_users:
+            notif_text = f"💼 Nota commerciale su preventivo {proj_name} da {user_name}: {note_text[:80]}"
+            mut_notif = f'mutation {{ create_notification(user_id: {u["id"]}, target_id: {proj_id}, text: {json.dumps(notif_text)}, target_type: Project) {{ id }} }}'
+            try:
+                requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_notif}, timeout=8)
+            except Exception:
+                pass
+
+        res_msg = f"Preventivo '{proj_name}' aggiornato su COMMERCIALE"
+        if comm_updates:
+            res_msg += f" [{', '.join(comm_updates)}]"
+        if tagged_users:
+            res_msg += f" con notifica a {', '.join([u['name'] for u in tagged_users])}"
+        return {
+            "success": True,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
+            "project": proj_name,
+            "board": "COMMERCIALE",
+            "message": f"✅ {res_msg}"
+        }
+
+    # ══════════════════════════════════════════════════════════════════
+    # CASO 2: SCHEDA INSTALLAZIONI (1863989733) - Cantieri ed Esterni
+    # ══════════════════════════════════════════════════════════════════
+    if target_board_id == BOARD_INSTALLAZIONI:
+        inst_label = "Fatto" if is_done else ("Bloccato" if is_blocked else ("In svolgimento" if is_progress else None))
+        if inst_label:
+            mut_inst = """
+            mutation ($b: ID!, $it: ID!, $c: String!, $val: JSON!) {
+              change_column_value(board_id: $b, item_id: $it, column_id: $c, value: $val) { id }
+            }
+            """
+            requests.post(MONDAY_API_URL, headers=headers, json={
+                "query": mut_inst,
+                "variables": {"b": BOARD_INSTALLAZIONI, "it": str(proj_id), "c": "project_status", "val": json.dumps({"label": inst_label})}
+            }, timeout=10)
+
+        inst_note = f"<p>🏗️ <b>Aggiornamento Cantiere / Installazione</b>: {msg_body or spoken_text}</p>"
+        requests.post(MONDAY_API_URL, headers=headers, json={
+            "query": f'mutation {{ create_update(item_id: "{proj_id}", body: {json.dumps(inst_note)}) {{ id }} }}'
+        }, timeout=10)
+
+        return {
+            "success": True,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
+            "project": proj_name,
+            "board": "INSTALLAZIONI",
+            "message": f"✅ Installazione '{proj_name}' aggiornata su INSTALLAZIONI (Stato: {inst_label or 'Ricevuto'})"
+        }
+
+    # ══════════════════════════════════════════════════════════════════
+    # CASO 3: ALTRE SCHEDE SPECIALISTICHE (PROGETTAZIONE, INVENTARIO, ECC.)
+    # ══════════════════════════════════════════════════════════════════
+    if target_board_id in [BOARD_PROGETTAZIONE, BOARD_INVENTARIO, BOARD_APPUNTAMENTI, BOARD_AMMINISTRAZIONE, BOARD_CONTESTAZIONI, BOARD_PALLET_EPS]:
+        icon_map = {
+            BOARD_PROGETTAZIONE: "📐 Disegno / 3D",
+            BOARD_INVENTARIO: "📦 Magazzino / Materiali",
+            BOARD_APPUNTAMENTI: "📅 Appuntamento",
+            BOARD_AMMINISTRAZIONE: "🏛️ Amministrazione",
+            BOARD_CONTESTAZIONI: "⚠️ Contestazione",
+            BOARD_PALLET_EPS: "♻️ Pallet EPS"
+        }
+        icon_title = icon_map.get(target_board_id, f"📋 {target_board_name}")
+        author = current_user.get("name", "Operatore") if current_user else "Operatore"
+        tags_html = " ".join([f"<b>@{u['name']}</b>" for u in tagged_users])
+        spec_note = f"<p>{icon_title} ({author})"
+        if tags_html:
+            spec_note += f" per {tags_html}:"
+        else:
+            spec_note += ":"
+        spec_note += f"<br><b>{msg_body or spoken_text}</b></p>"
+
+        requests.post(MONDAY_API_URL, headers=headers, json={
+            "query": f'mutation {{ create_update(item_id: "{proj_id}", body: {json.dumps(spec_note)}) {{ id }} }}'
+        }, timeout=10)
+
+        for u in tagged_users:
+            notif_text = f"{icon_title} su {proj_name}: {msg_body[:80]}"
+            mut_notif = f'mutation {{ create_notification(user_id: {u["id"]}, target_id: {proj_id}, text: {json.dumps(notif_text)}, target_type: Project) {{ id }} }}'
+            try:
+                requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_notif}, timeout=8)
+            except Exception:
+                pass
+
+        return {
+            "success": True,
+            "language": detected_lang,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
+            "project": proj_name,
+            "board": target_board_name,
+            "message": f"✅ Aggiornamento registrato sulla scheda {target_board_name} per '{proj_name}'"
+        }
+
+    # ══════════════════════════════════════════════════════════════════
+    # CASO 4: SCHEDE CORE OFFICINA (GESTIONE PROGETTI 1865197409 & PRODUZIONE 1865050352)
+    # ══════════════════════════════════════════════════════════════════
     update_published = False
 
     if is_update and msg_body:
@@ -549,13 +885,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
         body_html += "</p>"
 
         # 1. Pubblica nota su GESTIONE PROGETTI (1865197409)
-        mut_up = f'''
-        mutation {{
-          create_update(item_id: "{proj_id}", body: {json.dumps(body_html)}) {{
-            id
-          }}
-        }}
-        '''
+        mut_up = f'mutation {{ create_update(item_id: "{proj_id}", body: {json.dumps(body_html)}) {{ id }} }}'
         try:
             r_up = requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up}, timeout=10)
             logger.info(f"Update creato su GESTIONE PROGETTI #{proj_id}: {r_up.text[:150]}")
@@ -567,15 +897,9 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
         produzione_id = matched_project.get("produzione_id")
         if produzione_id and produzione_id != proj_id:
             try:
-                mut_up_prod = f'''
-                mutation {{
-                  create_update(item_id: "{produzione_id}", body: {json.dumps(body_html)}) {{
-                    id
-                  }}
-                }}
-                '''
-                r_prod = requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up_prod}, timeout=10)
-                logger.info(f"Update replicato su PRODUZIONE #{produzione_id}: {r_prod.text[:150]}")
+                mut_up_prod = f'mutation {{ create_update(item_id: "{produzione_id}", body: {json.dumps(body_html)}) {{ id }} }}'
+                requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up_prod}, timeout=10)
+                logger.info(f"Update replicato su PRODUZIONE #{produzione_id}")
             except Exception as e:
                 logger.warning(f"Errore replica update su PRODUZIONE #{produzione_id}: {e}")
 
@@ -584,18 +908,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             u_id = u["id"]
             notif_prefix = "🎙️ [Arabo ➔ Tradotto]" if is_arabic else "🎙️"
             notif_text = f"{notif_prefix} Nota vocale su commessa {proj_name}: {msg_body[:90]}"
-            mut_notif = f'''
-            mutation {{
-              create_notification(
-                user_id: {u_id},
-                target_id: {proj_id},
-                text: {json.dumps(notif_text)},
-                target_type: Project
-              ) {{
-                id
-              }}
-            }}
-            '''
+            mut_notif = f'mutation {{ create_notification(user_id: {u_id}, target_id: {proj_id}, text: {json.dumps(notif_text)}, target_type: Project) {{ id }} }}'
             try:
                 requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_notif}, timeout=10)
                 logger.info(f"Notifica inviata a {u['name']} ({u_id}) per #{proj_id}")
@@ -612,12 +925,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
     # Riconoscimento del Tempo (es. "2 ore e mezza")
     detected_time = parse_duration_italian(spoken_text)
 
-    # Riconoscimento dello Stato
-    is_done = any(w in t_lower for w in ["fatto", "completat", "finito", "terminat", "pronto"])
-    is_blocked = any(w in t_lower for w in ["bloccat", "fermo", "manca", "pausa", "attesa"])
-    is_progress = any(w in t_lower for w in ["in corso", "iniziato", "svolgimento", "al lavoro", "partito", "in produzione"])
-
-    # Se è stato pubblicato un aggiornamento/nota:
+    # Se è stato pubblicato un aggiornamento/nota senza step specifico:
     if update_published:
         confirm_msg = f"Aggiornamento scritto pubblicato su '{proj_name}'"
         if tagged_users:
@@ -631,17 +939,17 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             "transcription": original_text or spoken_text,
             "italian_translation": spoken_text,
             "project": proj_name,
+            "board": "GESTIONE PROGETTI",
             "tagged_users": [u["name"] for u in tagged_users],
             "update_body": msg_body,
             "message": confirm_msg
         }
 
-    # CASO A: Aggiornamento di uno Step di Reparto (es. "finito il taglio in 2 ore")
+    # CASO 4A: Aggiornamento di uno Step di Reparto (es. "finito il taglio in 2 ore")
     if detected_step:
         target_board = detected_step["board"]
         step_name = detected_step["name"]
         
-        # Cerca l'item nella scheda di reparto corrispondente (per nome o commessa)
         q_find = f"""
         query {{
           boards(ids: ["{target_board}"]) {{
@@ -663,7 +971,6 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
 
         if dept_item:
             d_id = dept_item["id"]
-            # 1. Aggiorna Tempo se rilevato
             if detected_time:
                 time_col = detected_step["time_col"]
                 mut_t = """
@@ -674,7 +981,6 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
                 requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_t, "variables": {"b": target_board, "it": str(d_id), "c": time_col, "val": detected_time}}, timeout=10)
                 updates_done.append(f"Tempo {step_name}: {detected_time}")
 
-            # 2. Aggiorna Stato dello step se rilevato
             if new_label:
                 status_col = detected_step["status_col"]
                 mut_s = """
@@ -707,16 +1013,16 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             "transcription": original_text or spoken_text,
             "italian_translation": spoken_text,
             "project": proj_name,
+            "board": "GESTIONE PROGETTI",
             "step": step_name,
             "time": detected_time,
             "status": "Fatto" if is_done else "In svolgimento",
             "message": confirm_msg
         }
 
-    # CASO B: Aggiornamento Stato Generale Commessa (su GESTIONE PROGETTI 1865197409 e PRODUZIONE 1865050352)
+    # CASO 4B: Aggiornamento Stato Generale Commessa (su GESTIONE PROGETTI 1865197409 e PRODUZIONE 1865050352)
     new_general_status = "Fatto" if is_done else ("Bloccato" if is_blocked else ("In corso" if is_progress else None))
     if new_general_status:
-        # 1. Aggiorna project_status su GESTIONE PROGETTI (1865197409)
         gp_label = STATUS_GESTIONE_PROGETTI.get(new_general_status, "in produzione")
         mut_gp = """
         mutation ($b: ID!, $it: ID!, $c: String!, $val: JSON!) {
@@ -726,7 +1032,6 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
         requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_gp, "variables": {"b": BOARD_GESTIONE_PROGETTI, "it": str(proj_id), "c": "project_status", "val": json.dumps({"label": gp_label})}}, timeout=10)
         logger.info(f"Stato su GESTIONE PROGETTI #{proj_id} aggiornato a '{gp_label}'")
 
-        # 2. Aggiorna color_mm1v12gx su PRODUZIONE (1865050352)
         produzione_id = matched_project.get("produzione_id")
         if produzione_id:
             prod_label = STATUS_PRODUZIONE.get(new_general_status, "In svolgimento")
@@ -747,12 +1052,12 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             "transcription": original_text or spoken_text,
             "italian_translation": spoken_text,
             "project": proj_name,
+            "board": "GESTIONE PROGETTI",
             "status": new_general_status,
             "message": confirm_msg
         }
 
-
-    confirm_fallback = f"Commessa '{proj_name}' identificata. Specificare l'azione (es. 'taglio fatto in 2 ore' o 'bloccato')."
+    confirm_fallback = f"Commessa '{proj_name}' identificata sulla scheda {target_board_name}. Specificare l'azione (es. 'taglio fatto in 2 ore' o 'bloccato')."
     if is_arabic:
         confirm_fallback = f"🇸🇦 Riconosciuto Arabo ➔ Tradotto: {confirm_fallback}"
     return {
@@ -761,5 +1066,6 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
         "transcription": original_text or spoken_text,
         "italian_translation": spoken_text,
         "project": proj_name,
+        "board": target_board_name,
         "message": confirm_fallback
     }
