@@ -211,6 +211,6 @@ def can_user_access_board(user: dict | None, board_id: str) -> tuple[bool, str]:
     
     user_name = user.get("name", "Operatore")
     return False, (
-        f"Accesso limitato: la scheda {board_name} è riservata all'ufficio commerciale "
-        f"(ordini@, info@, amministrazione@). L'utente '{user_name}' non è autorizzato a modificarla."
+        f"Accesso limitato: la scheda {board_name} è riservata all'ufficio commerciale e direzione "
+        f"(ordini@, info@, amministrazione@, riccardo.g@). L'utente '{user_name}' non è autorizzato a modificarla."
     )
