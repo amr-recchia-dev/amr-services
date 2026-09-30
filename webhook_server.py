@@ -391,7 +391,7 @@ def api_dashboard_data():
     token = os.getenv("MONDAY_API_TOKEN")
     query = """
     query {
-      boards(ids: ["2136092569"]) {
+      boards(ids: ["1865197409"]) {
         items_page(limit: 100) {
           items {
             id
@@ -416,23 +416,23 @@ def api_dashboard_data():
         items = resp.json().get("data", {}).get("boards", [{}])[0].get("items_page", {}).get("items", [])
         clean_projects = []
         for it in items:
-            if it.get("state") == "deleted":
+            if it.get("state") != "active":
                 continue
             cols = {cv.get("id"): cv.get("text") for cv in it.get("column_values", []) if cv.get("text")}
             clean_projects.append({
                 "id": it["id"],
                 "name": it["name"],
-                "commessa": cols.get("text_mm51yk45", "COMM-" + it["id"]),
-                "progetto": cols.get("testo_mkn1sqb4", ""),
-                "stato": cols.get("color_mm45raj9", "Da iniziare"),
-                "consegna": cols.get("date4", ""),
-                "priorita": cols.get("color_mknssm0t", "Normale"),
-                "taglio": cols.get("color_mkns43r0") == "SI",
-                "fresa": cols.get("color_mknsezab") == "SI",
-                "finitura": cols.get("color_mknsghqz") == "SI",
-                "esterna": cols.get("color_mkyn8z12") == "SI",
-                "referente": cols.get("dup__of_nome_referente_mkn3gf63", ""),
-                "drive_link": cols.get("link_mm45entc", "")
+                "commessa": cols.get("testo_mkmnxqsk") or cols.get("text_mm51yk45", "COMM-" + it["id"]),
+                "progetto": cols.get("lookup_mknz7srg") or cols.get("testo_mkn1sqb4", ""),
+                "stato": cols.get("project_status") or cols.get("color_mm45raj9", "in produzione"),
+                "consegna": cols.get("lookup_mknznap") or cols.get("date4", ""),
+                "priorita": cols.get("lookup_mknzrga7") or cols.get("color_mknssm0t", "Normale"),
+                "taglio": cols.get("lookup_mknzagn5") == "SI" or cols.get("color_mkns43r0") == "SI",
+                "fresa": cols.get("lookup_mknzqq5j") == "SI" or cols.get("color_mknsezab") == "SI",
+                "finitura": cols.get("lookup_mknz1bbx") == "SI" or cols.get("color_mknsghqz") == "SI",
+                "esterna": False,
+                "referente": cols.get("lookup_mknz8gq2") or cols.get("dup__of_nome_referente_mkn3gf63", ""),
+                "drive_link": cols.get("file_mknpcqbv") or cols.get("link_mm45entc", "")
             })
         dashboard_cache["data"] = clean_projects
         dashboard_cache["timestamp"] = now

@@ -18,62 +18,43 @@ logger = logging.getLogger("voice_agent")
 MONDAY_TOKEN = os.getenv("MONDAY_API_TOKEN")
 MONDAY_API_URL = "https://api.monday.com/v2"
 
-BOARD_GESTIONE_PROGETTI = "2136092569"
-BOARD_GESTIONE_PROGETTI_OLD = "1865197409"
-BOARD_COMMERCIALE_OLD = "1865049112"
-BOARD_PRODUZIONE_OLD = "1865050352"
+# Schede Ufficiali Workspace AMR (Monday Originali)
+BOARD_GESTIONE_PROGETTI = "1865197409"  # GESTIONE PROGETTI (Originale)
+BOARD_PRODUZIONE = "1865050352"         # PRODUZIONE (Originale)
+BOARD_COMMERCIALE = "1865049112"        # COMMERCIALE (Originale)
+BOARD_PROGETTAZIONE = "1988908927"      # PROGETTAZIONE (Originale)
 BOARD_TAGLIO = "5086546323"
 BOARD_FINITURE = "5088215890"
 
-# Mappatura corrispondenza stati tra board nuova e board vecchia
-STATUS_TO_OLD_PROGETTI = {
+# Mappatura stati per le schede originali di Monday
+STATUS_GESTIONE_PROGETTI = {
     "In corso": "in produzione",
     "Fatto": "Fatto",
     "Bloccato": "Bloccato",
-    "Da iniziare": "non in produzione",
-    "Archiviato": "non in produzione"
+    "Da iniziare": "non in produzione"
 }
 
-STATUS_TO_OLD_PRODUZIONE = {
+STATUS_PRODUZIONE = {
     "In corso": "In svolgimento",
     "Fatto": "Fatto",
     "Bloccato": "Bloccato"
 }
 
-STATUS_TO_NEW_PROGETTI = {
-    "in produzione": "In corso",
-    "Fatto": "Fatto",
-    "Bloccato": "Bloccato",
-    "non in produzione": "Da iniziare",
-    "in attesa file": "Da iniziare",
-    "conto lavoro": "In corso"
-}
-
-def load_sync_mapping() -> tuple[dict, dict]:
-    """Carica il mapping bidirezionale tra schede vecchie e nuove da sync_mapping.json."""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    map_file = os.path.join(script_dir, "sync_mapping.json")
-    linked_map = {}
-    id_to_board = {}
-    if os.path.exists(map_file):
-        try:
-            with open(map_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            for old_id, new_id in data.get("progetti", {}).items():
-                s_old, s_new = str(old_id), str(new_id)
-                linked_map[s_old] = s_new
-                linked_map[s_new] = s_old
-                id_to_board[s_old] = BOARD_GESTIONE_PROGETTI_OLD
-                id_to_board[s_new] = BOARD_GESTIONE_PROGETTI
-            for old_id, new_id in data.get("commerciale", {}).items():
-                s_old, s_new = str(old_id), str(new_id)
-                linked_map[s_old] = s_new
-                linked_map[s_new] = s_old
-                id_to_board[s_old] = BOARD_COMMERCIALE_OLD
-                id_to_board[s_new] = "2133436509"
-        except Exception as e:
-            logger.warning(f"Errore lettura sync_mapping.json: {e}")
-    return linked_map, id_to_board
+def get_active_commesse_hint() -> str:
+    """Restituisce una sintesi dei clienti e numeri commessa attivi per guidare la trascrizione Gemini."""
+    try:
+        projs = get_active_projects_cache()
+        hints = []
+        for p in projs[:28]:
+            c = p.get("commessa")
+            n = p.get("name")
+            if c and n:
+                hints.append(f"{n} ({c})")
+            elif n:
+                hints.append(n)
+        return ", ".join(hints)
+    except Exception:
+        return ""
 
 def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/webm") -> dict:
     """
@@ -106,10 +87,13 @@ def transcribe_audio_with_gemini(audio_bytes: bytes, mime_type: str = "audio/web
         clean_mime = "audio/webm"
 
     b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+    hint = get_active_commesse_hint()
+    hint_text = f"\nClienti e commesse attualmente attivi in officina: {hint}\n" if hint else ""
 
     prompt_instructions = (
         "Sei il modulo di trascrizione e comprensione vocale per l'officina dell'azienda italiana AMR Recchia "
         "(reparti: taglio, fresa, pantografo, resine, finiture, verniciatura, assemblaggio, imballo, cantieri).\n"
+        f"{hint_text}"
         "L'operatore in officina può parlare in italiano, in arabo (arabo standard o dialetti nordafricani come marocchino/darija o tunisino) oppure un mix.\n"
         "Ascolta attentamente la nota vocale e restituisci ESCLUSIVAMENTE un JSON valido con questa struttura:\n"
         "{\n"
@@ -296,19 +280,18 @@ def get_active_projects_cache(force_refresh: bool = False) -> list:
         return _PROJECTS_CACHE
 
     headers = {"Authorization": MONDAY_TOKEN, "API-Version": "2024-10"}
-    linked_map, id_to_board = load_sync_mapping()
 
     q = f"""
     query {{
-      boards(ids: ["{BOARD_GESTIONE_PROGETTI}", "{BOARD_GESTIONE_PROGETTI_OLD}", "{BOARD_COMMERCIALE_OLD}"]) {{
+      boards(ids: ["{BOARD_GESTIONE_PROGETTI}", "{BOARD_PRODUZIONE}", "{BOARD_COMMERCIALE}"]) {{
         id
         name
         items_page(limit: 120) {{
           items {{
             id
             name
-            board {{ id }}
-            column_values(ids: ["text_mm51yk45", "testo_mkn1sqb4", "color_mm45raj9", "testo_mkmnxqsk", "project_status", "color_mkn4s77r"]) {{
+            state
+            column_values(ids: ["testo_mkmnxqsk", "project_status", "color_mm1v12gx", "testo_mkn1sqb4", "color_mkn4s77r"]) {{
               id
               text
             }}
@@ -319,39 +302,65 @@ def get_active_projects_cache(force_refresh: bool = False) -> list:
     """
     try:
         resp = requests.post(MONDAY_API_URL, headers=headers, json={"query": q}, timeout=12)
-        boards_data = resp.json().get("data", {}).get("boards", [])
+        boards_data = {str(b.get("id")): b for b in resp.json().get("data", {}).get("boards", [])}
+
+        # Mappa item produzione per nome
+        prod_map = {}
+        for it in boards_data.get(BOARD_PRODUZIONE, {}).get("items_page", {}).get("items", []):
+            if it.get("state") == "active":
+                prod_map[it["name"].strip().lower()] = str(it["id"])
+
+        # Mappa item commerciale per nome
+        comm_map = {}
+        for it in boards_data.get(BOARD_COMMERCIALE, {}).get("items_page", {}).get("items", []):
+            if it.get("state") == "active":
+                comm_map[it["name"].strip().lower()] = str(it["id"])
+
         clean = []
-        for b in boards_data:
-            b_id = str(b.get("id"))
-            items = b.get("items_page", {}).get("items", [])
-            for it in items:
-                it_id = str(it["id"])
+        # 1. Progetti principali da GESTIONE PROGETTI (1865197409)
+        for it in boards_data.get(BOARD_GESTIONE_PROGETTI, {}).get("items_page", {}).get("items", []):
+            if it.get("state") != "active":
+                continue
+            cols = {cv["id"]: cv.get("text") for cv in it.get("column_values", []) if cv.get("text")}
+            clean_name = it["name"].strip()
+            norm_name = clean_name.lower()
+            clean.append({
+                "id": str(it["id"]),
+                "board_id": BOARD_GESTIONE_PROGETTI,
+                "name": clean_name,
+                "commessa": cols.get("testo_mkmnxqsk", ""),
+                "progetto": "",
+                "stato": cols.get("project_status", ""),
+                "produzione_id": prod_map.get(norm_name),
+                "commerciale_id": comm_map.get(norm_name)
+            })
+
+        # 2. Preventivi o richieste da COMMERCIALE non ancora in Gestione Progetti
+        existing_names = {p["name"].lower() for p in clean}
+        for it in boards_data.get(BOARD_COMMERCIALE, {}).get("items_page", {}).get("items", []):
+            if it.get("state") != "active":
+                continue
+            norm_name = it["name"].strip().lower()
+            if norm_name not in existing_names:
                 cols = {cv["id"]: cv.get("text") for cv in it.get("column_values", []) if cv.get("text")}
-                
-                # Codice commessa: text_mm51yk45 su New, testo_mkmnxqsk su Old
-                commessa = cols.get("text_mm51yk45", "") or cols.get("testo_mkmnxqsk", "")
-                progetto = cols.get("testo_mkn1sqb4", "")
-                stato = cols.get("color_mm45raj9", "") or cols.get("project_status", "") or cols.get("color_mkn4s77r", "")
-                
-                linked_id = linked_map.get(it_id)
-                linked_board = id_to_board.get(linked_id, "") if linked_id else ""
-                
                 clean.append({
-                    "id": it_id,
-                    "board_id": b_id,
+                    "id": str(it["id"]),
+                    "board_id": BOARD_COMMERCIALE,
                     "name": it["name"].strip(),
-                    "commessa": commessa,
-                    "progetto": progetto,
-                    "stato": stato,
-                    "linked_id": linked_id,
-                    "linked_board_id": linked_board
+                    "commessa": "",
+                    "progetto": cols.get("testo_mkn1sqb4", ""),
+                    "stato": cols.get("color_mkn4s77r", ""),
+                    "produzione_id": prod_map.get(norm_name),
+                    "commerciale_id": str(it["id"])
                 })
+                existing_names.add(norm_name)
+
         _PROJECTS_CACHE = clean
         _PROJECTS_CACHE_TIME = now
-        logger.info(f"✅ Cache progetti multi-board aggiornata: {len(clean)} commesse caricate (New + Old).")
+        logger.info(f"✅ Cache schede originali AMR aggiornata: {len(clean)} commesse attive caricate.")
         return clean
     except Exception as e:
-        logger.error(f"Errore caricamento progetti multi-board: {e}")
+        logger.error(f"Errore caricamento progetti schede originali: {e}")
         return _PROJECTS_CACHE or []
 
 
@@ -388,21 +397,21 @@ def match_project_from_text(text: str, projects: list) -> dict:
         
         score = 0.0
         
-        # 1. Matching continuo sul primo token / parola chiave cliente (es. 'dalpian' in 'mandiamounmessaggiosullacommessadalpian...')
+        # 1. Matching continuo sul codice commessa (es. 26_565, 26 565, 26_24)
+        if p_comm:
+            c_norm = normalize_continuous(p_comm)
+            if c_norm and len(c_norm) >= 3 and c_norm in t_continuous:
+                score += 200.0
+
+        # 2. Matching continuo sul primo token / parola chiave cliente (es. 'extreme', 'zanesco', 'led4led')
         p_first_word = normalize_continuous(p_name.split()[0])
         if len(p_first_word) >= 3 and p_first_word in t_continuous:
             score += 120.0
 
-        # Matching continuo su tutto il nome del progetto
+        # 3. Matching continuo su tutto il nome del progetto
         p_full_cont = normalize_continuous(p_name)
         if len(p_full_cont) >= 4 and (p_full_cont in t_continuous or t_continuous in p_full_cont):
             score += 150.0
-
-        # Matching continuo sul codice commessa
-        if p_comm:
-            c_norm = normalize_continuous(p_comm)
-            if c_norm and c_norm in t_continuous:
-                score += 200.0
 
         p_tokens = [tok for tok in re.split(r"[\s\-_/.,]+", p_name) if len(tok) >= 3]
         if p_proj:
@@ -420,15 +429,15 @@ def match_project_from_text(text: str, projects: list) -> dict:
                 if close:
                     score += 8.0
 
-        # Se punteggio simile, dare leggera preferenza alla scheda nuova (che include il link alla vecchia)
+        # Priorità a GESTIONE PROGETTI rispetto a COMMERCIALE
         if p.get("board_id") == BOARD_GESTIONE_PROGETTI:
-            score += 0.5
+            score += 10.0
 
         if score > best_score:
             best_score = score
             best_match = p
 
-    if best_score >= 15.0:
+    if best_score >= 35.0:
         return best_match
     return None
 
@@ -539,6 +548,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             body_html += f'<br><span style="color:#64748b; font-size:11px; font-style:italic;">Originale pronunciato: {original_text}</span>'
         body_html += "</p>"
 
+        # 1. Pubblica nota su GESTIONE PROGETTI (1865197409)
         mut_up = f'''
         mutation {{
           create_update(item_id: "{proj_id}", body: {json.dumps(body_html)}) {{
@@ -548,26 +558,26 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
         '''
         try:
             r_up = requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up}, timeout=10)
-            logger.info(f"Update creato su Monday #{proj_id}: {r_up.text[:150]}")
+            logger.info(f"Update creato su GESTIONE PROGETTI #{proj_id}: {r_up.text[:150]}")
             update_published = True
         except Exception as e:
             logger.error(f"Errore creazione update Monday: {e}")
 
-        # Sincronizza nota anche sulla scheda collegata (vecchia <-> nuova) se presente
-        linked_id = matched_project.get("linked_id")
-        if linked_id:
+        # 2. Se presente, pubblica la stessa nota anche su PRODUZIONE (1865050352)
+        produzione_id = matched_project.get("produzione_id")
+        if produzione_id and produzione_id != proj_id:
             try:
-                mut_up_linked = f'''
+                mut_up_prod = f'''
                 mutation {{
-                  create_update(item_id: "{linked_id}", body: {json.dumps(body_html)}) {{
+                  create_update(item_id: "{produzione_id}", body: {json.dumps(body_html)}) {{
                     id
                   }}
                 }}
                 '''
-                r_link = requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up_linked}, timeout=10)
-                logger.info(f"Update replicato su scheda gemella #{linked_id}: {r_link.text[:150]}")
+                r_prod = requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_up_prod}, timeout=10)
+                logger.info(f"Update replicato su PRODUZIONE #{produzione_id}: {r_prod.text[:150]}")
             except Exception as e:
-                logger.warning(f"Errore replica update su #{linked_id}: {e}")
+                logger.warning(f"Errore replica update su PRODUZIONE #{produzione_id}: {e}")
 
         # Invia notifica su Monday a ciascun utente menzionato
         for u in tagged_users:
@@ -605,7 +615,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
     # Riconoscimento dello Stato
     is_done = any(w in t_lower for w in ["fatto", "completat", "finito", "terminat", "pronto"])
     is_blocked = any(w in t_lower for w in ["bloccat", "fermo", "manca", "pausa", "attesa"])
-    is_progress = any(w in t_lower for w in ["in corso", "iniziato", "svolgimento", "al lavoro", "partito"])
+    is_progress = any(w in t_lower for w in ["in corso", "iniziato", "svolgimento", "al lavoro", "partito", "in produzione"])
 
     # Se è stato pubblicato un aggiornamento/nota:
     if update_published:
@@ -648,20 +658,6 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
                 dept_item = di
                 break
 
-        if not dept_item and matched_project.get("board_id") == BOARD_GESTIONE_PROGETTI:
-            # Fallback: crea l'item sul reparto se non presente (solo per progetti nuova board)
-            try:
-                import department_syncer
-                department_syncer.sync_project_to_departments(proj_id)
-                time.sleep(1)
-                dept_items = requests.post(MONDAY_API_URL, headers=headers, json={"query": q_find}, timeout=10).json().get("data", {}).get("boards", [{}])[0].get("items_page", {}).get("items", [])
-                for di in dept_items:
-                    if di["name"].strip().lower() == proj_name.lower():
-                        dept_item = di
-                        break
-            except Exception as ex:
-                logger.warning(f"Fallback department sync failed: {ex}")
-
         updates_done = []
         new_label = "Fatto" if is_done else ("Bloccato" if is_blocked else ("In svolgimento" if is_progress else None))
 
@@ -689,12 +685,12 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
                 requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_s, "variables": {"b": target_board, "it": str(d_id), "c": status_col, "val": json.dumps({"label": new_label})}}, timeout=10)
                 updates_done.append(f"Stato {step_name}: {new_label}")
 
-        # Inserisci una nota di avanzamento reparto su entrambe le schede (corrente + gemella)
+        # Inserisci una nota di avanzamento reparto su GESTIONE PROGETTI e PRODUZIONE
         dept_note_html = f"<p>⚙️ <b>Avanzamento Reparto ({step_name})</b>: {new_label or 'Completato'}"
         if detected_time:
             dept_note_html += f" in <b>{detected_time}</b>"
         dept_note_html += "</p>"
-        for target_it in [proj_id, matched_project.get("linked_id")]:
+        for target_it in [proj_id, matched_project.get("produzione_id")]:
             if target_it:
                 try:
                     mut_dept_note = f'mutation {{ create_update(item_id: "{target_it}", body: {json.dumps(dept_note_html)}) {{ id }} }}'
@@ -717,70 +713,30 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             "message": confirm_msg
         }
 
-    # CASO B: Aggiornamento Stato Generale Commessa (su Nuova e/o Vecchia scheda)
+    # CASO B: Aggiornamento Stato Generale Commessa (su GESTIONE PROGETTI 1865197409 e PRODUZIONE 1865050352)
     new_general_status = "Fatto" if is_done else ("Bloccato" if is_blocked else ("In corso" if is_progress else None))
     if new_general_status:
-        def apply_board_status(b_id: str, it_id: str, status_lbl: str):
-            if not b_id or not it_id or not status_lbl:
-                return
-            if b_id == BOARD_GESTIONE_PROGETTI:  # NEW GESTIONE PROGETTI
-                mut_gen = """
-                mutation ($b: ID!, $it: ID!, $c: String!, $val: JSON!) {
-                  change_column_value(board_id: $b, item_id: $it, column_id: $c, value: $val) { id }
-                }
-                """
-                requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_gen, "variables": {"b": b_id, "it": str(it_id), "c": "color_mm45raj9", "val": json.dumps({"label": status_lbl})}}, timeout=10)
-            elif b_id == BOARD_GESTIONE_PROGETTI_OLD:  # OLD GESTIONE PROGETTI
-                old_lbl = STATUS_TO_OLD_PROGETTI.get(status_lbl, status_lbl)
-                mut_gen = """
-                mutation ($b: ID!, $it: ID!, $c: String!, $val: JSON!) {
-                  change_column_value(board_id: $b, item_id: $it, column_id: $c, value: $val) { id }
-                }
-                """
-                requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_gen, "variables": {"b": b_id, "it": str(it_id), "c": "project_status", "val": json.dumps({"label": old_lbl})}}, timeout=10)
+        # 1. Aggiorna project_status su GESTIONE PROGETTI (1865197409)
+        gp_label = STATUS_GESTIONE_PROGETTI.get(new_general_status, "in produzione")
+        mut_gp = """
+        mutation ($b: ID!, $it: ID!, $c: String!, $val: JSON!) {
+          change_column_value(board_id: $b, item_id: $it, column_id: $c, value: $val) { id }
+        }
+        """
+        requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_gp, "variables": {"b": BOARD_GESTIONE_PROGETTI, "it": str(proj_id), "c": "project_status", "val": json.dumps({"label": gp_label})}}, timeout=10)
+        logger.info(f"Stato su GESTIONE PROGETTI #{proj_id} aggiornato a '{gp_label}'")
 
-        # 1. Aggiorna la board del progetto matchato
-        current_board = matched_project.get("board_id", BOARD_GESTIONE_PROGETTI)
-        apply_board_status(current_board, proj_id, new_general_status)
-        logger.info(f"Stato aggiornato a '{new_general_status}' per #{proj_id} su board {current_board}")
-
-        # 2. Aggiorna la board gemella collegata (se new -> old, se old -> new)
-        linked_id = matched_project.get("linked_id")
-        linked_board = matched_project.get("linked_board_id")
-        if not linked_board and linked_id:
-            linked_board = BOARD_GESTIONE_PROGETTI_OLD if current_board == BOARD_GESTIONE_PROGETTI else BOARD_GESTIONE_PROGETTI
-
-        if linked_id and linked_board:
-            apply_board_status(linked_board, linked_id, new_general_status)
-            logger.info(f"Stato sincronizzato a '{new_general_status}' per scheda gemella #{linked_id} su board {linked_board}")
-
-        # 3. Aggiorna anche scheda PRODUZIONE VECCHIA (1865050352) se presente
-        try:
-            old_prod_status = STATUS_TO_OLD_PRODUZIONE.get(new_general_status)
-            if old_prod_status:
-                q_prod = f"""
-                query {{
-                  boards(ids: ["{BOARD_PRODUZIONE_OLD}"]) {{
-                    items_page(limit: 50) {{
-                      items {{ id name }}
-                    }}
-                  }}
-                }}
-                """
-                r_prod = requests.post(MONDAY_API_URL, headers=headers, json={"query": q_prod}, timeout=8).json()
-                prod_items = r_prod.get("data", {}).get("boards", [{}])[0].get("items_page", {}).get("items", [])
-                for pi in prod_items:
-                    if pi["name"].strip().lower() == proj_name.lower():
-                        mut_p = """
-                        mutation ($b: ID!, $it: ID!, $c: String!, $val: JSON!) {
-                          change_column_value(board_id: $b, item_id: $it, column_id: $c, value: $val) { id }
-                        }
-                        """
-                        requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_p, "variables": {"b": BOARD_PRODUZIONE_OLD, "it": str(pi["id"]), "c": "color_mm1v12gx", "val": json.dumps({"label": old_prod_status})}}, timeout=8)
-                        logger.info(f"Stato su PRODUZIONE VECCHIA aggiornato a '{old_prod_status}' per #{pi['id']}")
-                        break
-        except Exception as ex_prod:
-            logger.warning(f"Aggiornamento PRODUZIONE VECCHIA non riuscito: {ex_prod}")
+        # 2. Aggiorna color_mm1v12gx su PRODUZIONE (1865050352)
+        produzione_id = matched_project.get("produzione_id")
+        if produzione_id:
+            prod_label = STATUS_PRODUZIONE.get(new_general_status, "In svolgimento")
+            mut_prod = """
+            mutation ($b: ID!, $it: ID!, $c: String!, $val: JSON!) {
+              change_column_value(board_id: $b, item_id: $it, column_id: $c, value: $val) { id }
+            }
+            """
+            requests.post(MONDAY_API_URL, headers=headers, json={"query": mut_prod, "variables": {"b": BOARD_PRODUZIONE, "it": str(produzione_id), "c": "color_mm1v12gx", "val": json.dumps({"label": prod_label})}}, timeout=10)
+            logger.info(f"Stato su PRODUZIONE #{produzione_id} aggiornato a '{prod_label}'")
 
         confirm_msg = f"Stato commessa '{proj_name}' aggiornato a '{new_general_status}'"
         if is_arabic:
@@ -794,6 +750,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             "status": new_general_status,
             "message": confirm_msg
         }
+
 
     confirm_fallback = f"Commessa '{proj_name}' identificata. Specificare l'azione (es. 'taglio fatto in 2 ore' o 'bloccato')."
     if is_arabic:
