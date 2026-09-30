@@ -387,6 +387,102 @@ def api_voice_command():
         }), 200
 
 
+@app.route("/api/voice-preview", methods=["POST"])
+@app.route("/api/voice-preview-audio", methods=["POST"])
+def api_voice_preview():
+    """
+    Riceve l'audio o il testo del comando vocale, effettua la trascrizione con Gemini
+    e analizza l'intento/commessa SENZA scrivere o mutare nulla su Monday.com.
+    Restituisce l'anteprima di sicurezza all'utente per eventuale conferma, cancellazione o modifica.
+    """
+    ip = get_client_ip()
+    is_audio = "audio" in request.endpoint or "audio" in request.files or (request.is_json and request.get_json(silent=True) and request.get_json(silent=True).get("audio_base64"))
+    max_reqs = 15 if is_audio else 25
+    allowed, retry_after = rate_limiter.is_allowed(f"voice_prev_{ip}", max_requests=max_reqs, window_seconds=60)
+    if not allowed:
+        return jsonify({
+            "success": False,
+            "message": f"Troppe richieste ravvicinate. Riprova tra {retry_after} secondi."
+        }), 429
+
+    if not check_pin_auth():
+        return jsonify({
+            "success": False,
+            "message": "Accesso non autorizzato. Inserisci il PIN aziendale.",
+            "auth_required": True
+        }), 401
+
+    text = ""
+    original_text = ""
+    detected_lang = "it"
+
+    # 1. Se inviato come JSON
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "").strip()
+        audio_b64 = data.get("audio_base64", "")
+        mime_type = data.get("mime_type", "audio/webm")
+        if not text and audio_b64:
+            try:
+                import base64
+                raw_bytes = base64.b64decode(audio_b64)
+                trans_res = voice_agent.transcribe_audio_with_gemini(raw_bytes, mime_type)
+                if isinstance(trans_res, dict):
+                    text = trans_res.get("text", "")
+                    original_text = trans_res.get("transcription", text)
+                    detected_lang = trans_res.get("language", "it")
+                else:
+                    text = str(trans_res or "").strip()
+                    original_text = text
+            except Exception as e:
+                logger.error(f"Errore decodifica base64 audio preview: {e}")
+
+    # 2. Se inviato come multipart con file audio
+    if not text and "audio" in request.files:
+        audio_file = request.files["audio"]
+        audio_bytes = audio_file.read()
+        mime_type = audio_file.content_type or "audio/webm"
+        logger.info(f"🎙️ [PREVIEW] Audio ({len(audio_bytes)} bytes). Avvio trascrizione con Gemini...")
+
+        trans_res = voice_agent.transcribe_audio_with_gemini(audio_bytes, mime_type)
+        if isinstance(trans_res, dict):
+            text = trans_res.get("text", "")
+            original_text = trans_res.get("transcription", text)
+            detected_lang = trans_res.get("language", "it")
+        else:
+            text = str(trans_res or "").strip()
+            original_text = text
+
+    if not text:
+        return jsonify({
+            "success": False,
+            "message": "Nessuna voce comprensibile rilevata nell'audio. Prova a parlare più vicino al microfono."
+        }), 200
+
+    if not original_text:
+        tr_info = voice_agent.translate_arabic_to_italian_if_needed(text)
+        original_text = tr_info.get("transcription", text)
+        text = tr_info.get("text", text)
+        detected_lang = tr_info.get("language", "it")
+
+    curr_user = get_current_user_from_request()
+    logger.info(f"🔍 [PREVIEW] Testo: \"{text}\" [Originale: \"{original_text}\"] per {curr_user.get('name') if curr_user else 'Anonimo'}")
+    try:
+        preview_data = voice_agent.preview_voice_command(
+            spoken_text=text,
+            original_text=original_text,
+            detected_lang=detected_lang,
+            current_user=curr_user
+        )
+        return jsonify(preview_data), 200
+    except Exception as e:
+        logger.error(f"❌ Errore in preview_voice_command: {e}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "transcription": original_text or text,
+            "language": detected_lang,
+            "message": f"Errore anteprima: {e}"
+        }), 200
 
 
 @app.route("/api/dashboard-data", methods=["GET"])

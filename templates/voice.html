@@ -128,18 +128,86 @@
         </div>
         <p id="resultText" class="text-xs text-slate-200"></p>
       </div>
+
+      <!-- Voice Command Safety Preview Card -->
+      <div id="previewCard" class="hidden mt-4 p-4 bg-slate-900/95 border border-[var(--amr-red)]/50 rounded-2xl text-left shadow-2xl transition-all">
+        <div class="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-base">📋</span>
+            <span class="text-xs font-bold text-white uppercase tracking-wider">Verifica Comando</span>
+          </div>
+          <span id="previewBoardBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700"></span>
+        </div>
+
+        <!-- Target Project & Action -->
+        <div class="space-y-1.5 mb-3 text-xs">
+          <div class="flex items-start gap-1.5">
+            <span class="text-slate-400 font-medium shrink-0">🎯 Commessa:</span>
+            <span id="previewProjectName" class="font-bold text-white"></span>
+          </div>
+          <div class="flex items-start gap-1.5">
+            <span class="text-slate-400 font-medium shrink-0">⚡ Azione:</span>
+            <span id="previewActionSummary" class="text-emerald-400 font-semibold"></span>
+          </div>
+          <div class="flex items-start gap-1.5 pt-1">
+            <span class="text-slate-400 font-medium shrink-0">💬 Testo:</span>
+            <span id="previewTranscription" class="italic text-slate-300 font-mono text-[11px]"></span>
+          </div>
+          <div id="previewTranslationRow" class="hidden flex items-start gap-1.5 pt-0.5">
+            <span class="text-amber-400 font-medium shrink-0">🇮🇹 Tradotto:</span>
+            <span id="previewTranslation" class="italic text-amber-200 font-mono text-[11px]"></span>
+          </div>
+        </div>
+
+        <!-- Permission Warning if not allowed -->
+        <div id="previewAccessError" class="hidden p-2.5 mb-3 rounded-xl bg-red-950/60 border border-red-800/80 text-xs text-red-200 flex items-center gap-2">
+          <span>🔒</span> <span id="previewAccessReason"></span>
+        </div>
+
+        <!-- 3.5s Countdown Progress Bar -->
+        <div id="previewCountdownContainer" class="mb-3">
+          <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+            <span id="previewCountdownText">Invio automatico tra 3.5s...</span>
+            <span class="text-[10px] text-slate-500">Tocca Annulla se errato</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="previewProgressBar" class="h-full bg-gradient-to-r from-[var(--amr-red)] to-emerald-500 transition-all duration-75 ease-linear" style="width: 100%;"></div>
+          </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="flex items-center gap-2 pt-1">
+          <button id="cancelPreviewBtn" onclick="cancelPreview()" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white text-xs font-bold border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>🛑</span> <span>Annulla</span>
+          </button>
+          <button id="editPreviewBtn" onclick="editPreview()" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 hover:text-amber-200 text-xs font-bold border border-amber-600/40 transition flex items-center justify-center gap-1.5 cursor-pointer">
+            <span>✏️</span> <span>Modifica</span>
+          </button>
+          <button id="sendNowBtn" onclick="sendPreviewNow()" class="flex-1 py-2 px-3 rounded-xl bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] active:scale-95 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-red-950/50 cursor-pointer">
+            <span>🚀</span> <span>Invia Ora</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Big Microphone Button -->
-    <div class="relative my-4 flex items-center justify-center">
-      <div id="micRing" class="absolute w-36 h-36 rounded-full bg-[var(--amr-red)]/10 mic-pulse pointer-events-none"></div>
-      <button id="micBtn" 
-        class="relative z-10 w-28 h-28 rounded-full bg-gradient-to-tr from-[var(--amr-red)] to-[#ff5e5e] text-white shadow-2xl flex flex-col items-center justify-center transition transform active:scale-95 focus:outline-none cursor-pointer brand-glow">
-        <svg id="micIcon" class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-        </svg>
-        <span id="micLabel" class="text-[11px] font-bold uppercase tracking-wider mt-1">Premi</span>
+    <div class="relative my-4 flex flex-col items-center justify-center">
+      <div class="relative flex items-center justify-center">
+        <div id="micRing" class="absolute w-36 h-36 rounded-full bg-[var(--amr-red)]/10 mic-pulse pointer-events-none"></div>
+        <button id="micBtn" 
+          class="relative z-10 w-28 h-28 rounded-full bg-gradient-to-tr from-[var(--amr-red)] to-[#ff5e5e] text-white shadow-2xl flex flex-col items-center justify-center transition transform active:scale-95 focus:outline-none cursor-pointer brand-glow">
+          <svg id="micIcon" class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+          <span id="micLabel" class="text-[11px] font-bold uppercase tracking-wider mt-1">Premi</span>
+        </button>
+      </div>
+
+      <!-- Cancel recording button (only visible during recording) -->
+      <button id="cancelRecordBtn" onclick="cancelRecording()" 
+        class="hidden mt-3 px-3.5 py-1.5 rounded-full bg-red-950/80 hover:bg-red-900/90 text-red-200 hover:text-white text-xs font-semibold border border-red-500/40 flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer">
+        <span class="text-sm">✕</span> <span>Scarta registrazione</span>
       </button>
     </div>
 
@@ -286,12 +354,17 @@
   <!-- Voice Engine Script: MediaRecorder + Gemini Cloud AI -->
   <script>
     let isRecording = false;
+    let isDiscarded = false;
     let mediaRecorder = null;
     let audioChunks = [];
     let recordStream = null;
     let recordingStartTime = 0;
     let timerInterval = null;
     let audioCtx = null;
+
+    // Safety preview state
+    let previewTimer = null;
+    let previewCleanText = "";
 
     function playBeep(freq, duration) {
       try {
@@ -309,6 +382,19 @@
       } catch(e) {}
     }
 
+    function clearPreviewTimer() {
+      if (previewTimer) {
+        clearInterval(previewTimer);
+        previewTimer = null;
+      }
+    }
+
+    function clearPreview() {
+      clearPreviewTimer();
+      const card = document.getElementById('previewCard');
+      if (card) card.classList.add('hidden');
+    }
+
     const micBtn = document.getElementById('micBtn');
     micBtn.addEventListener('click', async () => {
       if (!isRecording) {
@@ -320,10 +406,14 @@
 
     async function startRecording() {
       hideMicHelp();
+      clearPreview();
+      isDiscarded = false;
       document.getElementById('resultBox').classList.add('hidden');
       document.getElementById('transcriptBox').classList.add('hidden');
+      document.getElementById('cancelRecordBtn').classList.remove('hidden');
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        document.getElementById('cancelRecordBtn').classList.add('hidden');
         showMicHelp('Il browser non supporta la cattura audio del microfono. Usa la casella di testo.');
         return;
       }
@@ -332,11 +422,12 @@
         recordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (err) {
         console.error('getUserMedia error:', err);
+        document.getElementById('cancelRecordBtn').classList.add('hidden');
         showMicHelp('Accesso al microfono bloccato dal browser o dal sistema. Clicca sull\'icona del lucchetto 🔒 nella barra dell\'indirizzo per consentire.');
         return;
       }
 
-      // Seleziona il mimeType supportato dal dispositivo (audio/webm su Chrome/Android, audio/mp4 su Safari/iOS)
+      // Seleziona il mimeType supportato dal dispositivo
       let options = {};
       if (window.MediaRecorder) {
         if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -349,6 +440,7 @@
           options = { mimeType: 'audio/aac' };
         }
       } else {
+        document.getElementById('cancelRecordBtn').classList.add('hidden');
         showMicHelp('MediaRecorder non supportato dal browser. Usa la casella di testo.');
         return;
       }
@@ -367,10 +459,16 @@
       };
 
       mediaRecorder.onstop = async () => {
+        document.getElementById('cancelRecordBtn').classList.add('hidden');
         if (recordStream) {
           recordStream.getTracks().forEach(t => t.stop());
         }
         clearInterval(timerInterval);
+
+        if (isDiscarded) {
+          updateUI('idle');
+          return;
+        }
 
         const mime = mediaRecorder.mimeType || 'audio/webm';
         const audioBlob = new Blob(audioChunks, { type: mime });
@@ -380,7 +478,7 @@
           return;
         }
 
-        await sendAudioBlob(audioBlob);
+        await sendAudioBlobForPreview(audioBlob);
       };
 
       mediaRecorder.start(250);
@@ -393,13 +491,33 @@
         const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
         document.getElementById('micLabel').innerText = `${elapsed}s`;
         document.getElementById('statusTitle').innerText = `Ti ascolto... (${elapsed}s)`;
-        document.getElementById('statusDesc').innerText = 'Parla liberamente. Tocca di nuovo quando hai finito.';
+        document.getElementById('statusDesc').innerText = 'Parla liberamente. Tocca il microfono per completare o "Scarta" per annullare.';
       }, 500);
+    }
+
+    function cancelRecording() {
+      isDiscarded = true;
+      isRecording = false;
+      clearInterval(timerInterval);
+      document.getElementById('cancelRecordBtn').classList.add('hidden');
+
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        try { mediaRecorder.stop(); } catch(e) {}
+      }
+      if (recordStream) {
+        recordStream.getTracks().forEach(t => t.stop());
+      }
+
+      updateUI('idle');
+      playBeep(300, 0.15);
+      document.getElementById('statusTitle').innerText = 'Registrazione scartata';
+      document.getElementById('statusDesc').innerText = 'Nessun comando inviato. Tocca il microfono per riprovare.';
     }
 
     function stopRecording() {
       isRecording = false;
       clearInterval(timerInterval);
+      document.getElementById('cancelRecordBtn').classList.add('hidden');
       updateUI('processing');
       playBeep(400, 0.15);
 
@@ -412,10 +530,11 @@
       }
     }
 
-    async function sendAudioBlob(blob) {
+    async function sendAudioBlobForPreview(blob) {
       updateUI('processing');
+      clearPreview();
       document.getElementById('transcriptBox').classList.remove('hidden');
-      document.getElementById('transcriptText').innerHTML = '<span class="text-[#D4B373] animate-pulse">🤖 Trascrizione AI con Gemini in corso...</span>';
+      document.getElementById('transcriptText').innerHTML = '<span class="text-[#D4B373] animate-pulse">🤖 Trascrizione e analisi AI con Gemini in corso...</span>';
 
       const formData = new FormData();
       const ext = blob.type.includes('mp4') ? 'mp4' : (blob.type.includes('ogg') ? 'ogg' : 'webm');
@@ -423,7 +542,7 @@
 
       try {
         const pin = getStoredPin();
-        const resp = await fetch('/api/voice-command-audio', {
+        const resp = await fetch('/api/voice-preview-audio', {
           method: 'POST',
           headers: { 'X-AMR-PIN': pin },
           body: formData
@@ -440,7 +559,7 @@
           showMicHelp('Rate limit superato: troppi comandi inviati in un minuto. Attendi qualche secondo.');
           return;
         }
-        
+
         const rawText = await resp.text();
         let data;
         try {
@@ -452,10 +571,232 @@
           return;
         }
 
-        displayVoiceResult(data);
+        displayPreviewCard(data);
       } catch (err) {
         updateUI('idle');
         showMicHelp('Errore di connessione: ' + (err.message || err));
+      }
+    }
+
+    async function sendTextForPreview(text) {
+      updateUI('processing');
+      clearPreview();
+      document.getElementById('transcriptBox').classList.remove('hidden');
+      document.getElementById('transcriptText').innerText = text;
+
+      try {
+        const pin = getStoredPin();
+        const resp = await fetch('/api/voice-preview', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-AMR-PIN': pin
+          },
+          body: JSON.stringify({text: text})
+        });
+
+        if (resp.status === 401) {
+          updateUI('idle');
+          showPinModal('PIN aziendale richiesto per inviare comandi.');
+          return;
+        }
+
+        if (resp.status === 429) {
+          updateUI('idle');
+          showMicHelp('Rate limit superato: troppe richieste inviate. Riprova a breve.');
+          return;
+        }
+
+        const data = await resp.json();
+        displayPreviewCard(data);
+      } catch (err) {
+        updateUI('idle');
+        showMicHelp('Errore di connessione al server: ' + err);
+      }
+    }
+
+    function displayPreviewCard(data) {
+      updateUI('idle');
+      clearPreviewTimer();
+
+      const transcriptBox = document.getElementById('transcriptBox');
+      const transcriptText = document.getElementById('transcriptText');
+      const langBadge = document.getElementById('langBadge');
+      const translationBox = document.getElementById('translationBox');
+      const translationText = document.getElementById('translationText');
+
+      if (!data.success && !data.matched && !data.transcription) {
+        showMicHelp(data.message || 'Comando non compreso. Riprova parlando più chiaramente.');
+        return;
+      }
+
+      // Aggiorna trascrizione
+      if (data.transcription) {
+        transcriptBox.classList.remove('hidden');
+        transcriptText.innerText = `"${data.transcription}"`;
+
+        const isArabic = data.language === 'ar' || (data.italian_translation && data.italian_translation !== data.transcription);
+        if (isArabic) {
+          langBadge.classList.remove('hidden');
+          langBadge.innerHTML = '🇸🇦 Arabo ➔ 🇮🇹 Italiano';
+          translationBox.classList.remove('hidden');
+          translationText.innerText = `"${data.italian_translation || data.transcription}"`;
+        } else {
+          langBadge.classList.add('hidden');
+          translationBox.classList.add('hidden');
+        }
+      }
+
+      // Popola i campi della Preview Card
+      const previewCard = document.getElementById('previewCard');
+      const projNameEl = document.getElementById('previewProjectName');
+      const boardBadgeEl = document.getElementById('previewBoardBadge');
+      const actionSummaryEl = document.getElementById('previewActionSummary');
+      const previewTransEl = document.getElementById('previewTranscription');
+      const translationRow = document.getElementById('previewTranslationRow');
+      const previewTransItEl = document.getElementById('previewTranslation');
+      const accessErrEl = document.getElementById('previewAccessError');
+      const accessReasonEl = document.getElementById('previewAccessReason');
+      const countdownContainer = document.getElementById('previewCountdownContainer');
+      const countdownText = document.getElementById('previewCountdownText');
+      const progressBar = document.getElementById('previewProgressBar');
+      const sendNowBtn = document.getElementById('sendNowBtn');
+
+      previewCleanText = data.clean_text || data.italian_translation || data.transcription || "";
+
+      if (data.matched) {
+        projNameEl.innerHTML = `<span class="text-white">${data.project_name}</span>`;
+        boardBadgeEl.innerText = data.board_name || "Monday";
+        boardBadgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700";
+      } else {
+        projNameEl.innerHTML = `<span class="text-amber-400 font-semibold">⚠️ Nessuna commessa identificata</span>`;
+        boardBadgeEl.innerText = "Non abbinato";
+        boardBadgeEl.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/40";
+      }
+
+      actionSummaryEl.innerText = data.action_summary || data.message || "Avanzamento";
+      previewTransEl.innerText = `"${data.transcription || previewCleanText}"`;
+
+      if (data.italian_translation && data.italian_translation !== data.transcription) {
+        translationRow.classList.remove('hidden');
+        previewTransItEl.innerText = `"${data.italian_translation}"`;
+      } else {
+        translationRow.classList.add('hidden');
+      }
+
+      // Controllo Permessi (RBAC)
+      if (data.can_access === false) {
+        accessErrEl.classList.remove('hidden');
+        accessReasonEl.innerText = data.access_reason || "Accesso non autorizzato a questa scheda per il tuo profilo.";
+        countdownContainer.classList.add('hidden');
+        sendNowBtn.classList.add('hidden');
+        previewCard.classList.remove('hidden');
+        playBeep(300, 0.25);
+        return;
+      }
+
+      accessErrEl.classList.add('hidden');
+      sendNowBtn.classList.remove('hidden');
+
+      // Se non abbinato a commessa, non far partire il countdown automatico
+      if (!data.matched) {
+        countdownContainer.classList.add('hidden');
+        actionSummaryEl.innerText = "Commessa non trovata. Tocca ✏️ Modifica per inserire il nome corretto.";
+        actionSummaryEl.className = "text-amber-300 text-xs";
+        previewCard.classList.remove('hidden');
+        playBeep(450, 0.2);
+        return;
+      }
+
+      actionSummaryEl.className = "text-emerald-400 font-semibold";
+      countdownContainer.classList.remove('hidden');
+      previewCard.classList.remove('hidden');
+
+      // Feedback acustico delicato di riconoscimento
+      playBeep(700, 0.12);
+
+      // Avvia Countdown di sicurezza 3.5 secondi
+      const TOTAL_MS = 3500;
+      let remainingMs = TOTAL_MS;
+      progressBar.style.width = '100%';
+      countdownText.innerText = `Invio automatico tra 3.5s...`;
+
+      previewTimer = setInterval(() => {
+        remainingMs -= 70;
+        const pct = Math.max(0, (remainingMs / TOTAL_MS) * 100);
+        progressBar.style.width = `${pct}%`;
+        const secText = (Math.max(0, remainingMs) / 1000).toFixed(1);
+        countdownText.innerText = `Invio automatico tra ${secText}s...`;
+
+        if (remainingMs <= 0) {
+          clearPreviewTimer();
+          confirmAndSend(previewCleanText);
+        }
+      }, 70);
+    }
+
+    function cancelPreview() {
+      clearPreviewTimer();
+      document.getElementById('previewCard').classList.add('hidden');
+      document.getElementById('transcriptBox').classList.add('hidden');
+      updateUI('idle');
+      playBeep(350, 0.15);
+      document.getElementById('statusTitle').innerText = 'Comando annullato';
+      document.getElementById('statusDesc').innerText = 'Nessuna modifica inviata a Monday.com.';
+    }
+
+    function editPreview() {
+      clearPreviewTimer();
+      document.getElementById('previewCard').classList.add('hidden');
+      const input = document.getElementById('manualInput');
+      input.value = previewCleanText;
+      updateUI('idle');
+      document.getElementById('statusTitle').innerText = 'Modifica comando';
+      document.getElementById('statusDesc').innerText = 'Correggi il testo e tocca Invia ➔';
+      input.focus();
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function sendPreviewNow() {
+      clearPreviewTimer();
+      confirmAndSend(previewCleanText);
+    }
+
+    async function confirmAndSend(text) {
+      clearPreviewTimer();
+      document.getElementById('previewCard').classList.add('hidden');
+      updateUI('processing');
+      document.getElementById('statusTitle').innerText = 'Aggiornamento Monday.com...';
+      document.getElementById('statusDesc').innerText = 'Invio definitivo delle modifiche in corso';
+
+      try {
+        const pin = getStoredPin();
+        const resp = await fetch('/api/voice-command', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-AMR-PIN': pin
+          },
+          body: JSON.stringify({ text: text })
+        });
+
+        if (resp.status === 401) {
+          updateUI('idle');
+          showPinModal('PIN aziendale richiesto per inviare comandi vocali.');
+          return;
+        }
+
+        if (resp.status === 429) {
+          updateUI('idle');
+          showMicHelp('Rate limit superato: attendi qualche secondo prima di un nuovo invio.');
+          return;
+        }
+
+        const data = await resp.json();
+        displayVoiceResult(data);
+      } catch (err) {
+        updateUI('idle');
+        showMicHelp('Errore di connessione al server: ' + err);
       }
     }
 
@@ -508,13 +849,13 @@
         micRing.classList.add('hidden');
         micLabel.innerText = '0s';
         statusTitle.innerText = 'Ti ascolto...';
-        statusDesc.innerText = 'Parla liberamente. Tocca di nuovo quando hai finito.';
+        statusDesc.innerText = 'Parla liberamente. Tocca il microfono per completare o "Scarta" per annullare.';
       } else if (state === 'processing') {
         micBtn.classList.remove('mic-recording');
         micRing.classList.remove('hidden');
         micLabel.innerText = 'Elaboro';
         statusTitle.innerText = 'Elaborazione in corso...';
-        statusDesc.innerText = 'Trascrivo con Gemini AI e aggiorno Monday.com';
+        statusDesc.innerText = 'Trascrivo con Gemini AI e verifico la commessa';
       } else {
         micBtn.classList.remove('mic-recording');
         micRing.classList.remove('hidden');
@@ -524,50 +865,14 @@
       }
     }
 
-    async function sendCommand(text) {
-      updateUI('processing');
-      document.getElementById('transcriptBox').classList.remove('hidden');
-      document.getElementById('transcriptText').innerText = text;
-
-      try {
-        const pin = getStoredPin();
-        const resp = await fetch('/api/voice-command', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-AMR-PIN': pin
-          },
-          body: JSON.stringify({text: text})
-        });
-
-        if (resp.status === 401) {
-          updateUI('idle');
-          showPinModal('PIN aziendale richiesto per inviare comandi vocali.');
-          return;
-        }
-
-        if (resp.status === 429) {
-          updateUI('idle');
-          showMicHelp('Rate limit superato: troppe richieste inviate in un minuto. Riprova a breve.');
-          return;
-        }
-
-        const data = await resp.json();
-        displayVoiceResult(data);
-      } catch (err) {
-        updateUI('idle');
-        showMicHelp('Errore di connessione al server: ' + err);
-      }
-    }
-
     function simulateText(txt) {
-      sendCommand(txt);
+      sendTextForPreview(txt);
     }
 
     function sendManual() {
       const val = document.getElementById('manualInput').value.trim();
       if (val) {
-        sendCommand(val);
+        sendTextForPreview(val);
         document.getElementById('manualInput').value = '';
       }
     }

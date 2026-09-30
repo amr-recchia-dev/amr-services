@@ -1069,3 +1069,147 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
         "board": target_board_name,
         "message": confirm_fallback
     }
+
+
+def preview_voice_command(spoken_text: str, original_text: str = None, detected_lang: str = "it", current_user: dict = None) -> dict:
+    """
+    Simula e anticipa l'azione del comando vocale SENZA modificare Monday.com.
+    Fornisce la trascrizione, la commessa identificata, la scheda di destinazione,
+    l'azione prevista e la verifica dei permessi per consentire all'utente di
+    confermare, annullare o modificare prima dell'invio effettivo.
+    """
+    if not spoken_text:
+        return {
+            "success": False,
+            "message": "Nessun testo vocale rilevato."
+        }
+
+    if not original_text:
+        if re.search(r"[\u0600-\u06FF]", spoken_text):
+            tr_res = translate_arabic_to_italian_if_needed(spoken_text)
+            original_text = spoken_text
+            spoken_text = tr_res.get("text", spoken_text)
+            detected_lang = "ar"
+        else:
+            original_text = spoken_text
+            detected_lang = "it"
+
+    is_arabic = (detected_lang == "ar") or (original_text != spoken_text and bool(re.search(r"[\u0600-\u06FF]", original_text or "")))
+
+    tagged_users, msg_body, is_update = extract_update_and_tags(spoken_text)
+    projects = get_active_projects_cache()
+    matched_project = match_project_from_text(spoken_text, projects, tagged_users=tagged_users)
+
+    if not matched_project:
+        return {
+            "success": True,
+            "matched": False,
+            "transcription": original_text or spoken_text,
+            "italian_translation": spoken_text,
+            "language": detected_lang,
+            "project_name": "",
+            "board_name": "",
+            "board_id": "",
+            "action_summary": "Nessuna commessa identificata",
+            "can_access": True,
+            "access_reason": "",
+            "clean_text": spoken_text,
+            "message": "Non ho individuato la commessa. Puoi toccare ✏️ Modifica per inserire o correggere il nome."
+        }
+
+    proj_name = matched_project["name"]
+    target_board_id = str(matched_project.get("board_id"))
+    target_board_name = matched_project.get("board_name") or ALL_ACTIVE_BOARDS.get(target_board_id, "Monday")
+    t_lower = spoken_text.lower()
+
+    # Verifica autorizzazione
+    can_access, access_reason = can_user_access_board(current_user, target_board_id)
+
+    # Indicatori di stato comuni
+    is_done = any(w in t_lower for w in ["fatto", "completat", "finito", "terminat", "pronto", "chiuso"])
+    is_blocked = any(w in t_lower for w in ["bloccat", "fermo", "manca", "pausa", "attesa", "problema"])
+    is_progress = any(w in t_lower for w in ["in corso", "iniziato", "svolgimento", "al lavoro", "partito", "in produzione", "arrivati"])
+
+    action_parts = []
+
+    if target_board_id == BOARD_COMMERCIALE:
+        is_accepted = any(w in t_lower for w in ["accettat", "confermat", "approvat", "vinto", "preso", "confermato"])
+        is_rejected = any(w in t_lower for w in ["rifiutat", "annullat", "perso", "bocciat", "scartat", "cancellat"])
+        is_pending = any(w in t_lower for w in ["in attesa", "inviato", "in trattativa", "da inviare"])
+        if is_accepted:
+            action_parts.append("Preventivo Accettato (SI / FATTO)")
+        elif is_rejected:
+            action_parts.append("Preventivo Rifiutato (NO / RIFIUTATO)")
+        elif is_pending:
+            action_parts.append("Preventivo In Attesa")
+        if msg_body:
+            action_parts.append(f"Nota: \"{msg_body[:40]}...\"" if len(msg_body) > 40 else f"Nota: \"{msg_body}\"")
+        if tagged_users:
+            action_parts.append(f"Notifica a: {', '.join([u['name'] for u in tagged_users])}")
+        action_summary = " • ".join(action_parts) if action_parts else "Nota su scheda Commerciale"
+
+    elif target_board_id == BOARD_INSTALLAZIONI:
+        inst_label = "Fatto" if is_done else ("Bloccato" if is_blocked else ("In svolgimento" if is_progress else None))
+        if inst_label:
+            action_parts.append(f"Stato Cantiere: {inst_label}")
+        if msg_body:
+            action_parts.append(f"Nota: \"{msg_body[:40]}\"")
+        action_summary = " • ".join(action_parts) if action_parts else "Nota su Cantiere / Installazioni"
+
+    elif target_board_id in [BOARD_PROGETTAZIONE, BOARD_INVENTARIO, BOARD_APPUNTAMENTI, BOARD_AMMINISTRAZIONE, BOARD_CONTESTAZIONI, BOARD_PALLET_EPS]:
+        action_summary = f"Nota su {target_board_name}"
+        if tagged_users:
+            action_summary += f" • Tag: {', '.join([u['name'] for u in tagged_users])}"
+        if msg_body:
+            snippet = msg_body[:40] + ("..." if len(msg_body) > 40 else "")
+            action_summary += f" • \"{snippet}\""
+
+    else:
+        # Reparti Officina (PRODUZIONE e GESTIONE PROGETTI)
+        step_name = None
+        for kw, step_info in DEPARTMENT_STEPS.items():
+            if kw in t_lower:
+                step_name = step_info["name"]
+                break
+
+        detected_time = parse_duration_italian(spoken_text)
+
+        if step_name:
+            action_parts.append(f"Fase: {step_name}")
+            if is_done:
+                action_parts.append("Stato: Fatto")
+            elif is_blocked:
+                action_parts.append("Stato: In Pausa")
+            elif is_progress:
+                action_parts.append("Stato: In Svolgimento")
+        elif is_done:
+            action_parts.append("Stato: Fatto")
+        elif is_blocked:
+            action_parts.append("Stato: Bloccato / Pausa")
+        elif is_progress:
+            action_parts.append("Stato: In Corso")
+
+        if detected_time:
+            action_parts.append(f"Tempo: {detected_time}")
+        if is_update and msg_body:
+            snippet = msg_body[:35] + ("..." if len(msg_body) > 35 else "")
+            action_parts.append(f"Nota: \"{snippet}\"")
+        if tagged_users:
+            action_parts.append(f"Tag: {', '.join([u['name'] for u in tagged_users])}")
+
+        action_summary = " • ".join(action_parts) if action_parts else "Avanzamento commessa"
+
+    return {
+        "success": True,
+        "matched": True,
+        "transcription": original_text or spoken_text,
+        "italian_translation": spoken_text,
+        "language": detected_lang,
+        "project_name": proj_name,
+        "board_name": target_board_name,
+        "board_id": target_board_id,
+        "action_summary": action_summary,
+        "can_access": can_access,
+        "access_reason": access_reason if not can_access else "",
+        "clean_text": spoken_text
+    }
