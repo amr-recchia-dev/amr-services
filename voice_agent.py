@@ -521,7 +521,7 @@ def process_voice_command(spoken_text: str, original_text: str = None, detected_
             "language": detected_lang,
             "transcription": original_text or spoken_text,
             "italian_translation": spoken_text,
-            "message": "Non sono riuscito a identificare la commessa o il cliente. Prova a specificare chiaramente il nome (es. 'Su Bertone tavolo 2...')"
+            "message": "Non sono riuscito a identificare la commessa o il cliente. Prova a specificare chiaramente il nome (es. 'EXTREME CORNICE', 'Zanesco', 'Led4Led'...)"
         }
 
     proj_name = matched_project["name"]
