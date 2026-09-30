@@ -598,25 +598,6 @@
       "_fallback": true,
       "emails_analizzate": 15
     },
-    "Alessandro Buosi": {
-      "folder": "INBOX.Alessandro Buosi",
-      "nome_cliente": "Alessandro Buosi",
-      "nomi_usati": [
-        "Alessandro Buosi"
-      ],
-      "email_mittenti": [
-        "amministrazione@amrrecchia.it",
-        "buosi.ale01@gmail.com",
-        "info@amrrecchia.it",
-        "ordini@amrrecchia.it"
-      ],
-      "prodotti_tipici": [],
-      "terminologia_chiave": [],
-      "formato_riferimento_ordine": "non strutturato",
-      "note": "Analisi Gemini non disponibile. Soggetti campione: Attached Image; Alessandro 1; Alessandro; Paga; proposta assunzione Buosi Alessandro",
-      "_fallback": true,
-      "emails_analizzate": 9
-    },
     "Angelo Zennaro": {
       "folder": "INBOX.Angelo Zennaro",
       "nome_cliente": "Angelo Zennaro",
