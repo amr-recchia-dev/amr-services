@@ -283,6 +283,41 @@ def voice_view():
     return render_template("voice.html")
 
 
+@app.route("/timbrature", methods=["GET"])
+@app.route("/presenze", methods=["GET"])
+def timbrature_view():
+    """Interfaccia Web del Portale Presenze & Ore Lavorate per i dipendenti AMR."""
+    return render_template("timbrature.html")
+
+
+@app.route("/api/presenze-data", methods=["GET", "POST"])
+def api_presenze_data():
+    """Restituisce il riepilogo ore, sessioni accoppiate e anomalie per un dipendente dato il PIN."""
+    import presenze_service
+    req_json = request.get_json(silent=True) or {} if request.is_json else {}
+    pin = request.args.get("pin") or req_json.get("pin") or request.headers.get("X-AMR-PIN")
+    month = request.args.get("month") or req_json.get("month")
+    if not pin:
+        return jsonify({"authenticated": False, "error": "PIN personale mancante"}), 400
+    res = presenze_service.calculate_employee_report(pin, month)
+    if not res.get("authenticated"):
+        return jsonify(res), 401
+    return jsonify(res), 200
+
+
+@app.route("/api/presenze-admin", methods=["GET", "POST"])
+def api_presenze_admin():
+    """Restituisce la sintesi di tutti i dipendenti per l'amministrazione."""
+    import presenze_service
+    req_json = request.get_json(silent=True) or {} if request.is_json else {}
+    pin = request.args.get("pin") or req_json.get("pin") or request.headers.get("X-AMR-PIN")
+    month = request.args.get("month") or req_json.get("month")
+    admin_pins = ["4921", "6198", "9276", "8359"]
+    if pin not in admin_pins and request.args.get("secret") != WEBHOOK_SECRET:
+        return jsonify({"error": "Accesso riservato all'amministrazione"}), 403
+    return jsonify(presenze_service.get_all_employees_overview(month)), 200
+
+
 @app.route("/api/employees", methods=["GET"])
 def api_employees():
     """Restituisce l'elenco di tutti i dipendenti aziendali registrati per la selezione rapida con 1 tocco."""

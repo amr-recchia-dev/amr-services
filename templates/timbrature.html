@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AMR Recchia • Portale Presenze & Ore Dipendente</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --amr-black: #0d1117;
+      --amr-card: #161b26;
+      --amr-card-border: #232a3b;
+      --amr-red: #DF3131;
+      --amr-red-hover: #c42626;
+      --amr-steel: #2B5672;
+      --amr-text: #f8fafc;
+      --amr-muted: #94a3b8;
+    }
+    body {
+      background-color: var(--amr-black);
+      color: var(--amr-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pin-digit {
+      width: 14px;
+      height: 14px;
+      border-radius: 9999px;
+      border: 2px solid #475569;
+      transition: all 0.2s;
+    }
+    .pin-digit.filled {
+      background-color: var(--amr-red);
+      border-color: var(--amr-red);
+      box-shadow: 0 0 10px rgba(223, 49, 49, 0.6);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-[var(--amr-red)] selection:text-white pb-8">
+
+  <!-- HEADER AMR RECCHIA -->
+  <header class="border-b border-[var(--amr-card-border)] bg-[var(--amr-card)]/90 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <a href="https://www.amrrecchia.it" target="_blank" class="bg-white p-1.5 rounded-lg shadow-sm border border-slate-200 flex items-center justify-center">
+          <img src="/static/logo.png" alt="AMR Recchia Logo" class="h-6 sm:h-7 object-contain">
+        </a>
+        <div class="border-l border-slate-700 pl-3">
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm font-black tracking-tight text-white uppercase">AMR Recchia</h1>
+            <span class="text-[10px] font-bold bg-[var(--amr-red)]/15 text-[var(--amr-red)] border border-[var(--amr-red)]/30 px-2 py-0.5 rounded-full">
+              Portale Presenze
+            </span>
+          </div>
+          <p class="text-[10px] text-[var(--amr-muted)]">Riepilogo Ore • Giornaliere • Settimanali • Mensili</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2" id="headerActions">
+        <a href="/voice" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1 transition">
+          <span>🎙️</span> <span class="hidden sm:inline">Assistente</span>
+        </a>
+        <button id="logoutBtn" onclick="logout()" class="hidden text-xs text-slate-400 hover:text-white bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-800 transition">
+          Esci
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENUTO PRINCIPALE -->
+  <main class="flex-1 max-w-2xl mx-auto w-full px-4 pt-6">
+
+    <!-- 1. SCHERMATA LOGIN PIN (Se non autenticato) -->
+    <div id="loginSection" class="w-full max-w-sm mx-auto bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-3xl p-6 sm:p-8 shadow-2xl text-center my-6">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-[var(--amr-red)]/15 border border-[var(--amr-red)]/30 flex items-center justify-center text-2xl mb-3 shadow-lg shadow-red-950/40">
+        🔐
+      </div>
+      <h2 class="text-lg font-bold text-white mb-1">Accesso Ore Dipendente</h2>
+      <p class="text-xs text-[var(--amr-muted)] mb-5">
+        Inserisci il tuo <b>PIN personale</b> a 4 cifre per consultare le tue ore lavorate
+      </p>
+
+      <!-- Indicatori Cifre PIN -->
+      <div class="flex justify-center gap-4 mb-6">
+        <div id="dot0" class="pin-digit"></div>
+        <div id="dot1" class="pin-digit"></div>
+        <div id="dot2" class="pin-digit"></div>
+        <div id="dot3" class="pin-digit"></div>
+      </div>
+
+      <!-- Messaggio Errore -->
+      <div id="pinErrorMsg" class="hidden mb-4 p-2.5 bg-red-950/60 border border-red-800/80 rounded-xl text-xs text-red-300"></div>
+
+      <!-- Tastierino Numerico Touch -->
+      <div class="grid grid-cols-3 gap-2.5 max-w-[240px] mx-auto mb-4">
+        <button onclick="pressDigit('1')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">1</button>
+        <button onclick="pressDigit('2')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">2</button>
+        <button onclick="pressDigit('3')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">3</button>
+        <button onclick="pressDigit('4')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">4</button>
+        <button onclick="pressDigit('5')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">5</button>
+        <button onclick="pressDigit('6')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">6</button>
+        <button onclick="pressDigit('7')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">7</button>
+        <button onclick="pressDigit('8')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">8</button>
+        <button onclick="pressDigit('9')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">9</button>
+        <button onclick="clearPin()" class="h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-slate-400 font-bold text-xs border border-slate-800 transition">Canc</button>
+        <button onclick="pressDigit('0')" class="h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 active:scale-95 text-white font-bold text-lg border border-slate-700/60 transition">0</button>
+        <button onclick="deleteDigit()" class="h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-slate-300 font-bold text-base border border-slate-800 transition">⌫</button>
+      </div>
+
+      <div class="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80">
+        Usa lo stesso PIN a 4 cifre del sistema di timbratura aziendale
+      </div>
+    </div>
+
+
+    <!-- 2. DASHBOARD DIPENDENTE (Visibile dopo PIN) -->
+    <div id="dashboardSection" class="hidden space-y-5">
+
+      <!-- Scheda Profilo & Selezione Mese -->
+      <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-full bg-[var(--amr-red)]/20 border border-[var(--amr-red)]/40 flex items-center justify-center text-xl font-bold text-white shrink-0">
+            👤
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="dispEmployeeName" class="text-base font-bold text-white">Caricamento...</h2>
+              <span id="dispDeptBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700"></span>
+            </div>
+            <p id="dispEmployeeEmail" class="text-xs text-[var(--amr-muted)]"></p>
+          </div>
+        </div>
+
+        <!-- Selettore Mese -->
+        <div class="flex items-center gap-2">
+          <label for="monthSelect" class="text-xs text-slate-400 font-medium">Mese:</label>
+          <select id="monthSelect" onchange="changeMonth(this.value)" 
+            class="bg-[var(--amr-black)] border border-slate-700 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-[var(--amr-red)]">
+            <option value="">Caricamento mesi...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Avviso Anomalie (Se presenti uscite/ingressi mancanti) -->
+      <div id="anomaliesAlertBox" class="hidden p-3.5 bg-amber-950/50 border border-amber-500/40 rounded-2xl text-left">
+        <div class="flex items-center gap-2 text-xs font-bold text-amber-300 mb-1">
+          <span>⚠️</span> <span>Rilevata timbratura incompleta in questo mese</span>
+        </div>
+        <p class="text-[11px] text-amber-200/90 leading-relaxed">
+          A causa di problemi di blocco del tablet, alcune timbrature potrebbero risultare senza uscita o senza ingresso. 
+          Verifica le giornate contrassegnate in giallo qui sotto e avvisa l'amministrazione per la rettifica.
+        </p>
+      </div>
+
+      <!-- KPI Grid (Mese e Settimana) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <!-- Totale Ore Mese -->
+        <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-3.5 text-left relative overflow-hidden">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 flex items-center justify-between">
+            <span>Ore Totali Mese</span>
+            <span>⏱️</span>
+          </div>
+          <div id="kpiTotalHours" class="text-xl sm:text-2xl font-black text-white">0h 00m</div>
+          <div id="kpiDaysWorked" class="text-[10px] text-slate-500 mt-1">0 giorni lavorati</div>
+        </div>
+
+        <!-- Settimana Corrente -->
+        <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-3.5 text-left relative overflow-hidden">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 flex items-center justify-between">
+            <span>Settimana Attuale</span>
+            <span>📅</span>
+          </div>
+          <div id="kpiCurrentWeekHours" class="text-xl sm:text-2xl font-black text-emerald-400">0h 00m</div>
+          <div class="text-[10px] text-slate-500 mt-1">su 40h standard</div>
+        </div>
+
+        <!-- Permessi / Ferie -->
+        <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-3.5 text-left relative overflow-hidden">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 flex items-center justify-between">
+            <span>Permessi / Ferie</span>
+            <span>🏖️</span>
+          </div>
+          <div id="kpiPermessiFerie" class="text-xl sm:text-2xl font-black text-amber-300">0h</div>
+          <div class="text-[10px] text-slate-500 mt-1">nel mese selezionato</div>
+        </div>
+
+        <!-- Stato Cartellino -->
+        <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-3.5 text-left relative overflow-hidden">
+          <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1 flex items-center justify-between">
+            <span>Stato Presenze</span>
+            <span>🛡️</span>
+          </div>
+          <div id="kpiStatusBadge" class="text-sm font-bold text-emerald-400 mt-1">Regolare</div>
+          <div id="kpiAnomaliesNote" class="text-[10px] text-slate-500 mt-1">Nessuna anomalia</div>
+        </div>
+      </div>
+
+      <!-- Dettaglio Settimanale Compresso -->
+      <div id="weeksContainer" class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-4 text-left">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
+          <span>Riepilogo Settimanale</span>
+          <span class="text-[10px] text-slate-500">Obiettivo 40h/settimana</span>
+        </h3>
+        <div id="weeksList" class="space-y-2">
+          <!-- Popolato via JS -->
+        </div>
+      </div>
+
+      <!-- Elenco Cronologico Giornate Lavorate -->
+      <div class="bg-[var(--amr-card)] border border-[var(--amr-card-border)] rounded-2xl p-4 sm:p-5 text-left">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Dettaglio Giornaliero</h3>
+            <p class="text-[11px] text-slate-400">Tutte le timbrature registrate con ingressi, uscite e ore nette</p>
+          </div>
+          <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700" id="dailyRowsCount">0 giorni</span>
+        </div>
+
+        <div id="dailyContainer" class="space-y-3">
+          <!-- Popolato via JS -->
+        </div>
+      </div>
+
+      <!-- Link Rapido Timbratura con GPS da Smartphone -->
+      <div class="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-700 text-left flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-lg">
+        <div>
+          <div class="text-xs font-bold text-white flex items-center gap-1.5">
+            <span>📱</span> <span>Timbra direttamente dal tuo telefono con GPS</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5">
+            Così eviti la fila e i blocchi del tablet in officina. Funziona sia in Sede che in Trasferta.
+          </p>
+        </div>
+        <a href="https://www.appsheet.com/start/662d1f5f-b33f-4e4d-87f0-72d08d06e950" target="_blank"
+          class="px-4 py-2 bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold text-xs rounded-xl text-center transition shadow-md shadow-red-950/40 shrink-0">
+          Apri App Timbrature GPS ➔
+        </a>
+      </div>
+
+      <!-- Vista Amministrazione (Se utente amministratore) -->
+      <div id="adminSection" class="hidden p-4 rounded-2xl bg-slate-900 border border-amber-600/40 text-left">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+            <span>👑</span> <span>Vista Riepilogo Amministrazione (Tutti i Dipendenti)</span>
+          </div>
+          <button onclick="toggleAdminView()" id="adminToggleBtn" class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1 rounded-lg border border-slate-700">
+            Mostra Tabella Completa ▾
+          </button>
+        </div>
+        <div id="adminTableContainer" class="hidden overflow-x-auto mt-3">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-800 text-slate-400 font-bold uppercase text-[10px]">
+              <tr>
+                <th class="p-2">Dipendente</th>
+                <th class="p-2">Reparto</th>
+                <th class="p-2">Ore Mese</th>
+                <th class="p-2">Giorni</th>
+                <th class="p-2">Anomalie</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody" class="divide-y divide-slate-800 text-slate-300"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Script Logica Portale -->
+  <script>
+    let currentPin = "";
+    let cachedData = null;
+    let isAdmin = false;
+
+    function pressDigit(num) {
+      if (currentPin.length < 4) {
+        currentPin += num;
+        updateDots();
+        if (currentPin.length === 4) {
+          submitPin();
+        }
+      }
+    }
+
+    function deleteDigit() {
+      if (currentPin.length > 0) {
+        currentPin = currentPin.slice(0, -1);
+        updateDots();
+        hideError();
+      }
+    }
+
+    function clearPin() {
+      currentPin = "";
+      updateDots();
+      hideError();
+    }
+
+    function updateDots() {
+      for (let i = 0; i < 4; i++) {
+        const dot = document.getElementById('dot' + i);
+        if (i < currentPin.length) {
+          dot.classList.add('filled');
+        } else {
+          dot.classList.remove('filled');
+        }
+      }
+    }
+
+    function showError(msg) {
+      const err = document.getElementById('pinErrorMsg');
+      err.innerText = msg;
+      err.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('pinErrorMsg').classList.add('hidden');
+    }
+
+    async function submitPin() {
+      hideError();
+      try {
+        const resp = await fetch(`/api/presenze-data?pin=${encodeURIComponent(currentPin)}`);
+        const data = await resp.json();
+
+        if (resp.ok && data.authenticated) {
+          localStorage.setItem('amr_presenze_pin', currentPin);
+          cachedData = data;
+          renderDashboard(data);
+        } else {
+          showError(data.error || "PIN non riconosciuto. Verifica le 4 cifre.");
+          currentPin = "";
+          updateDots();
+        }
+      } catch (err) {
+        showError("Errore di connessione al server. Riprova tra poco.");
+        currentPin = "";
+        updateDots();
+      }
+    }
+
+    async function changeMonth(monthKey) {
+      if (!currentPin || !monthKey) return;
+      try {
+        const resp = await fetch(`/api/presenze-data?pin=${encodeURIComponent(currentPin)}&month=${encodeURIComponent(monthKey)}`);
+        const data = await resp.json();
+        if (resp.ok && data.authenticated) {
+          cachedData = data;
+          renderDashboard(data);
+        }
+      } catch (e) {
+        console.error("Errore cambio mese:", e);
+      }
+    }
+
+    function renderDashboard(data) {
+      document.getElementById('loginSection').classList.add('hidden');
+      document.getElementById('dashboardSection').classList.remove('hidden');
+      document.getElementById('logoutBtn').classList.remove('hidden');
+
+      // Profilo
+      document.getElementById('dispEmployeeName').innerText = data.employee.name;
+      document.getElementById('dispDeptBadge').innerText = data.employee.label || data.employee.department;
+      document.getElementById('dispEmployeeEmail').innerText = data.employee.email;
+
+      // Populate Mesi
+      const sel = document.getElementById('monthSelect');
+      sel.innerHTML = '';
+      (data.month_options || []).forEach(opt => {
+        const isSel = (opt.key === data.selected_month.key);
+        sel.innerHTML += `<option value="${opt.key}" ${isSel ? 'selected' : ''}>${opt.label}</option>`;
+      });
+
+      // KPI
+      document.getElementById('kpiTotalHours').innerText = data.kpi.total_fmt;
+      document.getElementById('kpiDaysWorked').innerText = `${data.kpi.days_worked} giorni lavorati`;
+
+      // Settimana Attuale
+      const curWeek = (data.weeks || []).find(w => w.is_current);
+      if (curWeek) {
+        document.getElementById('kpiCurrentWeekHours').innerText = curWeek.total_fmt;
+      } else if (data.weeks && data.weeks.length > 0) {
+        document.getElementById('kpiCurrentWeekHours').innerText = data.weeks[0].total_fmt;
+      } else {
+        document.getElementById('kpiCurrentWeekHours').innerText = '0h 00m';
+      }
+
+      // Permessi e Ferie
+      const pfTotal = (data.kpi.permessi_hours || 0) + (data.kpi.ferie_hours || 0);
+      document.getElementById('kpiPermessiFerie').innerText = `${pfTotal.toFixed(1)}h`;
+
+      // Badge Anomalie
+      const anomCount = data.kpi.anomalies_count || 0;
+      const anomBox = document.getElementById('anomaliesAlertBox');
+      const badge = document.getElementById('kpiStatusBadge');
+      const anomNote = document.getElementById('kpiAnomaliesNote');
+
+      if (anomCount > 0) {
+        anomBox.classList.remove('hidden');
+        badge.innerText = `${anomCount} Anomalia${anomCount > 1 ? 'e' : ''}`;
+        badge.className = 'text-sm font-bold text-amber-400 mt-1';
+        anomNote.innerText = 'Richiesta verifica timbrature';
+      } else {
+        anomBox.classList.add('hidden');
+        badge.innerText = 'Regolare ✅';
+        badge.className = 'text-sm font-bold text-emerald-400 mt-1';
+        anomNote.innerText = 'Tutte le uscite chiuse';
+      }
+
+      // Settimane
+      const wList = document.getElementById('weeksList');
+      wList.innerHTML = '';
+      (data.weeks || []).forEach(w => {
+        const pct = Math.min(100, Math.round((w.total_hours / 40.0) * 100));
+        wList.innerHTML += `
+          <div class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
+            <div>
+              <div class="font-bold text-white flex items-center gap-1.5">
+                <span>Settimana ${w.week_num}</span>
+                ${w.is_current ? '<span class="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded font-bold">IN CORSO</span>' : ''}
+              </div>
+              <div class="w-28 sm:w-40 h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" style="width: ${pct}%"></div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="font-bold text-white">${w.total_fmt}</div>
+              <div class="text-[10px] text-slate-500">${pct}% di 40h</div>
+            </div>
+          </div>
+        `;
+      });
+
+      // Elenco Giornaliero
+      const dailyCont = document.getElementById('dailyContainer');
+      dailyCont.innerHTML = '';
+      document.getElementById('dailyRowsCount').innerText = `${(data.daily || []).length} giorni`;
+
+      if (!data.daily || data.daily.length === 0) {
+        dailyCont.innerHTML = `
+          <div class="p-8 text-center text-xs text-slate-500 bg-slate-900/50 rounded-xl">
+            Nessuna timbratura registrata per questo mese.
+          </div>
+        `;
+      } else {
+        data.daily.forEach(d => {
+          let statusBadge = '';
+          let borderCol = 'border-slate-800';
+
+          if (d.status === 'ANOMALIA') {
+            statusBadge = '<span class="text-[10px] font-bold bg-amber-950 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full">⚠️ Verifica Uscita</span>';
+            borderCol = 'border-amber-500/40 bg-amber-950/10';
+          } else if (d.status === 'IN_CORSO') {
+            statusBadge = '<span class="text-[10px] font-bold bg-blue-950 text-blue-300 border border-blue-500/40 px-2 py-0.5 rounded-full animate-pulse">⏳ Turno Aperto</span>';
+            borderCol = 'border-blue-500/40 bg-blue-950/10';
+          } else if (d.status === 'TRASFERTA') {
+            statusBadge = '<span class="text-[10px] font-bold bg-purple-950 text-purple-300 border border-purple-500/40 px-2 py-0.5 rounded-full">📍 Trasferta</span>';
+            borderCol = 'border-purple-500/40';
+          } else {
+            statusBadge = '<span class="text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">Regolare</span>';
+          }
+
+          let sessHtml = '';
+          d.sessions.forEach((s, idx) => {
+            const inTxt = s.in || '---';
+            const outTxt = s.out || (s.status === 'IN_CORSO' ? 'In corso...' : 'Mancante ⚠️');
+            sessHtml += `
+              <div class="flex items-center justify-between text-xs py-1 border-t border-slate-800/60 first:border-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 font-mono text-[10px]">#${idx+1}</span>
+                  <span class="text-white font-mono">${inTxt}</span>
+                  <span class="text-slate-600">➔</span>
+                  <span class="${s.out ? 'text-white' : (s.status === 'IN_CORSO' ? 'text-blue-300' : 'text-amber-400 font-bold')} font-mono">${outTxt}</span>
+                  ${s.tipo && s.tipo.toLowerCase() === 'trasferta' ? '<span class="text-[9px] bg-purple-900/60 text-purple-200 px-1 rounded">Trasferta</span>' : ''}
+                </div>
+                <div class="font-bold text-slate-300 font-mono text-[11px]">${s.duration_fmt}</div>
+              </div>
+            `;
+          });
+
+          dailyCont.innerHTML += `
+            <div class="p-3.5 rounded-2xl bg-slate-900/90 border ${borderCol} transition-all">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-bold text-white">${d.day_name}</span>
+                  <span class="text-xs text-slate-400 font-mono">${d.date}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  ${statusBadge}
+                  <span class="text-xs font-black text-white font-mono bg-slate-800 px-2 py-0.5 rounded">${d.total_fmt}</span>
+                </div>
+              </div>
+              <div class="space-y-0.5 pt-1">
+                ${sessHtml}
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      // Check se Amministratore
+      if (data.employee.is_commercial || ['4921', '6198', '9276', '8359'].includes(currentPin)) {
+        isAdmin = true;
+        document.getElementById('adminSection').classList.remove('hidden');
+      } else {
+        isAdmin = false;
+        document.getElementById('adminSection').classList.add('hidden');
+      }
+    }
+
+    async function toggleAdminView() {
+      const container = document.getElementById('adminTableContainer');
+      const btn = document.getElementById('adminToggleBtn');
+      if (container.classList.contains('hidden')) {
+        container.classList.remove('hidden');
+        btn.innerText = 'Nascondi Tabella ▴';
+        loadAdminOverview();
+      } else {
+        container.classList.add('hidden');
+        btn.innerText = 'Mostra Tabella Completa ▾';
+      }
+    }
+
+    async function loadAdminOverview() {
+      const tbody = document.getElementById('adminTableBody');
+      tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">Caricamento presenze di tutta l\'azienda...</td></tr>';
+      try {
+        const selMonth = document.getElementById('monthSelect').value;
+        const resp = await fetch(`/api/presenze-admin?pin=${encodeURIComponent(currentPin)}&month=${encodeURIComponent(selMonth)}`);
+        const list = await resp.json();
+        tbody.innerHTML = '';
+        list.forEach(emp => {
+          const anomBadge = emp.kpi.anomalies_count > 0 
+            ? `<span class="bg-amber-950 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-bold">${emp.kpi.anomalies_count} ⚠️</span>` 
+            : '<span class="text-emerald-400">0</span>';
+          tbody.innerHTML += `
+            <tr class="hover:bg-slate-800/50">
+              <td class="p-2 font-bold text-white">${emp.name}</td>
+              <td class="p-2 text-slate-400">${emp.department}</td>
+              <td class="p-2 font-mono font-bold text-white">${emp.kpi.total_fmt}</td>
+              <td class="p-2 font-mono">${emp.kpi.days_worked} gg</td>
+              <td class="p-2">${anomBadge}</td>
+            </tr>
+          `;
+        });
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-red-400">Errore caricamento dati amministratore.</td></tr>';
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('amr_presenze_pin');
+      currentPin = "";
+      updateDots();
+      document.getElementById('dashboardSection').classList.add('hidden');
+      document.getElementById('logoutBtn').classList.add('hidden');
+      document.getElementById('loginSection').classList.remove('hidden');
+    }
+
+    // Auto-login se PIN già salvato
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedPin = localStorage.getItem('amr_presenze_pin');
+      if (savedPin && savedPin.length === 4) {
+        currentPin = savedPin;
+        updateDots();
+        submitPin();
+      }
+    });
+
+    // Supporto tastiera fisica
+    window.addEventListener('keydown', (e) => {
+      if (document.getElementById('loginSection').classList.contains('hidden')) return;
+      if (e.key >= '0' && e.key <= '9') {
+        pressDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        deleteDigit();
+      } else if (e.key === 'Escape') {
+        clearPin();
+      }
+    });
+  </script>
+</body>
+</html>

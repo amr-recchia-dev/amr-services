@@ -1,0 +1,17 @@
+{
+  "aliases": {
+    "tavolo henoto fiera milano": {
+      "project_id": "999991",
+      "project_name": "Henoto Stand Fiera Milano",
+      "board_id": "1865197409",
+      "count": 1
+    },
+    "tavolo henoto reception": {
+      "project_id": "102",
+      "project_name": "Henoto - Desk Reception",
+      "board_id": "1865197409",
+      "count": 1
+    }
+  },
+  "corrections": []
+}
