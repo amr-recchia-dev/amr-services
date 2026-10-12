@@ -92,6 +92,8 @@
       background: #1e2433; color: var(--text); border: 1px solid var(--border); text-decoration: none;
     }
     #queueBox { margin-top: 12px; background: #2a1a0f; border: 1px solid #78350f; color: #fcd34d; border-radius: 14px; padding: 10px 14px; font-size: 14px; font-weight: 600; text-align: center; }
+    #devBox { margin-top: 12px; background: #2a0f0f; border: 1px solid #7f1d1d; color: #fca5a5; border-radius: 14px; padding: 12px 14px; font-size: 15px; font-weight: 700; text-align: center; white-space: pre-line; }
+    #devBox.ok { background: #0f2a1a; border-color: #14532d; color: #86efac; }
 
     /* Conferma a schermo intero */
     #done { position: fixed; inset: 0; z-index: 5000; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px; }
@@ -184,6 +186,7 @@
         <div style="flex:1;min-width:0"><div class="n" id="nome">—</div><div class="d" id="dip"></div></div>
         <button class="mini" id="bLogout">Esci</button>
       </div>
+      <div id="devBox" class="hidden"></div>
 
       <!-- Scheda TIMBRA -->
       <div id="tabTimbra" class="tab">
@@ -260,6 +263,11 @@
           <div id="listaRecenti"></div>
         </div>
         <div class="card">
+          <h3>📱 Telefoni dei dipendenti</h3>
+          <div id="listaTel"><div class="empty">Caricamento…</div></div>
+          <button type="button" class="cta hidden" id="bTablet" style="margin:12px 0 0">Attiva questo tablet per tutti</button>
+        </div>
+        <div class="card">
           <h3>🛡️ Registro di sicurezza</h3>
           <div class="w" id="sicStato" style="margin-bottom:12px">Caricamento…</div>
           <button type="button" class="ghost" id="bSicCsv" style="width:100%">⬇︎ Scarica registro (Excel / CSV)</button>
@@ -316,6 +324,10 @@
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
   }
+  // Chiave di questo telefono/tablet (il MAC non è leggibile dal browser): resta salvata nel dispositivo
+  var K_DEV = 'amr_timbra_dev';
+  var DEV = localStorage.getItem(K_DEV);
+  if (!DEV) { DEV = 'dev-' + uuid(); try { localStorage.setItem(K_DEV, DEV); } catch (e) {} }
   function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
   function initials(n) { return (n || '?').split(/\s+/).map(function (w) { return w.charAt(0); }).slice(0, 2).join('').toUpperCase(); }
 
@@ -382,7 +394,7 @@
   function doLogin(p) {
     $('pinMsg').className = 'msg info';
     $('pinMsg').textContent = 'Verifico il PIN…';
-    api('/api/timbra/login', { pin: p }).then(function (res) {
+    api('/api/timbra/login', { pin: p, device_id: DEV, kiosk: KIOSK }).then(function (res) {
       if (res.ok) {
         rememberKnown(p, res);
         enter(p, res);
@@ -444,7 +456,21 @@
     renderMain();
     startGps();
     resetIdle();
-    if (!res.offline) loadPermessi(true);
+    if (!res.offline) { loadPermessi(true); devUi(res.dispositivo, res.dispositivo_msg); }
+    else devUi(null);
+  }
+
+  // Avviso "telefono non autorizzato"
+  function devUi(stato, msg) {
+    var b = $('devBox');
+    if (stato === 'in_attesa' || stato === 'rifiutato' || stato === 'tablet_non_attivo' || stato === 'scaduta') {
+      b.className = '';
+      b.textContent = '⛔ ' + (msg || 'Telefono non autorizzato: chiedi all\'amministrazione.');
+    } else if (stato === 'associato') {
+      b.className = 'ok';
+      b.textContent = '📱 Da ora questo telefono è registrato come il tuo per le timbrature.';
+      setTimeout(function () { if (b.className === 'ok') b.className = 'hidden'; }, 8000);
+    } else b.className = 'hidden';
   }
 
   function logout() {
@@ -452,9 +478,10 @@
     if (!KIOSK) { localStorage.removeItem(K_PIN); localStorage.removeItem(K_USER); }
     stopGps();
     closeForm();
+    devUi(null);
     $('vMain').classList.add('hidden'); $('vPin').classList.remove('hidden');
     $('tabbar').classList.add('hidden'); document.body.classList.remove('logged');
-    $('listaPerm').innerHTML = ''; $('listaAttesa').innerHTML = ''; $('listaRecenti').innerHTML = '';
+    $('listaPerm').innerHTML = ''; $('listaAttesa').innerHTML = ''; $('listaRecenti').innerHTML = ''; $('listaTel').innerHTML = '';
     $('badgePerm').classList.add('hidden'); $('badgeAdmin').classList.add('hidden');
     pin = ''; drawDots();
   }
@@ -500,10 +527,14 @@
   }
 
   function renderQueue() {
-    var n = load(K_QUEUE, []).length;
+    var qAll = load(K_QUEUE, []);
+    var n = qAll.length;
+    var nb = qAll.filter(function (x) { return x.bloccata; }).length;
     var box = $('queueBox');
     if (n) {
-      box.textContent = '⏳ ' + n + (n === 1 ? ' timbratura salvata' : ' timbrature salvate') + ' su questo dispositivo: verranno inviate appena c\'è rete. Non chiudere e non disinstallare l\'app.';
+      box.textContent = nb
+        ? '⛔ ' + nb + (nb === 1 ? ' timbratura in attesa' : ' timbrature in attesa') + ' che l\'amministrazione autorizzi questo telefono. Partiranno da sole: non disinstallare l\'app.'
+        : '⏳ ' + n + (n === 1 ? ' timbratura salvata' : ' timbrature salvate') + ' su questo dispositivo: verranno inviate appena c\'è rete. Non chiudere e non disinstallare l\'app.';
       box.classList.remove('hidden');
     } else box.classList.add('hidden');
     $('foot').textContent = 'AMR Recchia' + (KIOSK ? ' · Modalità tablet' : '') + (n ? ' · in coda: ' + n : '');
@@ -618,7 +649,7 @@
     waitFix().then(function (f) {
       var item = {
         client_id: uuid(), pin: user.pin, nome: user.nome, azione: azione, ts: ts,
-        lat: f ? f.lat : null, lng: f ? f.lng : null, acc: f ? f.acc : null
+        lat: f ? f.lat : null, lng: f ? f.lng : null, acc: f ? f.acc : null, device_id: DEV
       };
       // 1° la salvo sul dispositivo: così NON si perde mai, anche se la rete cade
       var q = load(K_QUEUE, []); q.push(item); save(K_QUEUE, q);
@@ -655,7 +686,11 @@
     if (!q.length) { renderQueue(); return; }
     flushing = true;
     var item = q[0];
-    api('/api/timbra/registra', item).then(function (res) {
+    var body = {};
+    for (var k in item) body[k] = item[k];
+    body.device_id = item.device_id || DEV;
+    body.kiosk = KIOSK;
+    api('/api/timbra/registra', body).then(function (res) {
       if (res.ok) {
         drop(item.client_id);
         if (user && user.pin === item.pin && res.eventi_oggi) {
@@ -663,6 +698,7 @@
           if (res.nome && user.nome.indexOf('PIN ') === 0) { user.nome = res.nome; $('nome').textContent = res.nome; $('avatar').textContent = initials(res.nome); }
           if (!KIOSK) save(K_USER, user);
         }
+        if (user && user.pin === item.pin) devUi(res.dispositivo === 'associato' ? 'associato' : null);
         if (!$('done').classList.contains('hidden')) {
           $('dT3').textContent = res.offline ? '✓ Registrata (inviata in ritardo per mancanza di rete)'
             : '✓ Registrata' + (res.tipo === 'Trasferta' ? ' · in trasferta' : res.tipo === 'Sede' ? ' · in sede' : '');
@@ -670,6 +706,26 @@
           vibrate([40, 40, 40]);
         }
         flushing = false; renderMain(); flush();
+      } else if (res._status === 403 && res.dispositivo) {
+        // Telefono non autorizzato
+        if (res.dispositivo === 'in_attesa' || res.dispositivo === 'tablet_non_attivo') {
+          // resta salvata: parte da sola appena l'amministrazione approva
+          var qq = load(K_QUEUE, []);
+          qq.forEach(function (x) { if (x.client_id === item.client_id) x.bloccata = true; });
+          save(K_QUEUE, qq);
+          if (user && user.pin === item.pin) devUi(res.dispositivo, res.error);
+          if (!$('done').classList.contains('hidden')) {
+            $('dT3').textContent = '⛔ ' + (res.error || 'Telefono non autorizzato') + '\nLa timbratura resta salvata e partirà appena approvato.';
+            clearTimeout(doneTimer); doneTimer = setTimeout(closeDone, 9000);
+          }
+          flushing = false; renderMain();
+        } else {
+          drop(item.client_id);
+          flushing = false; renderMain();
+          if (user && user.pin === item.pin) devUi(res.dispositivo, res.error);
+          alert('⛔ Timbratura delle ' + hhmm(item.ts) + ' NON registrata.\n' + (res.error || 'Telefono non autorizzato'));
+          flush();
+        }
       } else if (!res.retry && (res._status === 400 || res._status === 401)) {
         // PIN errato / dati non validi: non ha senso riprovare
         drop(item.client_id);
@@ -699,7 +755,7 @@
   function refresh() {
     if (!user) return;
     var p = user.pin;
-    api('/api/timbra/login', { pin: p }).then(function (res) {
+    api('/api/timbra/login', { pin: p, device_id: DEV, kiosk: KIOSK }).then(function (res) {
       if (res.ok && user && user.pin === p) {
         user.nome = res.nome; user.dipartimento = res.dipartimento || ''; user.eventi_oggi = res.eventi_oggi || []; user.day = today();
         if (!!res.admin !== !!user.admin) { user.admin = !!res.admin; setAdmin(user.admin); }
@@ -742,7 +798,7 @@
       b.classList.toggle('on', b.getAttribute('data-tab') === id);
     });
     if (id === 'tabPermessi') loadPermessi();
-    if (id === 'tabAdmin') { loadAdmin(); loadSicurezza(); }
+    if (id === 'tabAdmin') { loadAdmin(); loadTelefoni(); loadSicurezza(); }
     if (id === 'tabTimbra' && map) setTimeout(function () { map.invalidateSize(); }, 50);
     window.scrollTo(0, 0);
   }
@@ -750,7 +806,8 @@
     var b = e.target.closest('[data-tab]'); if (!b || !user) return;
     showTab(b.getAttribute('data-tab'));
   });
-  function setAdmin(on) { $('tbAdmin').classList.toggle('hidden', !on); if (on) loadAdmin(true); }
+  var permAtt = 0, telAtt = 0;
+  function setAdmin(on) { $('tbAdmin').classList.toggle('hidden', !on); if (on) { loadAdmin(true); loadTelefoni(true); } }
 
   function reqEl(o, showName) {
     var d = el('div', 'req');
@@ -881,7 +938,7 @@
     permApi('admin_lista').then(function (res) {
       if (!user || user.pin !== p || !res.ok) return;
       var att = res.in_attesa || [], rec = res.recenti || [];
-      setBadge('badgeAdmin', att.length);
+      permAtt = att.length; setBadge('badgeAdmin', permAtt + telAtt);
       var box = $('listaAttesa'); box.innerHTML = '';
       if (!att.length) box.innerHTML = '<div class="empty">Nessuna richiesta da approvare 👍</div>';
       att.forEach(function (o) {
@@ -913,6 +970,82 @@
       Array.prototype.forEach.call(acts.children, function (b) { b.disabled = false; });
     });
   }
+
+  // ── Telefoni dei dipendenti (solo amministrazione) ─────────────
+  function telApi(azione, extra) {
+    var body = { pin: user.pin, azione: azione, device_id: DEV };
+    for (var k in (extra || {})) body[k] = extra[k];
+    return api('/api/timbra/dispositivi', body);
+  }
+  function quando(s) { return s ? itDate(s.slice(0, 10)) + ' ' + s.slice(11, 16) : '—'; }
+  function nomeBello(n) { return String(n || '').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
+  function loadTelefoni(silent) {
+    if (!user || !user.admin) return;
+    var p = user.pin;
+    telApi('lista').then(function (res) {
+      if (!user || user.pin !== p) return;
+      var box = $('listaTel'); box.innerHTML = '';
+      if (!res.ok) { if (!silent) box.appendChild(el('div', 'empty', res.error || 'Non disponibile')); return; }
+      if (!res.attivo) { box.appendChild(el('div', 'empty', '⚠️ Controllo telefoni non attivo (disco del server non collegato).')); return; }
+      telAtt = (res.in_attesa || []).length; setBadge('badgeAdmin', permAtt + telAtt);
+
+      (res.in_attesa || []).forEach(function (o) {
+        var d = el('div', 'req');
+        var top = el('div', 'top');
+        top.appendChild(el('div', 't', '📱 ' + nomeBello(o.dipendente)));
+        top.appendChild(el('span', 'st att', 'Nuovo telefono'));
+        d.appendChild(top);
+        d.appendChild(el('div', 'w', o.descrizione + ' · richiesto il ' + quando(o.creato_il)));
+        d.appendChild(el('div', 'w', 'Approvando, il telefono precedente non potrà più timbrare.'));
+        var a = el('div', 'acts');
+        var y = el('button', 'y', '✓ Autorizza'), n = el('button', 'n', '✕ Rifiuta');
+        y.addEventListener('click', function () { telDecidi('approva', o, 'Autorizzare il nuovo telefono di ' + nomeBello(o.dipendente) + '?'); });
+        n.addEventListener('click', function () { telDecidi('rifiuta', o, 'Rifiutare questo telefono per ' + nomeBello(o.dipendente) + '?'); });
+        a.appendChild(y); a.appendChild(n); d.appendChild(a); box.appendChild(d);
+      });
+
+      (res.condivisi || []).forEach(function (o) {
+        var d = el('div', 'req');
+        var top = el('div', 'top');
+        top.appendChild(el('div', 't', '🖥️ Tablet condiviso'));
+        top.appendChild(el('span', 'st ok', 'Per tutti'));
+        d.appendChild(top);
+        d.appendChild(el('div', 'w', o.descrizione + ' · ultimo uso ' + quando(o.ultimo_uso)));
+        var b = el('button', 'lnk', 'Disattiva');
+        b.addEventListener('click', function () { telDecidi('dissocia', o, 'Disattivare questo tablet? Nessuno potrà più timbrare da lì finché non viene riattivato.'); });
+        d.appendChild(b); box.appendChild(d);
+      });
+      $('bTablet').classList.toggle('hidden', !KIOSK || !!res.questo_condiviso);
+
+      var att = res.attivi || [];
+      if (!att.length && !(res.in_attesa || []).length) box.appendChild(el('div', 'empty', 'Nessun telefono registrato: si registrano da soli alla prima timbratura.'));
+      att.forEach(function (o) {
+        var d = el('div', 'req');
+        var top = el('div', 'top');
+        top.appendChild(el('div', 't', nomeBello(o.dipendente)));
+        top.appendChild(el('span', 'st ok', '✓ ' + (o.descrizione || 'Telefono')));
+        d.appendChild(top);
+        d.appendChild(el('div', 'w', 'Ultima timbratura ' + quando(o.ultimo_uso)));
+        var b = el('button', 'lnk', 'Scollega (cambio telefono)');
+        b.addEventListener('click', function () { telDecidi('dissocia', o, 'Scollegare il telefono di ' + nomeBello(o.dipendente) + '?\n\nIl prossimo telefono con cui timbrerà diventerà automaticamente il suo.'); });
+        d.appendChild(b); box.appendChild(d);
+      });
+    }).catch(function () { if (!silent) $('listaTel').innerHTML = '<div class="empty">📴 Serve la connessione</div>'; });
+  }
+  function telDecidi(azione, o, domanda) {
+    if (!confirm(domanda)) return;
+    telApi(azione, { id: o.id }).then(function (res) {
+      if (res.ok) { vibrate(40); loadTelefoni(); } else alert('⚠️ ' + (res.error || 'Errore'));
+    }).catch(function () { alert('📴 Nessuna connessione, riprova'); });
+  }
+  $('bTablet').addEventListener('click', function () {
+    if (!user || !user.admin) return;
+    if (!confirm('Attivare QUESTO tablet come dispositivo condiviso?\n\nTutti i dipendenti potranno timbrare da qui con il proprio PIN. Usalo solo per il tablet fisso in azienda.')) return;
+    telApi('condividi').then(function (res) {
+      if (res.ok) { alert('✅ Tablet attivato: ora tutti possono timbrare da qui.'); devUi(null); loadTelefoni(); flush(); }
+      else alert('⚠️ ' + (res.error || 'Errore'));
+    }).catch(function () { alert('📴 Nessuna connessione, riprova'); });
+  });
 
   // ── Registro di sicurezza (disco Render, solo amministrazione) ──
   function loadSicurezza() {

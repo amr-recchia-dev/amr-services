@@ -21,6 +21,7 @@ import department_syncer
 import voice_agent
 import user_auth
 import timbra_log
+import dispositivi
 
 load_dotenv()
 
@@ -368,6 +369,17 @@ def timbra_sw():
     return resp
 
 
+def _dip_key(pin: str) -> str:
+    """Chiave del dipendente per l'associazione telefono (nome; se manca, impronta del PIN)."""
+    try:
+        u = user_auth.get_user_by_pin(pin)
+        if u and u.get("name"):
+            return u["name"]
+    except Exception:
+        pass
+    return "pin:" + timbra_log._pin_hash(pin)
+
+
 @app.route("/api/timbra/login", methods=["POST"])
 def api_timbra_login():
     ip = get_client_ip()
@@ -378,7 +390,14 @@ def api_timbra_login():
     pin = str(body.get("pin", "")).strip()
     if not pin.isdigit() or not (3 <= len(pin) <= 6):
         return jsonify({"ok": False, "error": "PIN non valido"}), 400
-    return _timbra_proxy({"action": "login", "pin": pin})
+    data, code = _timbra_call({"action": "login", "pin": pin})
+    if data.get("ok"):
+        chk = dispositivi.controlla(_dip_key(pin), str(body.get("device_id", "")), bool(body.get("kiosk")),
+                                    request.headers.get("User-Agent", ""), vincola=False)
+        data["dispositivo"] = chk.get("stato")
+        if chk.get("messaggio"):
+            data["dispositivo_msg"] = chk["messaggio"]
+    return jsonify(data), code
 
 
 @app.route("/api/timbra/registra", methods=["POST"])
@@ -412,12 +431,62 @@ def api_timbra_registra():
         _nome = None
     rid = timbra_log.registra_ricevuta(pin, _nome, azione, payload["ts"], payload["lat"],
                                        payload["lng"], payload["acc"], payload["client_id"], ip)
+
+    # Telefono autorizzato per questo dipendente?
+    dip = _dip_key(pin)
+    dev = str(body.get("device_id", ""))
+    kiosk = bool(body.get("kiosk"))
+    ua = request.headers.get("User-Agent", "")
+    chk = dispositivi.controlla(dip, dev, kiosk, ua, vincola=False)
+    if not chk.get("ok"):
+        stato = chk.get("stato")
+        try:
+            vecchia = (time.time() * 1000 - float(payload["ts"] or 0)) > 11 * 3600 * 1000
+        except (TypeError, ValueError):
+            vecchia = False
+        if vecchia and stato != "tablet_non_attivo":
+            stato = "scaduta"
+            chk["messaggio"] = "Telefono non autorizzato in tempo: la timbratura non è stata registrata. Avvisa l'amministrazione."
+        data = {"ok": False, "retry": False, "dispositivo": stato, "error": chk.get("messaggio", "Telefono non autorizzato")}
+        timbra_log.registra_esito(rid, data, 403)
+        logger.warning(f"[TIMBRA] Bloccata ({stato}) per {dip} da {ip}")
+        return jsonify(data), 403
+
     data, code = _timbra_call(payload)
     timbra_log.registra_esito(rid, data, code)
+    if data.get("ok") and chk.get("stato") == "nuovo":
+        dispositivi.controlla(dip, dev, kiosk, ua, vincola=True)   # primo telefono: diventa il suo
+        data["dispositivo"] = "associato"
     return jsonify(data), code
 
 
 _TIMBRA_ADMIN_PINS = {"4921", "6198", "9276", "8359"}
+
+
+@app.route("/api/timbra/dispositivi", methods=["POST"])
+def api_timbra_dispositivi():
+    """Gestione telefoni (solo PIN amministratori): elenco, approva, rifiuta, dissocia, attiva tablet condiviso."""
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"timbra_disp_{ip}", max_requests=30, window_seconds=60)
+    if not allowed:
+        return jsonify({"ok": False, "error": "Troppe richieste, attendi un minuto"}), 429
+    body = request.get_json(silent=True) or {}
+    pin = str(body.get("pin", "")).strip()
+    if pin not in _TIMBRA_ADMIN_PINS:
+        return jsonify({"ok": False, "error": "Accesso riservato all'amministrazione"}), 403
+    azione = body.get("azione", "lista")
+    if azione == "lista":
+        out = dispositivi.elenco()
+        out["questo_condiviso"] = dispositivi.e_condiviso(str(body.get("device_id", "")))
+        return jsonify({"ok": True, **out}), 200
+    admin = _dip_key(pin)
+    try:
+        rid = int(body.get("id") or 0)
+    except (TypeError, ValueError):
+        rid = 0
+    res = dispositivi.decidi(azione, rid, admin, str(body.get("device_id", "")), request.headers.get("User-Agent", ""))
+    logger.info(f"[DISPOSITIVI] {admin}: {azione} id={rid} → {res}")
+    return jsonify(res), (200 if res.get("ok") else 400)
 
 
 @app.route("/api/timbra/sicurezza", methods=["POST"])
