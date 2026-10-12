@@ -3,8 +3,9 @@
  * Le chiamate /api/* NON vengono mai messe in cache: le timbrature
  * offline sono gestite dalla coda nella pagina (localStorage).
  */
-const CACHE = 'amr-timbra-v1';
-const ASSETS = ['/timbra', '/static/timbra-icon-192.png', '/static/timbra-icon-512.png', '/static/timbra-manifest.json'];
+const CACHE = 'amr-timbra-v2';
+const ASSETS = ['/timbra', '/static/timbra-icon-192.png', '/static/timbra-icon-512.png', '/static/timbra-manifest.json',
+  '/static/leaflet/leaflet.js', '/static/leaflet/leaflet.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
