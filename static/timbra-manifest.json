@@ -1,0 +1,16 @@
+{
+  "name": "AMR Timbrature",
+  "short_name": "Timbra AMR",
+  "description": "Timbratura Entrata / Uscita con PIN – AMR Recchia",
+  "start_url": "/timbra",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "lang": "it",
+  "icons": [
+    { "src": "/static/timbra-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/timbra-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

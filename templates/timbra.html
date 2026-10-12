@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <title>AMR Timbrature</title>
+  <meta name="theme-color" content="#0d1117">
+  <link rel="manifest" href="/static/timbra-manifest.json">
+  <link rel="icon" type="image/png" href="/static/timbra-icon-192.png">
+  <link rel="apple-touch-icon" href="/static/timbra-icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Timbra AMR">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root {
+      --bg: #0d1117; --card: #161b26; --border: #232a3b;
+      --red: #DF3131; --green: #16a34a; --exit: #dc2626;
+      --text: #f8fafc; --muted: #94a3b8; --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex; flex-direction: column; min-height: 100vh;
+      padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+      user-select: none; -webkit-user-select: none;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--card);
+    }
+    header .brand { font-weight: 900; letter-spacing: .02em; font-size: 15px; }
+    header .brand span { color: var(--red); }
+    #net { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 99px; background: #0f2a1a; color: #4ade80; border: 1px solid #14532d; }
+    #net.off { background: #2a1a0f; color: var(--warn); border-color: #78350f; }
+    main { flex: 1; width: 100%; max-width: 460px; margin: 0 auto; padding: 18px; display: flex; flex-direction: column; }
+    .hidden { display: none !important; }
+    h1 { font-size: 22px; margin: 6px 0 4px; text-align: center; }
+    .sub { color: var(--muted); text-align: center; font-size: 15px; margin: 0 0 16px; }
+    .clock { text-align: center; font-size: 48px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 4px 0 0; }
+    .date { text-align: center; color: var(--muted); font-size: 15px; margin-bottom: 14px; text-transform: capitalize; }
+
+    /* PIN */
+    .dots { display: flex; justify-content: center; gap: 16px; margin: 10px 0 18px; }
+    .dots i { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #475569; }
+    .dots i.on { background: var(--red); border-color: var(--red); }
+    .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pad button {
+      height: 68px; font-size: 28px; font-weight: 700; color: var(--text);
+      background: #1e2433; border: 1px solid var(--border); border-radius: 18px;
+    }
+    .pad button:active { transform: scale(.96); background: #2a3245; }
+    .pad .fn { font-size: 16px; color: var(--muted); background: #121722; }
+    .msg { min-height: 24px; text-align: center; font-weight: 700; margin: 12px 0 0; font-size: 16px; }
+    .msg.err { color: #f87171; } .msg.info { color: var(--muted); }
+
+    /* Schermata timbratura */
+    .who { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 12px 14px; }
+    .avatar { width: 46px; height: 46px; border-radius: 50%; background: rgba(223,49,49,.18); border: 1px solid rgba(223,49,49,.45); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
+    .who .n { font-weight: 800; font-size: 18px; }
+    .who .d { color: var(--muted); font-size: 13px; }
+    .gps { margin: 12px 0 4px; text-align: center; font-size: 14px; font-weight: 600; color: var(--muted); }
+    .gps.ok { color: #4ade80; } .gps.warn { color: var(--warn); }
+    .btns { display: grid; gap: 14px; margin: 12px 0; }
+    .big {
+      border: 0; border-radius: 22px; color: #fff; font-size: 28px; font-weight: 900; letter-spacing: .04em;
+      height: 104px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      opacity: .45; transition: opacity .15s, transform .1s;
+    }
+    .big small { font-size: 13px; font-weight: 600; letter-spacing: 0; opacity: .9; }
+    .big:active { transform: scale(.98); }
+    .big.suggest { opacity: 1; box-shadow: 0 0 0 4px rgba(255,255,255,.12); }
+    .big.in { background: var(--green); } .big.out { background: var(--exit); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 12px 14px; margin-top: 4px; }
+    .card h3 { margin: 0 0 8px; font-size: 14px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .row { display: flex; justify-content: space-between; padding: 7px 0; border-top: 1px solid var(--border); font-size: 16px; }
+    .row:first-of-type { border-top: 0; }
+    .row .a-in { color: #4ade80; font-weight: 700; } .row .a-out { color: #f87171; font-weight: 700; }
+    .row .p { color: var(--warn); font-size: 13px; font-weight: 600; }
+    .empty { color: var(--muted); font-size: 15px; }
+    .links { display: flex; justify-content: space-between; gap: 10px; margin-top: 16px; }
+    .links a, .links button {
+      flex: 1; text-align: center; padding: 14px 10px; border-radius: 14px; font-size: 15px; font-weight: 700;
+      background: #1e2433; color: var(--text); border: 1px solid var(--border); text-decoration: none;
+    }
+    #queueBox { margin-top: 12px; background: #2a1a0f; border: 1px solid #78350f; color: #fcd34d; border-radius: 14px; padding: 10px 14px; font-size: 14px; font-weight: 600; text-align: center; }
+
+    /* Conferma a schermo intero */
+    #done { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px; z-index: 50; }
+    #done.in { background: #14532d; } #done.out { background: #7f1d1d; }
+    #done .ic { font-size: 90px; line-height: 1; }
+    #done .t1 { font-size: 34px; font-weight: 900; margin-top: 12px; }
+    #done .t2 { font-size: 22px; margin-top: 6px; font-weight: 600; }
+    #done .t3 { font-size: 17px; margin-top: 18px; opacity: .9; min-height: 24px; }
+    #done button { margin-top: 30px; padding: 16px 40px; font-size: 18px; font-weight: 800; border-radius: 16px; border: 2px solid rgba(255,255,255,.6); background: transparent; color: #fff; }
+    footer { text-align: center; color: #475569; font-size: 12px; padding: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">AMR <span>RECCHIA</span> · Timbrature</div>
+    <div id="net">● Online</div>
+  </header>
+
+  <main>
+    <!-- 1. PIN -->
+    <section id="vPin">
+      <div class="clock" id="clock1">--:--</div>
+      <div class="date" id="date1"></div>
+      <h1>Inserisci il tuo PIN</h1>
+      <p class="sub">Lo stesso PIN che usi per timbrare in azienda</p>
+      <div class="dots" id="dots"><i></i><i></i><i></i><i></i></div>
+      <div class="pad" id="pad">
+        <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+        <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+        <button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button>
+        <button class="fn" data-d="C">Cancella</button><button data-d="0">0</button><button class="fn" data-d="B">⌫</button>
+      </div>
+      <div class="msg info" id="pinMsg"></div>
+    </section>
+
+    <!-- 2. Timbratura -->
+    <section id="vMain" class="hidden">
+      <div class="who">
+        <div class="avatar" id="avatar">?</div>
+        <div><div class="n" id="nome">—</div><div class="d" id="dip"></div></div>
+      </div>
+      <div class="clock" id="clock2">--:--</div>
+      <div class="date" id="date2"></div>
+      <div class="gps" id="gps">📍 Cerco la posizione…</div>
+      <div class="btns">
+        <button class="big in" id="bIn">ENTRATA<small id="sIn"></small></button>
+        <button class="big out" id="bOut">USCITA<small id="sOut"></small></button>
+      </div>
+      <div class="card">
+        <h3>Le timbrature di oggi</h3>
+        <div id="oggi"><div class="empty">Nessuna timbratura oggi</div></div>
+      </div>
+      <div id="queueBox" class="hidden"></div>
+      <div class="links">
+        <a href="/presenze" id="lnkOre">📊 Le mie ore</a>
+        <button id="bLogout">👤 Cambia utente</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="done" class="hidden">
+    <div class="ic" id="dIc">✓</div>
+    <div class="t1" id="dT1"></div>
+    <div class="t2" id="dT2"></div>
+    <div class="t3" id="dT3"></div>
+    <button id="dOk">OK</button>
+  </div>
+
+  <footer id="foot">AMR Recchia</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Impostazioni ─────────────────────────────────────────────
+  // ?kiosk=1 → tablet condiviso: non ricorda il PIN e torna al tastierino dopo ogni timbratura
+  var params = new URLSearchParams(location.search);
+  if (params.get('kiosk') === '1') localStorage.setItem('amr_timbra_kiosk', '1');
+  if (params.get('kiosk') === '0') localStorage.removeItem('amr_timbra_kiosk');
+  var KIOSK = localStorage.getItem('amr_timbra_kiosk') === '1';
+
+  var K_PIN = 'amr_timbra_pin', K_USER = 'amr_timbra_user', K_QUEUE = 'amr_timbra_queue', K_KNOWN = 'amr_timbra_known';
+  var GPS_WAIT_MS = 5000, GPS_MAX_AGE = 120000, FETCH_TIMEOUT = 45000;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var pin = '';
+  var user = null;          // { pin, nome, dipartimento, eventi_oggi, prossima, day }
+  var fix = null;           // ultima posizione GPS
+  var watchId = null;
+  var flushing = false;
+  var idleTimer = null, doneTimer = null;
+
+  // ── Utilità ──────────────────────────────────────────────────
+  function load(k, def) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function today() { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+  function hhmm(ts) { var d = new Date(ts); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+  }
+  function vibrate(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+  function initials(n) { return (n || '?').split(/\s+/).map(function (w) { return w.charAt(0); }).slice(0, 2).join('').toUpperCase(); }
+
+  function sha(text) {
+    if (window.crypto && crypto.subtle && window.TextEncoder) {
+      return crypto.subtle.digest('SHA-256', new TextEncoder().encode('amr|' + text)).then(function (buf) {
+        return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+      });
+    }
+    return Promise.resolve('raw-' + text);
+  }
+
+  function api(path, body) {
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var t = setTimeout(function () { ctrl && ctrl.abort(); }, FETCH_TIMEOUT);
+    return fetch(path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined, cache: 'no-store'
+    }).then(function (r) {
+      clearTimeout(t);
+      return r.json().catch(function () { return { ok: false, retry: true }; }).then(function (j) { j._status = r.status; return j; });
+    }, function (err) { clearTimeout(t); throw err; });
+  }
+
+  // ── Orologio ─────────────────────────────────────────────────
+  function tick() {
+    var d = new Date();
+    var t = hhmm(d.getTime());
+    var ds = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+    $('clock1').textContent = t; $('clock2').textContent = t;
+    $('date1').textContent = ds; $('date2').textContent = ds;
+  }
+  setInterval(tick, 1000); tick();
+
+  // ── Stato rete ───────────────────────────────────────────────
+  function netUi() {
+    var on = navigator.onLine;
+    $('net').textContent = on ? '● Online' : '● Senza rete';
+    $('net').className = on ? '' : 'off';
+  }
+  window.addEventListener('online', function () { netUi(); flush(); });
+  window.addEventListener('offline', netUi);
+  netUi();
+
+  // ── PIN ──────────────────────────────────────────────────────
+  function drawDots() {
+    var dots = $('dots');
+    var n = Math.max(4, pin.length);
+    if (dots.children.length !== n) { dots.innerHTML = ''; for (var i = 0; i < n; i++) dots.appendChild(document.createElement('i')); }
+    for (var j = 0; j < n; j++) dots.children[j].className = j < pin.length ? 'on' : '';
+  }
+  $('pad').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var d = b.getAttribute('data-d');
+    $('pinMsg').textContent = ''; $('pinMsg').className = 'msg info';
+    if (d === 'C') pin = '';
+    else if (d === 'B') pin = pin.slice(0, -1);
+    else if (pin.length < 6) pin += d;
+    vibrate(10);
+    drawDots();
+    if (pin.length === 4) doLogin(pin);
+  });
+
+  function doLogin(p) {
+    $('pinMsg').className = 'msg info';
+    $('pinMsg').textContent = 'Verifico il PIN…';
+    api('/api/timbra/login', { pin: p }).then(function (res) {
+      if (res.ok) {
+        rememberKnown(p, res);
+        enter(p, res);
+      } else if (res._status === 401 || res._status === 400) {
+        pinError('PIN non riconosciuto. Riprova.');
+      } else if (res._status === 429) {
+        pinError('Troppi tentativi: attendi un minuto.');
+      } else {
+        offlineLogin(p);
+      }
+    }).catch(function () { offlineLogin(p); });
+  }
+
+  function pinError(m) {
+    vibrate([80, 60, 80]);
+    pin = ''; drawDots();
+    $('pinMsg').className = 'msg err'; $('pinMsg').textContent = m;
+  }
+
+  // Ricorda (in forma cifrata) i PIN già usati su questo dispositivo:
+  // così si può timbrare anche quando il Wi-Fi non c'è.
+  function rememberKnown(p, res) {
+    sha(p).then(function (h) {
+      var known = load(K_KNOWN, {});
+      known[h] = { nome: res.nome, dipartimento: res.dipartimento || '' };
+      save(K_KNOWN, known);
+    });
+  }
+
+  function offlineLogin(p) {
+    sha(p).then(function (h) {
+      var k = load(K_KNOWN, {})[h];
+      if (k) {
+        enter(p, { nome: k.nome, dipartimento: k.dipartimento, eventi_oggi: [], prossima: null, offline: true });
+      } else if (confirm('Non c\'è connessione e questo PIN non è ancora stato usato su questo dispositivo.\n\nVuoi timbrare comunque? La timbratura verrà salvata e verificata appena torna la rete.')) {
+        enter(p, { nome: 'PIN ' + p.replace(/./g, '•'), dipartimento: 'Verifica in attesa di rete', eventi_oggi: [], prossima: null, offline: true });
+      } else {
+        pin = ''; drawDots(); $('pinMsg').textContent = '';
+      }
+    });
+  }
+
+  // ── Schermata timbratura ─────────────────────────────────────
+  function enter(p, res) {
+    var prev = user && user.pin === p && user.day === today() ? user.eventi_oggi : null;
+    user = {
+      pin: p, nome: res.nome, dipartimento: res.dipartimento || '',
+      eventi_oggi: res.offline && prev ? prev : (res.eventi_oggi || []),
+      prossima: res.prossima, day: today()
+    };
+    if (!KIOSK) { localStorage.setItem(K_PIN, p); save(K_USER, user); }
+    pin = ''; drawDots(); $('pinMsg').textContent = '';
+    $('vPin').classList.add('hidden'); $('vMain').classList.remove('hidden');
+    $('nome').textContent = user.nome; $('dip').textContent = user.dipartimento;
+    $('avatar').textContent = initials(user.nome);
+    renderMain();
+    startGps();
+    resetIdle();
+  }
+
+  function logout() {
+    user = null;
+    if (!KIOSK) { localStorage.removeItem(K_PIN); localStorage.removeItem(K_USER); }
+    stopGps();
+    $('vMain').classList.add('hidden'); $('vPin').classList.remove('hidden');
+    pin = ''; drawDots();
+  }
+  $('bLogout').addEventListener('click', logout);
+
+  function eventiCompleti() {
+    // Timbrature confermate + quelle ancora in coda per questo utente (oggi)
+    var list = (user.eventi_oggi || []).map(function (e) { return { azione: e.azione, orario: e.orario }; });
+    load(K_QUEUE, []).forEach(function (q) {
+      if (q.pin === user.pin && new Date(q.ts).toDateString() === new Date().toDateString()) {
+        list.push({ azione: q.azione, orario: hhmm(q.ts), pending: true });
+      }
+    });
+    list.sort(function (a, b) { return a.orario < b.orario ? -1 : a.orario > b.orario ? 1 : 0; });
+    return list;
+  }
+
+  function prossima(list) {
+    if (!list.length) return 'Entrata';
+    return list[list.length - 1].azione === 'Entrata' ? 'Uscita' : 'Entrata';
+  }
+
+  function renderMain() {
+    if (!user) return;
+    var list = eventiCompleti();
+    var next = prossima(list);
+    $('bIn').classList.toggle('suggest', next === 'Entrata');
+    $('bOut').classList.toggle('suggest', next === 'Uscita');
+    $('sIn').textContent = next === 'Entrata' ? 'tocca per timbrare' : '';
+    $('sOut').textContent = next === 'Uscita' ? 'tocca per timbrare' : '';
+    var box = $('oggi');
+    box.innerHTML = '';
+    if (!list.length) { box.innerHTML = '<div class="empty">Nessuna timbratura oggi</div>'; }
+    list.forEach(function (e) {
+      var r = document.createElement('div'); r.className = 'row';
+      var a = document.createElement('span'); a.className = e.azione === 'Entrata' ? 'a-in' : 'a-out';
+      a.textContent = (e.azione === 'Entrata' ? '▶ Entrata' : '■ Uscita');
+      var o = document.createElement('span'); o.textContent = e.orario;
+      if (e.pending) { var p = document.createElement('span'); p.className = 'p'; p.textContent = ' ⏳ in invio'; o.appendChild(p); }
+      r.appendChild(a); r.appendChild(o); box.appendChild(r);
+    });
+    renderQueue();
+  }
+
+  function renderQueue() {
+    var n = load(K_QUEUE, []).length;
+    var box = $('queueBox');
+    if (n) {
+      box.textContent = '⏳ ' + n + (n === 1 ? ' timbratura salvata' : ' timbrature salvate') + ' su questo dispositivo: verranno inviate appena c\'è rete. Non chiudere e non disinstallare l\'app.';
+      box.classList.remove('hidden');
+    } else box.classList.add('hidden');
+    $('foot').textContent = 'AMR Recchia' + (KIOSK ? ' · Modalità tablet' : '') + (n ? ' · in coda: ' + n : '');
+  }
+
+  // ── GPS ──────────────────────────────────────────────────────
+  function gpsUi(cls, txt) { var g = $('gps'); g.className = 'gps ' + cls; g.textContent = txt; }
+  function startGps() {
+    if (!navigator.geolocation) { gpsUi('warn', '📍 Posizione non disponibile su questo dispositivo'); return; }
+    if (watchId !== null) return;
+    gpsUi('', '📍 Cerco la posizione…');
+    watchId = navigator.geolocation.watchPosition(function (pos) {
+      fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, t: Date.now() };
+      gpsUi(fix.acc <= 150 ? 'ok' : 'warn', '📍 Posizione trovata (±' + Math.round(fix.acc) + ' m)');
+    }, function (err) {
+      if (err.code === 1) gpsUi('warn', '📍 Posizione bloccata: consenti l\'accesso alla posizione (vedi istruzioni)');
+      else gpsUi('warn', '📍 Posizione non trovata: puoi timbrare lo stesso');
+    }, { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 });
+  }
+  function stopGps() { if (watchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId); watchId = null; }
+
+  function waitFix() {
+    return new Promise(function (resolve) {
+      if (fix && Date.now() - fix.t < GPS_MAX_AGE) return resolve(fix);
+      var start = Date.now();
+      var iv = setInterval(function () {
+        if (fix && Date.now() - fix.t < GPS_MAX_AGE) { clearInterval(iv); resolve(fix); }
+        else if (Date.now() - start > GPS_WAIT_MS) { clearInterval(iv); resolve(null); }
+      }, 250);
+    });
+  }
+
+  // ── Timbratura ───────────────────────────────────────────────
+  var busy = false;
+  function timbra(azione) {
+    if (!user || busy) return;
+    var next = prossima(eventiCompleti());
+    if (azione !== next) {
+      var msg = azione === 'Entrata'
+        ? 'Risulta che sei già ENTRATO.\nVuoi registrare un\'altra ENTRATA?'
+        : 'Risulta che non hai ancora timbrato l\'ENTRATA.\nVuoi registrare comunque l\'USCITA?';
+      if (!confirm(msg)) return;
+    }
+    busy = true;
+    var ts = Date.now();
+    vibrate(30);
+    showDone(azione, ts, 'Salvataggio in corso…');
+    waitFix().then(function (f) {
+      var item = {
+        client_id: uuid(), pin: user.pin, nome: user.nome, azione: azione, ts: ts,
+        lat: f ? f.lat : null, lng: f ? f.lng : null, acc: f ? f.acc : null
+      };
+      // 1° la salvo sul dispositivo: così NON si perde mai, anche se la rete cade
+      var q = load(K_QUEUE, []); q.push(item); save(K_QUEUE, q);
+      renderMain();
+      $('dT3').textContent = navigator.onLine ? 'Invio in corso…' : '📴 Senza rete: salvata sul dispositivo, verrà inviata da sola';
+      busy = false;
+      flush();
+    });
+  }
+  $('bIn').addEventListener('click', function () { timbra('Entrata'); });
+  $('bOut').addEventListener('click', function () { timbra('Uscita'); });
+
+  function showDone(azione, ts, sub) {
+    var d = $('done');
+    d.className = azione === 'Entrata' ? 'in' : 'out';
+    $('dIc').textContent = azione === 'Entrata' ? '✓' : '👋';
+    $('dT1').textContent = azione === 'Entrata' ? 'ENTRATA' : 'USCITA';
+    $('dT2').textContent = 'ore ' + hhmm(ts) + (user ? ' · ' + user.nome.split(' ')[0] : '');
+    $('dT3').textContent = sub || '';
+    clearTimeout(doneTimer);
+    doneTimer = setTimeout(closeDone, KIOSK ? 4000 : 6000);
+  }
+  function closeDone() {
+    clearTimeout(doneTimer);
+    $('done').className = 'hidden';
+    if (KIOSK) logout(); else renderMain();
+  }
+  $('dOk').addEventListener('click', closeDone);
+
+  // ── Invio della coda (riprova finché non riesce) ─────────────
+  function flush() {
+    if (flushing) return;
+    var q = load(K_QUEUE, []);
+    if (!q.length) { renderQueue(); return; }
+    flushing = true;
+    var item = q[0];
+    api('/api/timbra/registra', item).then(function (res) {
+      if (res.ok) {
+        drop(item.client_id);
+        if (user && user.pin === item.pin && res.eventi_oggi) {
+          user.eventi_oggi = res.eventi_oggi; user.day = today();
+          if (res.nome && user.nome.indexOf('PIN ') === 0) { user.nome = res.nome; $('nome').textContent = res.nome; $('avatar').textContent = initials(res.nome); }
+          if (!KIOSK) save(K_USER, user);
+        }
+        if (!$('done').classList.contains('hidden')) {
+          $('dT3').textContent = res.offline ? '✓ Registrata (inviata in ritardo per mancanza di rete)'
+            : '✓ Registrata' + (res.tipo === 'Trasferta' ? ' · in trasferta' : res.tipo === 'Sede' ? ' · in sede' : '');
+          vibrate([40, 40, 40]);
+        }
+        flushing = false; renderMain(); flush();
+      } else if (!res.retry && (res._status === 400 || res._status === 401)) {
+        // PIN errato / dati non validi: non ha senso riprovare
+        drop(item.client_id);
+        flushing = false; renderMain();
+        alert('⚠️ Timbratura delle ' + hhmm(item.ts) + ' NON registrata: ' + (res.error || 'PIN non valido') + '.\nRiprova inserendo il PIN corretto.');
+        flush();
+      } else {
+        flushing = false; renderQueue();
+      }
+    }).catch(function () { flushing = false; renderQueue(); });
+  }
+  function drop(id) { save(K_QUEUE, load(K_QUEUE, []).filter(function (x) { return x.client_id !== id; })); }
+  setInterval(flush, 20000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') { flush(); if (user && !KIOSK) refresh(); }
+  });
+
+  // ── Inattività (solo tablet) ─────────────────────────────────
+  function resetIdle() {
+    clearTimeout(idleTimer);
+    if (KIOSK && user) idleTimer = setTimeout(logout, 45000);
+  }
+  document.addEventListener('pointerdown', resetIdle);
+
+  // Aggiorna dal server le timbrature di oggi (telefono personale)
+  function refresh() {
+    if (!user) return;
+    var p = user.pin;
+    api('/api/timbra/login', { pin: p }).then(function (res) {
+      if (res.ok && user && user.pin === p) {
+        user.nome = res.nome; user.dipartimento = res.dipartimento || ''; user.eventi_oggi = res.eventi_oggi || []; user.day = today();
+        save(K_USER, user); $('nome').textContent = user.nome; $('dip').textContent = user.dipartimento; renderMain();
+      } else if (res._status === 401) { logout(); pinError('Il tuo PIN è cambiato: inseriscilo di nuovo.'); }
+    }).catch(function () {});
+  }
+
+  // Tablet: tiene lo schermo acceso
+  if (KIOSK && navigator.wakeLock) {
+    var lockScreen = function () { navigator.wakeLock.request('screen').catch(function () {}); };
+    lockScreen();
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') lockScreen(); });
+  }
+
+  // ── Avvio ────────────────────────────────────────────────────
+  drawDots();
+  if (!KIOSK) {
+    var savedPin = localStorage.getItem(K_PIN), savedUser = load(K_USER, null);
+    if (savedPin && savedUser) {
+      if (savedUser.day !== today()) savedUser.eventi_oggi = [];
+      enter(savedPin, { nome: savedUser.nome, dipartimento: savedUser.dipartimento, eventi_oggi: savedUser.eventi_oggi, prossima: null });
+      refresh();
+    }
+  }
+  renderQueue();
+  flush();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/timbra-sw.js', { scope: '/' }).catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

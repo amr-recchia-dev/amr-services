@@ -318,6 +318,88 @@ def api_presenze_admin():
     return jsonify(presenze_service.get_all_employees_overview(month)), 200
 
 
+# ── Timbratura con PIN (senza account Google) ───────────────────────────────
+# La pagina /timbra parla solo con questo server; il server inoltra la richiesta
+# all'endpoint Apps Script che scrive nel foglio "Registro delle timbrature".
+AMR_TIMBRA_URL = os.getenv(
+    "AMR_TIMBRA_URL",
+    "https://script.google.com/macros/s/AKfycbxzWM7ClITTd3usI2qrIYKENQIiE2KGE9sWvEuGhBJAe40W_hcpn47rrOk0609-7nPr/exec",
+)
+AMR_TIMBRA_KEY = os.getenv("AMR_TIMBRA_KEY", "amr-tb-9X4qK7mW2zR8vN5c")
+
+
+def _timbra_proxy(payload: dict):
+    import requests as _rq
+    payload = dict(payload)
+    payload["key"] = AMR_TIMBRA_KEY
+    try:
+        # Apps Script risponde con un redirect 302 → requests lo segue in GET (corretto)
+        r = _rq.post(AMR_TIMBRA_URL, json=payload, timeout=40)
+        data = r.json()
+    except Exception as e:  # rete Google lenta o risposta non JSON
+        logger.warning(f"[TIMBRA] Errore proxy Apps Script: {e}")
+        return jsonify({"ok": False, "retry": True, "error": "Server timbrature non raggiungibile"}), 503
+    if not data.get("ok"):
+        code = 503 if data.get("retry") else (401 if "PIN" in str(data.get("error", "")) else 400)
+        return jsonify(data), code
+    return jsonify(data), 200
+
+
+@app.route("/timbra", methods=["GET"])
+def timbra_view():
+    """Pagina di timbratura Entrata/Uscita con PIN + GPS (smartphone e tablet kiosk)."""
+    return render_template("timbra.html")
+
+
+@app.route("/timbra-sw.js", methods=["GET"])
+def timbra_sw():
+    """Service worker: apre la pagina anche senza rete (le timbrature restano in coda)."""
+    resp = app.send_static_file("timbra-sw.js")
+    resp.headers["Content-Type"] = "application/javascript"
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
+
+
+@app.route("/api/timbra/login", methods=["POST"])
+def api_timbra_login():
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"timbra_login_{ip}", max_requests=20, window_seconds=60)
+    if not allowed:
+        return jsonify({"ok": False, "error": "Troppi tentativi, attendi un minuto"}), 429
+    body = request.get_json(silent=True) or {}
+    pin = str(body.get("pin", "")).strip()
+    if not pin.isdigit() or not (3 <= len(pin) <= 6):
+        return jsonify({"ok": False, "error": "PIN non valido"}), 400
+    return _timbra_proxy({"action": "login", "pin": pin})
+
+
+@app.route("/api/timbra/registra", methods=["POST"])
+def api_timbra_registra():
+    ip = get_client_ip()
+    # Limite largo: la coda offline di un tablet kiosk può inviare molte timbrature insieme
+    allowed, retry_after = rate_limiter.is_allowed(f"timbra_reg_{ip}", max_requests=60, window_seconds=60)
+    if not allowed:
+        return jsonify({"ok": False, "retry": True, "error": "Troppe richieste, riprovo a breve"}), 429
+    body = request.get_json(silent=True) or {}
+    pin = str(body.get("pin", "")).strip()
+    azione = body.get("azione")
+    if not pin.isdigit() or azione not in ("Entrata", "Uscita"):
+        return jsonify({"ok": False, "error": "Dati non validi"}), 400
+    payload = {
+        "action": "timbra",
+        "pin": pin,
+        "azione": azione,
+        "ts": body.get("ts"),
+        "client_id": str(body.get("client_id", ""))[:64],
+        "lat": body.get("lat"),
+        "lng": body.get("lng"),
+        "acc": body.get("acc"),
+    }
+    logger.info(f"[TIMBRA] {azione} da {ip} (client_id={payload['client_id']})")
+    return _timbra_proxy(payload)
+
+
 @app.route("/api/employees", methods=["GET"])
 def api_employees():
     """Restituisce l'elenco di tutti i dipendenti aziendali registrati per la selezione rapida con 1 tocco."""
