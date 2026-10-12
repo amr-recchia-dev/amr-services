@@ -148,6 +148,9 @@ def calculate_employee_report(pin: str, target_month_str: str = None) -> dict:
     emp_records = []
     for r in data:
         if len(r) > 1 and r[1].strip().lower() == emp_name.lower():
+            # Righe marcate "Doppione" (colonna L Note) restano nel foglio ma non contano
+            if len(r) > 11 and "doppione" in r[11].lower():
+                continue
             emp_records.append(r)
 
     # Identifica mesi disponibili
