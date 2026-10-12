@@ -63,6 +63,11 @@
     .who .d { color: var(--muted); font-size: 13px; }
     .gps { margin: 12px 0 4px; text-align: center; font-size: 14px; font-weight: 600; color: var(--muted); }
     .gps.ok { color: #4ade80; } .gps.warn { color: var(--warn); }
+    #mapCard { margin-top: 10px; border-radius: 18px; overflow: hidden; border: 1px solid var(--border); background: var(--card); }
+    #map { height: 190px; width: 100%; background: #1e2433; }
+    #mapInfo { padding: 9px 14px; font-size: 14px; font-weight: 700; text-align: center; }
+    #mapInfo.sede { color: #4ade80; } #mapInfo.fuori { color: var(--warn); }
+    .leaflet-control-attribution { font-size: 9px !important; }
     .btns { display: grid; gap: 14px; margin: 12px 0; }
     .big {
       border: 0; border-radius: 22px; color: #fff; font-size: 28px; font-weight: 900; letter-spacing: .04em;
@@ -133,6 +138,10 @@
       <div class="btns">
         <button class="big in" id="bIn">ENTRATA<small id="sIn"></small></button>
         <button class="big out" id="bOut">USCITA<small id="sOut"></small></button>
+      </div>
+      <div id="mapCard" class="hidden">
+        <div id="map"></div>
+        <div id="mapInfo"></div>
       </div>
       <div class="card">
         <h3>Le timbrature di oggi</h3>
@@ -381,12 +390,76 @@
     watchId = navigator.geolocation.watchPosition(function (pos) {
       fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy, t: Date.now() };
       gpsUi(fix.acc <= 150 ? 'ok' : 'warn', '📍 Posizione trovata (±' + Math.round(fix.acc) + ' m)');
+      updateMap(fix);
     }, function (err) {
       if (err.code === 1) gpsUi('warn', '📍 Posizione bloccata: consenti l\'accesso alla posizione (vedi istruzioni)');
       else gpsUi('warn', '📍 Posizione non trovata: puoi timbrare lo stesso');
     }, { enableHighAccuracy: true, maximumAge: 60000, timeout: 20000 });
   }
   function stopGps() { if (watchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId); watchId = null; }
+
+  // ── Mappa (Leaflet + OpenStreetMap, caricata solo quando serve) ──
+  // Non blocca mai la timbratura: se la rete è lenta o la mappa non carica, si nasconde.
+  var SEDE = { lat: 45.868561, lng: 11.934981, raggio: 250 };
+  var map = null, meMarker = null, accCircle = null, leafletPromise = null, lastMapFix = 0;
+
+  function distKm(a, b, c, d) {
+    var R = 6371, toR = Math.PI / 180;
+    var dLat = (c - a) * toR, dLng = (d - b) * toR;
+    var x = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(a * toR) * Math.cos(c * toR) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  }
+
+  function loadLeaflet() {
+    if (window.L) return Promise.resolve(window.L);
+    if (leafletPromise) return leafletPromise;
+    leafletPromise = new Promise(function (resolve, reject) {
+      var css = document.createElement('link');
+      css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      css.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='; css.crossOrigin = '';
+      document.head.appendChild(css);
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      s.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='; s.crossOrigin = '';
+      s.onload = function () { resolve(window.L); };
+      s.onerror = function () { leafletPromise = null; reject(); };
+      document.head.appendChild(s);
+    });
+    return leafletPromise;
+  }
+
+  function updateMap(f) {
+    if (KIOSK || !f) return;                    // il tablet è fisso in sede: niente mappa
+    if (Date.now() - lastMapFix < 3000 && map) return;
+    lastMapFix = Date.now();
+    loadLeaflet().then(function (L) {
+      $('mapCard').classList.remove('hidden');
+      var me = [f.lat, f.lng], sede = [SEDE.lat, SEDE.lng];
+      if (!map) {
+        map = L.map('map', { zoomControl: false, attributionControl: true, dragging: !L.Browser.mobile, tap: false, scrollWheelZoom: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+        L.circle(sede, { radius: SEDE.raggio, color: '#16a34a', weight: 2, fillColor: '#16a34a', fillOpacity: 0.12 }).addTo(map);
+        L.circleMarker(sede, { radius: 6, color: '#fff', weight: 2, fillColor: '#16a34a', fillOpacity: 1 })
+          .bindTooltip('AMR Recchia', { permanent: true, direction: 'top', offset: [0, -6] }).addTo(map);
+        accCircle = L.circle(me, { radius: f.acc, color: '#3b82f6', weight: 1, fillColor: '#3b82f6', fillOpacity: 0.12, interactive: false }).addTo(map);
+        meMarker = L.circleMarker(me, { radius: 8, color: '#fff', weight: 3, fillColor: '#3b82f6', fillOpacity: 1 })
+          .bindTooltip('Tu', { direction: 'bottom', offset: [0, 8] }).addTo(map);
+      } else {
+        meMarker.setLatLng(me); accCircle.setLatLng(me); accCircle.setRadius(f.acc);
+      }
+      var km = distKm(f.lat, f.lng, SEDE.lat, SEDE.lng);
+      if (km <= 5) map.fitBounds(L.latLngBounds([me, sede]).pad(0.35), { maxZoom: 17 });
+      else map.setView(me, 15);
+      setTimeout(function () { map.invalidateSize(); }, 50);
+
+      var info = $('mapInfo');
+      if (km * 1000 <= SEDE.raggio) { info.className = 'sede'; info.textContent = '✓ Sei in sede'; }
+      else {
+        info.className = 'fuori';
+        info.textContent = '🚐 Fuori sede · ' + (km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1).replace('.', ',') + ' km') + ' dalla sede → Trasferta';
+      }
+    }).catch(function () { $('mapCard').classList.add('hidden'); });
+  }
 
   function waitFix() {
     return new Promise(function (resolve) {
