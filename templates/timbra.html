@@ -259,6 +259,11 @@
           <h3>Decise di recente</h3>
           <div id="listaRecenti"></div>
         </div>
+        <div class="card">
+          <h3>🛡️ Registro di sicurezza</h3>
+          <div class="w" id="sicStato" style="margin-bottom:12px">Caricamento…</div>
+          <button type="button" class="ghost" id="bSicCsv" style="width:100%">⬇︎ Scarica registro (Excel / CSV)</button>
+        </div>
       </div>
     </section>
   </main>
@@ -737,7 +742,7 @@
       b.classList.toggle('on', b.getAttribute('data-tab') === id);
     });
     if (id === 'tabPermessi') loadPermessi();
-    if (id === 'tabAdmin') loadAdmin();
+    if (id === 'tabAdmin') { loadAdmin(); loadSicurezza(); }
     if (id === 'tabTimbra' && map) setTimeout(function () { map.invalidateSize(); }, 50);
     window.scrollTo(0, 0);
   }
@@ -908,6 +913,40 @@
       Array.prototype.forEach.call(acts.children, function (b) { b.disabled = false; });
     });
   }
+
+  // ── Registro di sicurezza (disco Render, solo amministrazione) ──
+  function loadSicurezza() {
+    if (!user || !user.admin) return;
+    api('/api/timbra/sicurezza', { pin: user.pin }).then(function (res) {
+      var s = $('sicStato');
+      if (!res.ok) { s.textContent = res.error || 'Non disponibile'; return; }
+      if (!res.attivo) { s.textContent = '⚠️ Non attivo: ' + (res.motivo || ''); $('bSicCsv').disabled = true; return; }
+      $('bSicCsv').disabled = false;
+      var t = '✓ Attivo · ' + res.totale + ' timbrature salvate su un server separato da Google.';
+      if (res.ultima) t += '\nUltima: ' + res.ultima.dipendente + ' · ' + res.ultima.azione + ' · ' + res.ultima.ricevuta_il.slice(0, 16);
+      if (res.non_registrate) t += '\n⚠️ ' + res.non_registrate + ' non risultano registrate nel foglio: controllale nel file.';
+      s.textContent = t; s.style.whiteSpace = 'pre-line';
+    }).catch(function () { $('sicStato').textContent = '📴 Serve la connessione'; });
+  }
+  $('bSicCsv').addEventListener('click', function () {
+    if (!user || !user.admin) return;
+    var b = $('bSicCsv'); b.disabled = true; b.textContent = 'Preparazione…';
+    fetch('/api/timbra/sicurezza', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+      body: JSON.stringify({ pin: user.pin, formato: 'csv' })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      var cd = r.headers.get('Content-Disposition') || '';
+      var m = cd.match(/filename="([^"]+)"/);
+      return r.blob().then(function (blob) { return { blob: blob, nome: m ? m[1] : 'registro_sicurezza.csv' }; });
+    }).then(function (f) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(f.blob); a.download = f.nome;
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    }).catch(function () { alert('⚠️ Download non riuscito, riprova'); })
+      .then(function () { b.disabled = false; b.textContent = '⬇︎ Scarica registro (Excel / CSV)'; });
+  });
 
   // ── Avvio ────────────────────────────────────────────────────
   drawDots();

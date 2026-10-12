@@ -12,7 +12,7 @@ import threading
 import time
 from collections import defaultdict
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 from dotenv import load_dotenv
 import drive_archiver
 import step_time_tracker
@@ -20,6 +20,7 @@ import business_time
 import department_syncer
 import voice_agent
 import user_auth
+import timbra_log
 
 load_dotenv()
 
@@ -328,7 +329,8 @@ AMR_TIMBRA_URL = os.getenv(
 AMR_TIMBRA_KEY = os.getenv("AMR_TIMBRA_KEY", "amr-tb-9X4qK7mW2zR8vN5c")
 
 
-def _timbra_proxy(payload: dict):
+def _timbra_call(payload: dict) -> tuple[dict, int]:
+    """Inoltra ad Apps Script e restituisce (dati, codice HTTP)."""
     import requests as _rq
     payload = dict(payload)
     payload["key"] = AMR_TIMBRA_KEY
@@ -338,11 +340,16 @@ def _timbra_proxy(payload: dict):
         data = r.json()
     except Exception as e:  # rete Google lenta o risposta non JSON
         logger.warning(f"[TIMBRA] Errore proxy Apps Script: {e}")
-        return jsonify({"ok": False, "retry": True, "error": "Server timbrature non raggiungibile"}), 503
+        return {"ok": False, "retry": True, "error": "Server timbrature non raggiungibile"}, 503
     if not data.get("ok"):
         code = 503 if data.get("retry") else (401 if "PIN" in str(data.get("error", "")) else 400)
-        return jsonify(data), code
-    return jsonify(data), 200
+        return data, code
+    return data, 200
+
+
+def _timbra_proxy(payload: dict):
+    data, code = _timbra_call(payload)
+    return jsonify(data), code
 
 
 @app.route("/timbra", methods=["GET"])
@@ -397,7 +404,41 @@ def api_timbra_registra():
         "acc": body.get("acc"),
     }
     logger.info(f"[TIMBRA] {azione} da {ip} (client_id={payload['client_id']})")
-    return _timbra_proxy(payload)
+    # Copia di sicurezza su disco Render PRIMA di inviare a Google
+    try:
+        _u = user_auth.get_user_by_pin(pin)
+        _nome = _u.get("name") if _u else None
+    except Exception:
+        _nome = None
+    rid = timbra_log.registra_ricevuta(pin, _nome, azione, payload["ts"], payload["lat"],
+                                       payload["lng"], payload["acc"], payload["client_id"], ip)
+    data, code = _timbra_call(payload)
+    timbra_log.registra_esito(rid, data, code)
+    return jsonify(data), code
+
+
+_TIMBRA_ADMIN_PINS = {"4921", "6198", "9276", "8359"}
+
+
+@app.route("/api/timbra/sicurezza", methods=["POST"])
+def api_timbra_sicurezza():
+    """Registro di sicurezza (disco Render): stato o download CSV. Solo PIN amministratori."""
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"timbra_sic_{ip}", max_requests=10, window_seconds=60)
+    if not allowed:
+        return jsonify({"ok": False, "error": "Troppe richieste, attendi un minuto"}), 429
+    body = request.get_json(silent=True) or request.form or {}
+    pin = str(body.get("pin", "")).strip()
+    if pin not in _TIMBRA_ADMIN_PINS:
+        return jsonify({"ok": False, "error": "Accesso riservato all'amministrazione"}), 403
+    if body.get("formato") == "csv":
+        dal = str(body.get("dal") or "")[:10] or None
+        al = str(body.get("al") or "")[:10] or None
+        csv_txt = timbra_log.esporta_csv(dal, al)
+        nome = f"registro_sicurezza_timbrature_{datetime.now().strftime('%Y-%m-%d')}.csv"
+        return Response(csv_txt, mimetype="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{nome}"'})
+    return jsonify({"ok": True, **timbra_log.stato()}), 200
 
 
 _PERMESSI_ACTIONS = {
