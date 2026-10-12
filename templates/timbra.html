@@ -19,6 +19,7 @@
       --text: #f8fafc; --muted: #94a3b8; --warn: #f59e0b;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    button, input { font-family: inherit; }
     html, body { margin: 0; height: 100%; }
     body {
       background: var(--bg); color: var(--text);
@@ -101,6 +102,56 @@
     #done .t3 { font-size: 17px; margin-top: 18px; opacity: .9; min-height: 24px; white-space: pre-line; }
     #done button { margin-top: 30px; padding: 16px 40px; font-size: 18px; font-weight: 800; border-radius: 16px; border: 2px solid rgba(255,255,255,.6); background: transparent; color: #fff; }
     footer { text-align: center; color: #475569; font-size: 12px; padding: 10px; }
+    body.logged main { padding-bottom: 96px; }
+    body.logged footer { display: none; }
+
+    /* Barra schede */
+    #tabbar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex;
+      background: var(--card); border-top: 1px solid var(--border);
+      padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    }
+    #tabbar button, #tabbar a {
+      flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+      background: none; border: 0; color: var(--muted); font-size: 11px; font-weight: 700; text-decoration: none; padding: 4px 2px;
+    }
+    #tabbar span { font-size: 22px; line-height: 1.1; filter: grayscale(.7); }
+    #tabbar .on { color: var(--text); }
+    #tabbar .on span { filter: none; }
+    .badge { position: absolute; top: 0; right: 18%; min-width: 18px; height: 18px; border-radius: 9px; background: var(--red); color: #fff; font-size: 11px; font-style: normal; line-height: 18px; padding: 0 5px; }
+    .mini { background: #1e2433; color: var(--muted); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; font-size: 13px; font-weight: 700; }
+    .tab { margin-top: 12px; }
+
+    /* Modulo richiesta */
+    .cta { width: 100%; border: 0; border-radius: 16px; background: var(--red); color: #fff; font-size: 18px; font-weight: 800; padding: 16px; margin-bottom: 12px; }
+    .cta:disabled { opacity: .5; }
+    .ghost { width: 100%; border-radius: 16px; background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 16px; font-weight: 700; padding: 16px; margin-bottom: 12px; }
+    .row2 { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 14px; }
+    .lbl { display: block; color: var(--muted); font-size: 14px; font-weight: 700; margin: 14px 0 6px; }
+    .inp { width: 100%; background: #0d1117; color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 13px 12px; font-size: 17px; font-family: inherit; color-scheme: dark; }
+    .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .seg button { background: #1e2433; color: var(--text); border: 2px solid var(--border); border-radius: 14px; padding: 13px 6px; font-size: 15px; font-weight: 700; }
+    .seg button.on { border-color: var(--red); background: rgba(223,49,49,.15); }
+    .ore { display: flex; align-items: center; justify-content: center; gap: 22px; }
+    .ore button { width: 58px; height: 58px; border-radius: 50%; background: #1e2433; color: var(--text); border: 1px solid var(--border); font-size: 26px; font-weight: 800; }
+    .ore span { font-size: 34px; font-weight: 900; min-width: 90px; text-align: center; }
+    .ore span::after { content: ' ore'; font-size: 16px; color: var(--muted); font-weight: 700; }
+
+    /* Elenco richieste */
+    .req { border-top: 1px solid var(--border); padding: 11px 0; }
+    .req:first-of-type { border-top: 0; }
+    .req .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .req .t { font-weight: 800; font-size: 16px; }
+    .req .w { color: var(--muted); font-size: 14px; margin-top: 3px; }
+    .req .nt { color: #cbd5e1; font-size: 14px; margin-top: 3px; font-style: italic; }
+    .st { font-size: 12px; font-weight: 800; padding: 4px 9px; border-radius: 99px; white-space: nowrap; }
+    .st.att { background: #2a1a0f; color: #fcd34d; border: 1px solid #78350f; }
+    .st.ok { background: #0f2a1a; color: #4ade80; border: 1px solid #14532d; }
+    .st.no { background: #2a0f0f; color: #f87171; border: 1px solid #7f1d1d; }
+    .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .acts button { border: 0; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 800; color: #fff; }
+    .acts .y { background: var(--green); } .acts .n { background: var(--exit); }
+    .lnk { background: none; border: 0; color: #f87171; font-size: 14px; font-weight: 700; padding: 8px 0 0; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -126,34 +177,98 @@
       <div class="msg info" id="pinMsg"></div>
     </section>
 
-    <!-- 2. Timbratura -->
+    <!-- 2. Area personale -->
     <section id="vMain" class="hidden">
       <div class="who">
         <div class="avatar" id="avatar">?</div>
-        <div><div class="n" id="nome">—</div><div class="d" id="dip"></div></div>
+        <div style="flex:1;min-width:0"><div class="n" id="nome">—</div><div class="d" id="dip"></div></div>
+        <button class="mini" id="bLogout">Esci</button>
       </div>
-      <div class="clock" id="clock2">--:--</div>
-      <div class="date" id="date2"></div>
-      <div class="gps" id="gps">📍 Cerco la posizione…</div>
-      <div class="btns">
-        <button class="big in" id="bIn">ENTRATA<small id="sIn"></small></button>
-        <button class="big out" id="bOut">USCITA<small id="sOut"></small></button>
+
+      <!-- Scheda TIMBRA -->
+      <div id="tabTimbra" class="tab">
+        <div class="clock" id="clock2">--:--</div>
+        <div class="date" id="date2"></div>
+        <div class="gps" id="gps">📍 Cerco la posizione…</div>
+        <div class="btns">
+          <button class="big in" id="bIn">ENTRATA<small id="sIn"></small></button>
+          <button class="big out" id="bOut">USCITA<small id="sOut"></small></button>
+        </div>
+        <div id="mapCard" class="hidden">
+          <div id="map"></div>
+          <div id="mapInfo"></div>
+        </div>
+        <div class="card">
+          <h3>Le timbrature di oggi</h3>
+          <div id="oggi"><div class="empty">Nessuna timbratura oggi</div></div>
+        </div>
+        <div id="queueBox" class="hidden"></div>
       </div>
-      <div id="mapCard" class="hidden">
-        <div id="map"></div>
-        <div id="mapInfo"></div>
+
+      <!-- Scheda FERIE E PERMESSI -->
+      <div id="tabPermessi" class="tab hidden">
+        <button class="cta" id="bNuova">＋ Nuova richiesta</button>
+        <form id="fPerm" class="card hidden" autocomplete="off">
+          <h3>Nuova richiesta</h3>
+          <label class="lbl">Cosa chiedi?</label>
+          <div class="seg" id="segTipo">
+            <button type="button" data-v="Ferie">🌴 Ferie</button>
+            <button type="button" data-v="Permesso">🕐 Permesso</button>
+            <button type="button" data-v="Visita medica">🩺 Visita medica</button>
+            <button type="button" data-v="Altro">📝 Altro</button>
+          </div>
+          <label class="lbl">Per quanto tempo?</label>
+          <div class="seg seg2" id="segDurata">
+            <button type="button" data-v="giorni">Giorni interi</button>
+            <button type="button" data-v="ore">Solo alcune ore</button>
+          </div>
+          <div id="boxGiorni">
+            <label class="lbl" for="pDal">Dal giorno</label><input type="date" id="pDal" class="inp">
+            <label class="lbl" for="pAl">Al giorno (compreso)</label><input type="date" id="pAl" class="inp">
+          </div>
+          <div id="boxOre" class="hidden">
+            <label class="lbl" for="pGiorno">Giorno</label><input type="date" id="pGiorno" class="inp">
+            <label class="lbl">Quante ore?</label>
+            <div class="ore">
+              <button type="button" id="oreMeno">−</button>
+              <span id="oreVal">2</span>
+              <button type="button" id="orePiu">＋</button>
+            </div>
+          </div>
+          <label class="lbl" for="pNote">Note (facoltativo)</label>
+          <input type="text" id="pNote" class="inp" maxlength="300" placeholder="Es. visita medica, motivi personali…">
+          <div class="msg err" id="pMsg"></div>
+          <div class="row2">
+            <button type="button" class="ghost" id="bAnnullaForm">Annulla</button>
+            <button type="submit" class="cta" id="bInvia">Invia richiesta</button>
+          </div>
+        </form>
+        <div class="card">
+          <h3>Le mie richieste</h3>
+          <div id="listaPerm"><div class="empty">Caricamento…</div></div>
+        </div>
       </div>
-      <div class="card">
-        <h3>Le timbrature di oggi</h3>
-        <div id="oggi"><div class="empty">Nessuna timbratura oggi</div></div>
-      </div>
-      <div id="queueBox" class="hidden"></div>
-      <div class="links">
-        <a href="/presenze" id="lnkOre">📊 Le mie ore</a>
-        <button id="bLogout">👤 Cambia utente</button>
+
+      <!-- Scheda APPROVA (solo amministrazione) -->
+      <div id="tabAdmin" class="tab hidden">
+        <div class="card">
+          <h3>Da approvare</h3>
+          <div id="listaAttesa"><div class="empty">Caricamento…</div></div>
+        </div>
+        <div class="card">
+          <h3>Decise di recente</h3>
+          <div id="listaRecenti"></div>
+        </div>
       </div>
     </section>
   </main>
+
+  <nav id="tabbar" class="hidden">
+    <button data-tab="tabTimbra" class="on"><span>⏱</span>Timbra</button>
+    <button data-tab="tabPermessi"><span>🌴</span>Ferie e permessi<i id="badgePerm" class="badge hidden"></i></button>
+    <button data-tab="tabAdmin" id="tbAdmin" class="hidden"><span>✅</span>Approva<i id="badgeAdmin" class="badge hidden"></i></button>
+    <a href="/presenze"><span>📊</span>Le mie ore</a>
+  </nav>
 
   <div id="done" class="hidden">
     <div class="ic" id="dIc">✓</div>
@@ -311,23 +426,31 @@
     user = {
       pin: p, nome: res.nome, dipartimento: res.dipartimento || '',
       eventi_oggi: res.offline && prev ? prev : (res.eventi_oggi || []),
-      prossima: res.prossima, day: today()
+      prossima: res.prossima, day: today(), admin: !!res.admin
     };
     if (!KIOSK) { localStorage.setItem(K_PIN, p); save(K_USER, user); }
     pin = ''; drawDots(); $('pinMsg').textContent = '';
     $('vPin').classList.add('hidden'); $('vMain').classList.remove('hidden');
+    $('tabbar').classList.remove('hidden'); document.body.classList.add('logged');
     $('nome').textContent = user.nome; $('dip').textContent = user.dipartimento;
     $('avatar').textContent = initials(user.nome);
+    setAdmin(user.admin);
+    showTab('tabTimbra');
     renderMain();
     startGps();
     resetIdle();
+    if (!res.offline) loadPermessi(true);
   }
 
   function logout() {
     user = null;
     if (!KIOSK) { localStorage.removeItem(K_PIN); localStorage.removeItem(K_USER); }
     stopGps();
+    closeForm();
     $('vMain').classList.add('hidden'); $('vPin').classList.remove('hidden');
+    $('tabbar').classList.add('hidden'); document.body.classList.remove('logged');
+    $('listaPerm').innerHTML = ''; $('listaAttesa').innerHTML = ''; $('listaRecenti').innerHTML = '';
+    $('badgePerm').classList.add('hidden'); $('badgeAdmin').classList.add('hidden');
     pin = ''; drawDots();
   }
   $('bLogout').addEventListener('click', logout);
@@ -562,9 +685,10 @@
   // ── Inattività (solo tablet) ─────────────────────────────────
   function resetIdle() {
     clearTimeout(idleTimer);
-    if (KIOSK && user) idleTimer = setTimeout(logout, 45000);
+    if (KIOSK && user) idleTimer = setTimeout(logout, $('tabTimbra').classList.contains('hidden') ? 120000 : 45000);
   }
   document.addEventListener('pointerdown', resetIdle);
+  document.addEventListener('keydown', resetIdle);
 
   // Aggiorna dal server le timbrature di oggi (telefono personale)
   function refresh() {
@@ -573,6 +697,8 @@
     api('/api/timbra/login', { pin: p }).then(function (res) {
       if (res.ok && user && user.pin === p) {
         user.nome = res.nome; user.dipartimento = res.dipartimento || ''; user.eventi_oggi = res.eventi_oggi || []; user.day = today();
+        if (!!res.admin !== !!user.admin) { user.admin = !!res.admin; setAdmin(user.admin); }
+        loadPermessi(true);
         save(K_USER, user); $('nome').textContent = user.nome; $('dip').textContent = user.dipartimento; renderMain();
       } else if (res._status === 401) { logout(); pinError('Il tuo PIN è cambiato: inseriscilo di nuovo.'); }
     }).catch(function () {});
@@ -585,13 +711,211 @@
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') lockScreen(); });
   }
 
+  // ── Ferie e permessi ─────────────────────────────────────────
+  var formTipo = null, formDurata = 'giorni', oreVal = 2, formCid = '', permBusy = false;
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
+  function isoDate(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function itDate(iso) { var p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso; }
+  function stCls(s) { s = String(s || '').toLowerCase(); return s.indexOf('approv') === 0 ? 'ok' : s.indexOf('rifiut') === 0 ? 'no' : 'att'; }
+  function tipoIcon(t) { t = String(t || '').toLowerCase(); return t.indexOf('ferie') === 0 ? '🌴' : t.indexOf('visita') === 0 ? '🩺' : t.indexOf('permesso') === 0 ? '🕐' : '📝'; }
+  function range(o) {
+    var r = (o.dal === o.al || !o.al) ? 'il ' + o.dal : 'dal ' + o.dal + ' al ' + o.al;
+    if (o.ore) r += ' · ' + (/^\d+([.,]\d+)?$/.test(o.ore) ? o.ore.replace('.', ',') + ' ore' : o.ore);
+    return r;
+  }
+  function setBadge(id, n) { var b = $(id); b.textContent = n; b.classList.toggle('hidden', !n); }
+  function permApi(azione, extra) {
+    var body = { pin: user.pin, azione: azione };
+    for (var k in (extra || {})) body[k] = extra[k];
+    return api('/api/timbra/permessi', body);
+  }
+
+  function showTab(id) {
+    ['tabTimbra', 'tabPermessi', 'tabAdmin'].forEach(function (t) { $(t).classList.toggle('hidden', t !== id); });
+    Array.prototype.forEach.call(document.querySelectorAll('#tabbar [data-tab]'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-tab') === id);
+    });
+    if (id === 'tabPermessi') loadPermessi();
+    if (id === 'tabAdmin') loadAdmin();
+    if (id === 'tabTimbra' && map) setTimeout(function () { map.invalidateSize(); }, 50);
+    window.scrollTo(0, 0);
+  }
+  $('tabbar').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tab]'); if (!b || !user) return;
+    showTab(b.getAttribute('data-tab'));
+  });
+  function setAdmin(on) { $('tbAdmin').classList.toggle('hidden', !on); if (on) loadAdmin(true); }
+
+  function reqEl(o, showName) {
+    var d = el('div', 'req');
+    var top = el('div', 'top');
+    top.appendChild(el('div', 't', (showName ? o.nome + ' · ' : '') + tipoIcon(o.tipo) + ' ' + o.tipo));
+    top.appendChild(el('span', 'st ' + stCls(o.stato), o.stato));
+    d.appendChild(top);
+    d.appendChild(el('div', 'w', range(o)));
+    if (o.note) d.appendChild(el('div', 'nt', '“' + o.note + '”'));
+    if (o.decisione) d.appendChild(el('div', 'w', o.decisione));
+    return d;
+  }
+
+  function loadPermessi(silent) {
+    if (!user) return;
+    var p = user.pin;
+    if (!silent && !$('listaPerm').innerHTML) $('listaPerm').innerHTML = '<div class="empty">Caricamento…</div>';
+    permApi('lista').then(function (res) {
+      if (!user || user.pin !== p) return;
+      if (!res.ok) { if (!silent) { $('listaPerm').innerHTML = ''; $('listaPerm').appendChild(el('div', 'empty', 'Impossibile caricare: ' + (res.error || 'riprova'))); } return; }
+      renderPermessi(res.richieste || []);
+      if (res.admin !== undefined && !!res.admin !== !!user.admin) { user.admin = !!res.admin; setAdmin(user.admin); if (!KIOSK) save(K_USER, user); }
+    }).catch(function () {
+      if (!silent) $('listaPerm').innerHTML = '<div class="empty">📴 Serve la connessione per vedere le richieste</div>';
+    });
+  }
+
+  function renderPermessi(list) {
+    var box = $('listaPerm'); box.innerHTML = '';
+    if (!list.length) box.innerHTML = '<div class="empty">Non hai ancora fatto richieste</div>';
+    list.forEach(function (o) {
+      var d = reqEl(o, false);
+      if (stCls(o.stato) === 'att') {
+        var b = el('button', 'lnk', 'Annulla questa richiesta');
+        b.addEventListener('click', function () { annulla(o); });
+        d.appendChild(b);
+      }
+      box.appendChild(d);
+    });
+    // Avviso (pallino rosso) quando una richiesta viene approvata o rifiutata
+    if (KIOSK) return;
+    var key = 'amr_perm_seen_' + user.pin;
+    var first = !localStorage.getItem(key);
+    var seen = load(key, {});
+    var nuove = 0;
+    list.forEach(function (o) { if (stCls(o.stato) !== 'att' && seen[o.firma] !== o.stato) nuove++; });
+    if (first || !$('tabPermessi').classList.contains('hidden')) {
+      list.forEach(function (o) { seen[o.firma] = o.stato; });
+      save(key, seen); nuove = 0;
+    }
+    setBadge('badgePerm', nuove);
+  }
+
+  function annulla(o) {
+    if (!confirm('Vuoi annullare questa richiesta?\n\n' + o.tipo + ' ' + range(o))) return;
+    permApi('annulla', { riga: o.riga, firma: o.firma }).then(function (res) {
+      if (res.ok) { vibrate(40); loadPermessi(); } else alert('⚠️ ' + (res.error || 'Impossibile annullare'));
+    }).catch(function () { alert('📴 Nessuna connessione, riprova'); });
+  }
+
+  function openForm() {
+    formTipo = null; formDurata = 'giorni'; oreVal = 2; formCid = uuid();
+    var t = isoDate(new Date()), min = isoDate(new Date(Date.now() - 60 * 86400000));
+    ['pDal', 'pAl', 'pGiorno'].forEach(function (id) { $(id).value = t; $(id).min = min; });
+    $('pNote').value = ''; $('pMsg').textContent = '';
+    syncForm();
+    $('fPerm').classList.remove('hidden'); $('bNuova').classList.add('hidden');
+  }
+  function closeForm() { $('fPerm').classList.add('hidden'); $('bNuova').classList.remove('hidden'); }
+  function segOn(id, v) { Array.prototype.forEach.call($(id).children, function (b) { b.classList.toggle('on', b.getAttribute('data-v') === v); }); }
+  function syncForm() {
+    segOn('segTipo', formTipo); segOn('segDurata', formDurata);
+    $('boxGiorni').classList.toggle('hidden', formDurata !== 'giorni');
+    $('boxOre').classList.toggle('hidden', formDurata !== 'ore');
+    $('oreVal').textContent = String(oreVal).replace('.', ',');
+  }
+  $('bNuova').addEventListener('click', openForm);
+  $('bAnnullaForm').addEventListener('click', closeForm);
+  $('segTipo').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    formTipo = b.getAttribute('data-v');
+    formDurata = formTipo === 'Ferie' ? 'giorni' : (formTipo === 'Altro' ? formDurata : 'ore');
+    syncForm();
+  });
+  $('segDurata').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    formDurata = b.getAttribute('data-v'); syncForm();
+  });
+  $('oreMeno').addEventListener('click', function () { oreVal = Math.max(0.5, oreVal - 0.5); syncForm(); });
+  $('orePiu').addEventListener('click', function () { oreVal = Math.min(12, oreVal + 0.5); syncForm(); });
+  $('pDal').addEventListener('change', function () { if (!$('pAl').value || $('pAl').value < $('pDal').value) $('pAl').value = $('pDal').value; });
+
+  $('fPerm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (permBusy || !user) return;
+    var msg = $('pMsg'); msg.textContent = '';
+    if (!formTipo) { msg.textContent = 'Scegli cosa chiedi (Ferie, Permesso…)'; return; }
+    var dal, al, ore = null;
+    if (formDurata === 'giorni') {
+      dal = $('pDal').value; al = $('pAl').value || dal;
+      if (!dal) { msg.textContent = 'Scegli il giorno di inizio'; return; }
+      if (al < dal) { msg.textContent = 'La data di fine è prima di quella di inizio'; return; }
+    } else {
+      dal = al = $('pGiorno').value; ore = oreVal;
+      if (!dal) { msg.textContent = 'Scegli il giorno'; return; }
+    }
+    var riepilogo = tipoIcon(formTipo) + ' ' + formTipo + '\n' +
+      (dal === al ? 'Giorno: ' + itDate(dal) : 'Dal ' + itDate(dal) + ' al ' + itDate(al)) +
+      (ore ? '\nOre: ' + String(ore).replace('.', ',') : '');
+    if (!confirm('Confermi la richiesta?\n\n' + riepilogo)) return;
+    permBusy = true; $('bInvia').disabled = true; $('bInvia').textContent = 'Invio in corso…';
+    permApi('richiedi', { tipo: formTipo, dal: dal, al: al, ore: ore, note: $('pNote').value.trim(), client_id: formCid })
+      .then(function (res) {
+        if (res.ok) {
+          closeForm(); vibrate([40, 40, 40]);
+          alert('✅ Richiesta inviata!\n\nL\'amministrazione riceve subito una email.\nLa risposta la vedrai qui, in "Le mie richieste".');
+          loadPermessi();
+        } else msg.textContent = res.error || 'Errore, riprova';
+      })
+      .catch(function () { msg.textContent = '📴 Nessuna connessione: la richiesta NON è stata inviata. Riprova quando c\'è rete.'; })
+      .then(function () { permBusy = false; $('bInvia').disabled = false; $('bInvia').textContent = 'Invia richiesta'; });
+  });
+
+  // ── Approvazioni (solo amministrazione) ──────────────────────
+  function loadAdmin(silent) {
+    if (!user || !user.admin) return;
+    var p = user.pin;
+    permApi('admin_lista').then(function (res) {
+      if (!user || user.pin !== p || !res.ok) return;
+      var att = res.in_attesa || [], rec = res.recenti || [];
+      setBadge('badgeAdmin', att.length);
+      var box = $('listaAttesa'); box.innerHTML = '';
+      if (!att.length) box.innerHTML = '<div class="empty">Nessuna richiesta da approvare 👍</div>';
+      att.forEach(function (o) {
+        var d = reqEl(o, true);
+        var a = el('div', 'acts');
+        var y = el('button', 'y', '✓ Approva'), n = el('button', 'n', '✕ Rifiuta');
+        y.addEventListener('click', function () { decidi(o, 'Approvato', a); });
+        n.addEventListener('click', function () { decidi(o, 'Rifiutato', a); });
+        a.appendChild(y); a.appendChild(n); d.appendChild(a); box.appendChild(d);
+      });
+      var rb = $('listaRecenti'); rb.innerHTML = '';
+      if (!rec.length) rb.innerHTML = '<div class="empty">—</div>';
+      rec.forEach(function (o) { rb.appendChild(reqEl(o, true)); });
+    }).catch(function () { if (!silent) $('listaAttesa').innerHTML = '<div class="empty">📴 Serve la connessione</div>'; });
+  }
+
+  function decidi(o, esito, acts) {
+    var nota = '';
+    if (esito === 'Rifiutato') {
+      nota = prompt('Rifiutare la richiesta di ' + o.nome + '?\n\nMotivo (facoltativo):', '');
+      if (nota === null) return;
+    } else if (!confirm('Approvare la richiesta di ' + o.nome + '?\n\n' + o.tipo + ' ' + range(o))) return;
+    Array.prototype.forEach.call(acts.children, function (b) { b.disabled = true; });
+    permApi('decidi', { riga: o.riga, firma: o.firma, esito: esito, nota: nota }).then(function (res) {
+      if (res.ok) { vibrate(40); loadAdmin(); }
+      else { alert('⚠️ ' + (res.error || 'Errore')); loadAdmin(); }
+    }).catch(function () {
+      alert('📴 Nessuna connessione, riprova');
+      Array.prototype.forEach.call(acts.children, function (b) { b.disabled = false; });
+    });
+  }
+
   // ── Avvio ────────────────────────────────────────────────────
   drawDots();
   if (!KIOSK) {
     var savedPin = localStorage.getItem(K_PIN), savedUser = load(K_USER, null);
     if (savedPin && savedUser) {
       if (savedUser.day !== today()) savedUser.eventi_oggi = [];
-      enter(savedPin, { nome: savedUser.nome, dipartimento: savedUser.dipartimento, eventi_oggi: savedUser.eventi_oggi, prossima: null });
+      enter(savedPin, { nome: savedUser.nome, dipartimento: savedUser.dipartimento, eventi_oggi: savedUser.eventi_oggi, prossima: null, admin: savedUser.admin, offline: true });
       refresh();
     }
   }

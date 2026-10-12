@@ -400,6 +400,37 @@ def api_timbra_registra():
     return _timbra_proxy(payload)
 
 
+_PERMESSI_ACTIONS = {
+    "lista": ("permessi_lista", ()),
+    "richiedi": ("permessi_richiedi", ("tipo", "dal", "al", "ore", "note", "client_id")),
+    "annulla": ("permessi_annulla", ("riga", "firma")),
+    "admin_lista": ("permessi_admin_lista", ()),
+    "decidi": ("permessi_decidi", ("riga", "firma", "esito", "nota")),
+}
+
+
+@app.route("/api/timbra/permessi", methods=["POST"])
+def api_timbra_permessi():
+    """Richieste ferie / permessi dalla app Timbrature (PIN), scritte nel foglio 'Registro Permessi'."""
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"timbra_perm_{ip}", max_requests=30, window_seconds=60)
+    if not allowed:
+        return jsonify({"ok": False, "error": "Troppe richieste, attendi un minuto"}), 429
+    body = request.get_json(silent=True) or {}
+    pin = str(body.get("pin", "")).strip()
+    op = _PERMESSI_ACTIONS.get(str(body.get("azione", "")))
+    if not pin.isdigit() or not op:
+        return jsonify({"ok": False, "error": "Dati non validi"}), 400
+    action, fields = op
+    payload = {"action": action, "pin": pin}
+    for f in fields:
+        v = body.get(f)
+        payload[f] = v[:300] if isinstance(v, str) else v
+    if action in ("permessi_richiedi", "permessi_annulla", "permessi_decidi"):
+        logger.info(f"[PERMESSI] {action} da {ip}")
+    return _timbra_proxy(payload)
+
+
 @app.route("/api/employees", methods=["GET"])
 def api_employees():
     """Restituisce l'elenco di tutti i dipendenti aziendali registrati per la selezione rapida con 1 tocco."""
