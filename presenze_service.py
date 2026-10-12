@@ -153,6 +153,8 @@ def calculate_employee_report(pin: str, target_month_str: str = None) -> dict:
             nota_l = r[11].lower() if len(r) > 11 else ""
             if "doppione" in nota_l and "probabile" not in nota_l:
                 continue
+            if "sostituita" in nota_l:  # sostituita da una rettifica dell'amministrazione
+                continue
             emp_records.append(r)
 
     # Identifica mesi disponibili
