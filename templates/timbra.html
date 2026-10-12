@@ -98,7 +98,7 @@
     #done .ic { font-size: 90px; line-height: 1; }
     #done .t1 { font-size: 34px; font-weight: 900; margin-top: 12px; }
     #done .t2 { font-size: 22px; margin-top: 6px; font-weight: 600; }
-    #done .t3 { font-size: 17px; margin-top: 18px; opacity: .9; min-height: 24px; }
+    #done .t3 { font-size: 17px; margin-top: 18px; opacity: .9; min-height: 24px; white-space: pre-line; }
     #done button { margin-top: 30px; padding: 16px 40px; font-size: 18px; font-weight: 800; border-radius: 16px; border: 2px solid rgba(255,255,255,.6); background: transparent; color: #fff; }
     footer { text-align: center; color: #475569; font-size: 12px; padding: 10px; }
   </style>
@@ -538,6 +538,7 @@
         if (!$('done').classList.contains('hidden')) {
           $('dT3').textContent = res.offline ? '✓ Registrata (inviata in ritardo per mancanza di rete)'
             : '✓ Registrata' + (res.tipo === 'Trasferta' ? ' · in trasferta' : res.tipo === 'Sede' ? ' · in sede' : '');
+          if (res.luogo) $('dT3').textContent += '\n📍 ' + res.luogo.replace(/^Sede AMR · /, '');
           vibrate([40, 40, 40]);
         }
         flushing = false; renderMain(); flush();

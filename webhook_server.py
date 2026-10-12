@@ -930,6 +930,33 @@ dept_thread = threading.Thread(
 dept_thread.start()
 
 
+def start_timbra_localita_loop():
+    """Compila la colonna 'Indirizzo / Luogo' (nome località) anche per le timbrature fatte
+    da AppSheet: le sue scritture non attivano i trigger onEdit di Apps Script."""
+    import requests as _rq
+    time.sleep(90)
+    while True:
+        from zoneinfo import ZoneInfo
+        ora = datetime.now(ZoneInfo("Europe/Rome")).hour
+        if 5 <= ora <= 22:
+            try:
+                r = _rq.post(AMR_TIMBRA_URL, json={"key": AMR_TIMBRA_KEY, "action": "arricchisci", "righe": 80}, timeout=120)
+                res = r.json()
+                if res.get("compilate"):
+                    logger.info(f"📍 [TIMBRA] Località compilate: {res.get('compilate')}")
+            except Exception as e:
+                logger.warning(f"📍 [TIMBRA] Arricchimento località non riuscito: {e}")
+        time.sleep(600)
+
+
+timbra_loc_thread = threading.Thread(
+    target=start_timbra_localita_loop,
+    daemon=True,
+    name="timbra-localita-loop"
+)
+timbra_loc_thread.start()
+
+
 if __name__ == "__main__":
     port = int(os.getenv("WEBHOOK_PORT", 8080))
     logger.info("=" * 55)
