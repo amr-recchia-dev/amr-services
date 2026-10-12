@@ -58,6 +58,9 @@
       </div>
 
       <div class="flex items-center gap-2" id="headerActions">
+        <a href="/timbra" onclick="tornaATimbra(event)" class="text-xs bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
+          <span>⏱</span> <span>Timbra</span>
+        </a>
         <a href="/voice" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1 transition">
           <span>🎙️</span> <span class="hidden sm:inline">Assistente</span>
         </a>
@@ -229,12 +232,12 @@
             <span>📱</span> <span>Timbra direttamente dal tuo telefono con GPS</span>
           </div>
           <p class="text-[11px] text-slate-400 mt-0.5">
-            Così eviti la fila e i blocchi del tablet in officina. Funziona sia in Sede che in Trasferta.
+            Entrata/Uscita con PIN e GPS, ferie e permessi. Funziona sia in Sede che in Trasferta.
           </p>
         </div>
-        <a href="https://www.appsheet.com/start/662d1f5f-b33f-4e4d-87f0-72d08d06e950" target="_blank"
+        <a href="/timbra" onclick="tornaATimbra(event)"
           class="px-4 py-2 bg-[var(--amr-red)] hover:bg-[var(--amr-red-hover)] text-white font-bold text-xs rounded-xl text-center transition shadow-md shadow-red-950/40 shrink-0">
-          Apri App Timbrature GPS ➔
+          ⏱ Torna a Timbrature
         </a>
       </div>
 
@@ -326,7 +329,7 @@
         const data = await resp.json();
 
         if (resp.ok && data.authenticated) {
-          localStorage.setItem('amr_presenze_pin', currentPin);
+          if (!IS_KIOSK) localStorage.setItem('amr_presenze_pin', currentPin);
           cachedData = data;
           renderDashboard(data);
         } else {
@@ -550,6 +553,15 @@
       }
     }
 
+    // Tablet condiviso (modalità kiosk della app Timbrature): il PIN non viene mai ricordato
+    const IS_KIOSK = localStorage.getItem('amr_timbra_kiosk') === '1';
+
+    function tornaATimbra(e) {
+      if (IS_KIOSK) { localStorage.removeItem('amr_presenze_pin'); }
+      if (e) { e.preventDefault(); }
+      window.location.href = '/timbra';
+    }
+
     function logout() {
       localStorage.removeItem('amr_presenze_pin');
       currentPin = "";
@@ -561,7 +573,8 @@
 
     // Auto-login se PIN già salvato
     window.addEventListener('DOMContentLoaded', () => {
-      const savedPin = localStorage.getItem('amr_presenze_pin');
+      const savedPin = IS_KIOSK ? null
+        : (localStorage.getItem('amr_presenze_pin') || localStorage.getItem('amr_timbra_pin'));
       if (savedPin && savedPin.length === 4) {
         currentPin = savedPin;
         updateDots();
