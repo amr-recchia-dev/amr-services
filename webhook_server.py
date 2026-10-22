@@ -27,7 +27,12 @@ load_dotenv()
 
 # Configurazione Sicurezza: PIN di accesso aziendale
 AMR_ACCESS_PIN = os.getenv("AMR_ACCESS_PIN", "2026")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "amr_webhook_secret_2026")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")  # nessun valore di riserva nel codice
+
+def _admin_secret_ok(valore) -> bool:
+    """True solo se la chiave admin è configurata e coincide (confronto a tempo costante)."""
+    import hmac
+    return bool(WEBHOOK_SECRET) and bool(valore) and hmac.compare_digest(str(valore), WEBHOOK_SECRET)
 
 class SlidingWindowRateLimiter:
     """Rate limiter thread-safe in memoria con finestra scorrevole per IP."""
@@ -315,7 +320,7 @@ def api_presenze_admin():
     pin = request.args.get("pin") or req_json.get("pin") or request.headers.get("X-AMR-PIN")
     month = request.args.get("month") or req_json.get("month")
     admin_pins = ["4921", "6198", "9276", "8359"]
-    if pin not in admin_pins and request.args.get("secret") != WEBHOOK_SECRET:
+    if pin not in admin_pins and not _admin_secret_ok(request.args.get("secret")):
         return jsonify({"error": "Accesso riservato all'amministrazione"}), 403
     return jsonify(presenze_service.get_all_employees_overview(month)), 200
 
@@ -901,7 +906,7 @@ def status():
     """Stato dettagliato dell'ultima archiviazione protetto da PIN o admin secret."""
     if not check_pin_auth():
         admin_secret = request.headers.get("X-Admin-Secret") or request.args.get("secret")
-        if admin_secret != WEBHOOK_SECRET:
+        if not _admin_secret_ok(admin_secret):
             return jsonify({"error": "Unauthorized"}), 401
     return jsonify(last_status), 200
 
@@ -980,7 +985,7 @@ def night_guardian_status():
 def test_archive(item_id: str):
     """Endpoint di test per archiviare manualmente un item (protetto da admin secret)."""
     admin_secret = request.headers.get("X-Admin-Secret") or request.args.get("secret")
-    if not admin_secret or admin_secret != WEBHOOK_SECRET:
+    if not _admin_secret_ok(admin_secret):
         return jsonify({"error": "Unauthorized"}), 403
 
     if last_status["running"]:
