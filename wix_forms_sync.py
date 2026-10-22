@@ -249,6 +249,9 @@ def _send_lead_email_smtp(
         return None
 
 
+MONDAY_BOARD_COMMERCIALE = os.getenv("MONDAY_BOARD_COMMERCIALE", "1865049112")
+
+
 def _create_monday_commercial_item(
     created_date: str,
     full_name: str,
@@ -256,8 +259,12 @@ def _create_monday_commercial_item(
     phone_cliente: str,
     oggetto_azienda: str,
     messaggio: str,
+    target_boards: Optional[List[str]] = None,
 ) -> Optional[str]:
-    """Crea l'item direttamente sulla board Monday NEW COMMERCIALE (2133436509)."""
+    """
+    Crea l'item direttamente sia sulla scheda principale COMMERCIALE (1865049112)
+    sia su NEW COMMERCIALE (2133436509).
+    """
     item_name = (oggetto_azienda or full_name or email_cliente or "Nuova Lead Sito Web")[:255]
     clean_phone = re.sub(r"[^\d+]", "", phone_cliente or "")
 
@@ -268,7 +275,7 @@ def _create_monday_commercial_item(
     except Exception:
         pass
 
-    # Riassunto breve per la colonna "Specifiche richiesta"
+    # Riassunto breve per la colonna "Specifiche richiesta" (presente su NEW COMMERCIALE)
     short_msg = " ".join((messaggio or "").split())
     if len(short_msg) > 280:
         short_msg = short_msg[:277] + "..."
@@ -277,7 +284,7 @@ def _create_monday_commercial_item(
     # Nome progetto sintetico
     nome_progetto = oggetto_azienda if oggetto_azienda else short_msg[:120]
 
-    column_values: Dict = {
+    base_columns: Dict = {
         COL_NOME_PROGETTO: nome_progetto[:500],
         COL_REFERENTE: (full_name or "")[:200],
         COL_RICHIESTA: {
@@ -290,16 +297,15 @@ def _create_monday_commercial_item(
                 f"MESSAGGIO:\n{messaggio}"
             )
         },
-        COL_SPECIFICHE: specifiche[:500],
     }
 
     if email_cliente:
-        column_values[COL_EMAIL] = {
+        base_columns[COL_EMAIL] = {
             "email": email_cliente,
             "text": email_cliente,
         }
     if clean_phone:
-        column_values[COL_TELEFONO] = {
+        base_columns[COL_TELEFONO] = {
             "phone": clean_phone,
             "countryShortName": "IT",
         }
@@ -323,43 +329,62 @@ def _create_monday_commercial_item(
       }
     }
     """
-    variables = {
-        "board_id": MONDAY_BOARD_ID,
-        "group_id": group_id,
-        "item_name": item_name,
-        "column_values": json.dumps(column_values),
-    }
 
-    try:
-        data = _graphql(mutation, variables)
-        item_id = data.get("create_item", {}).get("id")
-        if item_id:
-            logger.info(
-                "✅ [WIX SYNC] Creato item su Monday NEW COMMERCIALE: '%s' (ID: %s)",
-                item_name,
-                item_id,
-            )
-            # Aggiungi anche un Update (commento) completo sulla riga Monday
-            update_body = (
-                f"🌐 <b>Nuova richiesta dal modulo contatti del sito www.amrrecchia.it</b><br>"
-                f"📅 <b>Data invio:</b> {_html.escape(dt_str)}<br>"
-                f"🏢 <b>Azienda / Oggetto:</b> {_html.escape(oggetto_azienda)}<br>"
-                f"👤 <b>Referente:</b> {_html.escape(full_name)}<br>"
-                f"✉️ <b>Email:</b> {_html.escape(email_cliente)}<br>"
-                f"📞 <b>Telefono:</b> {_html.escape(phone_cliente)}<br><br>"
-                f"📝 <b>Messaggio:</b><br>{_html.escape(messaggio).replace(chr(10), '<br>')}"
-            )
-            try:
-                _graphql(
-                    "mutation ($item_id: ID!, $body: String!) { create_update(item_id: $item_id, body: $body) { id } }",
-                    {"item_id": item_id, "body": update_body},
+    boards_to_write = target_boards or [MONDAY_BOARD_COMMERCIALE, MONDAY_BOARD_ID]
+    # Rimuovi eventuali duplicati preservando l'ordine
+    seen_b = set()
+    unique_boards = []
+    for b_id in boards_to_write:
+        if b_id and b_id not in seen_b:
+            seen_b.add(b_id)
+            unique_boards.append(b_id)
+
+    created_ids = []
+    update_body = (
+        f"🌐 <b>Nuova richiesta dal modulo contatti del sito www.amrrecchia.it</b><br>"
+        f"📅 <b>Data invio:</b> {_html.escape(dt_str)}<br>"
+        f"🏢 <b>Azienda / Oggetto:</b> {_html.escape(oggetto_azienda)}<br>"
+        f"👤 <b>Referente:</b> {_html.escape(full_name)}<br>"
+        f"✉️ <b>Email:</b> {_html.escape(email_cliente)}<br>"
+        f"📞 <b>Telefono:</b> {_html.escape(phone_cliente)}<br><br>"
+        f"📝 <b>Messaggio:</b><br>{_html.escape(messaggio).replace(chr(10), '<br>')}"
+    )
+
+    for b_id in unique_boards:
+        cols_for_board = dict(base_columns)
+        # La colonna text_mkypgtb8 esiste solo su NEW COMMERCIALE (2133436509)
+        if str(b_id) == "2133436509":
+            cols_for_board[COL_SPECIFICHE] = specifiche[:500]
+
+        variables = {
+            "board_id": str(b_id),
+            "group_id": group_id,
+            "item_name": item_name,
+            "column_values": json.dumps(cols_for_board),
+        }
+        try:
+            data = _graphql(mutation, variables)
+            item_id = data.get("create_item", {}).get("id")
+            if item_id:
+                created_ids.append(str(item_id))
+                board_label = "COMMERCIALE" if str(b_id) == "1865049112" else f"NEW COMMERCIALE ({b_id})"
+                logger.info(
+                    "✅ [WIX SYNC] Creato item su Monday %s: '%s' (ID: %s)",
+                    board_label,
+                    item_name,
+                    item_id,
                 )
-            except Exception as ue:
-                logger.warning("⚠️ Impossibile aggiungere update Monday su %s: %s", item_id, ue)
-        return item_id
-    except Exception as e:
-        logger.error("❌ [WIX SYNC] Errore creazione item Monday per '%s': %s", item_name, e)
-        return None
+                try:
+                    _graphql(
+                        "mutation ($item_id: ID!, $body: String!) { create_update(item_id: $item_id, body: $body) { id } }",
+                        {"item_id": item_id, "body": update_body},
+                    )
+                except Exception as ue:
+                    logger.warning("⚠️ Impossibile aggiungere update Monday su %s: %s", item_id, ue)
+        except Exception as e:
+            logger.error("❌ [WIX SYNC] Errore creazione item Monday (board %s) per '%s': %s", b_id, item_name, e)
+
+    return ",".join(created_ids) if created_ids else None
 
 
 def sync_wix_forms(dry_run: bool = False) -> int:

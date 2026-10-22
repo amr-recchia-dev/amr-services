@@ -164,100 +164,113 @@ def _build_column_values_direct(classification) -> Tuple[Dict, str]:
     return column_values, item_name
 
 
-def create_item(classification) -> Optional[str]:
-    """
-    Crea un nuovo item sulla board Monday.com NEW COMMERCIALE.
+MONDAY_BOARD_COMMERCIALE = os.getenv("MONDAY_BOARD_COMMERCIALE", "1865049112")
 
-    Args:
-        classification: ClassificationResult con i dati estratti dall'email
 
-    Returns:
-        ID del nuovo item creato, o None in caso di errore.
-    """
+def _create_or_update_on_board(board_id: str, group_id: str, item_name: str, column_values: Dict, classification) -> Optional[str]:
+    """Crea o aggiorna (anti-duplicato) un item su una specifica board Monday (COMMERCIALE o NEW COMMERCIALE)."""
     try:
-        group_id = MONDAY_GROUP_ID  # "topics" = Richieste commerciali AMR
-
-        # Costruisce i valori colonna con ID diretti
-        column_values, item_name = _build_column_values_direct(classification)
-
-        # ── Controllo di sicurezza anti-duplicato ─────────────────────────
-        # Verifica se un item per questo cliente e progetto esiste già tra i recenti
-        try:
-            check_q = """
-            query ($board_id: [ID!]) {
-              boards(ids: $board_id) {
-                items_page(limit: 50) {
-                  items {
-                    id
-                    name
-                    column_values(ids: ["testo_mkn1sqb4"]) {
-                      text
-                    }
-                  }
+        check_q = """
+        query ($board_id: [ID!]) {
+          boards(ids: $board_id) {
+            items_page(limit: 50) {
+              items {
+                id
+                name
+                column_values(ids: ["testo_mkn1sqb4"]) {
+                  text
                 }
               }
             }
-            """
-            existing = _graphql(check_q, {"board_id": [MONDAY_BOARD_ID]})
-            recent_items = existing.get("boards", [{}])[0].get("items_page", {}).get("items", [])
-            norm_item_name = item_name.strip().lower()
-            norm_proj = (classification.nome_progetto or "").strip().lower()
-
-            for it in recent_items:
-                it_name = it.get("name", "").strip().lower()
-                cols = it.get("column_values", [])
-                it_proj = (cols[0].get("text") or "").strip().lower() if cols else ""
-                # Se il cliente coincide e il progetto coincide (o entrambi hanno lo stesso progetto):
-                if it_name == norm_item_name and norm_proj and (norm_proj in it_proj or it_proj in norm_proj):
-                    logger.info(
-                        "⚠️ Item per '%s' - '%s' già esistente su Monday (id: %s). Aggiorno l'item invece di duplicarlo.",
-                        item_name, classification.nome_progetto, it["id"]
-                    )
-                    _add_update_to_item(it["id"], classification)
-                    return it["id"]
-        except Exception as check_err:
-            logger.warning("Controllo preliminare duplicati fallito (procedo con cautela): %s", check_err)
-
-        query = """
-        mutation CreateItem(
-            $board_id: ID!,
-            $group_id: String!,
-            $item_name: String!,
-            $column_values: JSON!
-        ) {
-          create_item(
-            board_id: $board_id,
-            group_id: $group_id,
-            item_name: $item_name,
-            column_values: $column_values
-          ) {
-            id
-            name
           }
         }
         """
-        variables = {
-            "board_id": MONDAY_BOARD_ID,
-            "group_id": group_id,
-            "item_name": item_name,
-            "column_values": json.dumps(column_values),
-        }
+        existing = _graphql(check_q, {"board_id": [str(board_id)]})
+        recent_items = existing.get("boards", [{}])[0].get("items_page", {}).get("items", [])
+        norm_item_name = item_name.strip().lower()
+        norm_proj = (classification.nome_progetto or "").strip().lower()
 
-        data = _graphql(query, variables)
-        item_id = data.get("create_item", {}).get("id")
-        item_name_returned = data.get("create_item", {}).get("name", "")
+        for it in recent_items:
+            it_name = it.get("name", "").strip().lower()
+            cols = it.get("column_values", [])
+            it_proj = (cols[0].get("text") or "").strip().lower() if cols else ""
+            if it_name == norm_item_name and norm_proj and (norm_proj in it_proj or it_proj in norm_proj):
+                logger.info(
+                    "⚠️ Item per '%s' - '%s' già esistente su board %s (id: %s). Aggiorno l'item invece di duplicarlo.",
+                    item_name, classification.nome_progetto, board_id, it["id"]
+                )
+                _add_update_to_item(it["id"], classification)
+                return it["id"]
+    except Exception as check_err:
+        logger.warning("Controllo preliminare duplicati su board %s fallito: %s", board_id, check_err)
 
-        if item_id:
-            logger.info(
-                "✅ Item creato su Monday.com: '%s' (id: %s)",
-                item_name_returned, item_id
-            )
-            # Aggiunge un update con la sintesi completa
-            _add_update_to_item(item_id, classification)
-        else:
-            logger.error("Creazione item fallita: risposta inattesa da Monday.com")
+    cols_to_send = dict(column_values)
+    # La colonna text_mkypgtb8 esiste solo su NEW COMMERCIALE (2133436509)
+    if str(board_id) == "1865049112":
+        cols_to_send.pop(COL_SPECIFICHE, None)
 
-        return item_id
+    query = """
+    mutation CreateItem(
+        $board_id: ID!,
+        $group_id: String!,
+        $item_name: String!,
+        $column_values: JSON!
+    ) {
+      create_item(
+        board_id: $board_id,
+        group_id: $group_id,
+        item_name: $item_name,
+        column_values: $column_values
+      ) {
+        id
+        name
+      }
+    }
+    """
+    variables = {
+        "board_id": str(board_id),
+        "group_id": group_id,
+        "item_name": item_name,
+        "column_values": json.dumps(cols_to_send),
+    }
+
+    data = _graphql(query, variables)
+    item_id = data.get("create_item", {}).get("id")
+    item_name_returned = data.get("create_item", {}).get("name", "")
+
+    if item_id:
+        logger.info(
+            "✅ Item creato su Monday.com (board %s): '%s' (id: %s)",
+            board_id, item_name_returned, item_id
+        )
+        _add_update_to_item(item_id, classification)
+    else:
+        logger.error("Creazione item fallita su board %s: risposta inattesa da Monday.com", board_id)
+
+    return item_id
+
+
+def create_item(classification) -> Optional[str]:
+    """
+    Crea un nuovo item sia sulla scheda principale COMMERCIALE (1865049112)
+    sia su NEW COMMERCIALE (2133436509).
+    """
+    try:
+        group_id = MONDAY_GROUP_ID or "topics"  # "topics" = Richieste commerciali AMR
+        column_values, item_name = _build_column_values_direct(classification)
+
+        primary_id = None
+        for b_id in [MONDAY_BOARD_COMMERCIALE, MONDAY_BOARD_ID]:
+            if not b_id:
+                continue
+            try:
+                created_id = _create_or_update_on_board(b_id, group_id, item_name, column_values, classification)
+                if created_id and not primary_id:
+                    primary_id = created_id
+            except Exception as b_err:
+                logger.error("Errore creazione item su board %s: %s", b_id, b_err)
+
+        return primary_id
 
     except Exception as e:
         logger.error("Errore creazione item Monday.com: %s", e)
