@@ -312,6 +312,24 @@ def calculate_employee_report(pin: str, target_month_str: str = None) -> dict:
         sessions.sort(key=lambda x: parse_time_to_minutes(x["in"]) if x["in"] else 9999)
 
         day_mins = sum(s["mins"] for s in sessions)
+        ok_sessions = [s for s in sessions if s["status"] == "OK"]
+        pausa_auto = False
+        if d >= datetime.date(2026, 10, 1) and d.weekday() < 5 and (d.month, d.day) not in {(1,1),(1,6),(4,25),(5,1),(6,2),(8,15),(11,1),(12,8),(12,25),(12,26)}:
+            if len(ok_sessions) == 1:
+                has_rett = any(len(r) > 11 and "rettifica" in r[11].lower() for r in d_rows)
+                has_perm = False
+                if perm_rows and len(perm_rows) > 1:
+                    for pr in perm_rows[1:]:
+                        if len(pr) > 7 and pr[0].strip().lower() == emp_name.lower() and pr[7].strip().lower() == "approvato":
+                            ps = parse_date(pr[3])
+                            pe = parse_date(pr[4]) if len(pr) > 4 and pr[4].strip() else ps
+                            if ps and pe and ps <= d <= pe:
+                                has_perm = True
+                                break
+                if not ((has_perm or has_rett) and day_mins <= 330):
+                    day_mins = max(0.0, day_mins - 60.0)
+                    pausa_auto = True
+
         monthly_minutes += day_mins
         w_num = iso_week_num(d)
         weekly_totals[w_num] += day_mins
@@ -330,6 +348,7 @@ def calculate_employee_report(pin: str, target_month_str: str = None) -> dict:
             "day_name": ITALIAN_DAYS.get(d.weekday(), ""),
             "week_num": w_num,
             "sessions": sessions,
+            "pausa_auto_1h": pausa_auto,
             "total_mins": day_mins,
             "total_hours": round(day_mins / 60.0, 2),
             "total_fmt": format_minutes_hhmm(day_mins),
