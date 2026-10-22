@@ -63,6 +63,15 @@ def run_once(dry_run: bool = False) -> None:
         logger.info("🧪 MODALITÀ DRY-RUN: nessuna modifica sarà effettuata")
     logger.info("═" * 60)
 
+    # 0. Sincronizza eventuali nuovi invii dal modulo contatti del sito Wix (amrrecchia.it)
+    try:
+        from wix_forms_sync import sync_wix_forms
+        wix_synced = sync_wix_forms(dry_run=dry_run)
+        if wix_synced > 0:
+            logger.info("🌐 [WIX SYNC] Sincronizzate %d nuove lead dal form sito web.", wix_synced)
+    except Exception as wix_err:
+        logger.error("❌ Errore sincronizzazione form Wix: %s", wix_err)
+
     # 1. Leggi email
     try:
         emails = fetch_unseen_emails()
