@@ -524,6 +524,75 @@ _PERMESSI_ACTIONS = {
 }
 
 
+def _send_permesso_email_smtp(o: dict) -> None:
+    """Invia l'email di nuova richiesta direttamente via SMTP autenticato Register.it."""
+    try:
+        if not o or not o.get("nome"):
+            return
+        import html as _html
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.utils import formataddr, formatdate, make_msgid
+
+        sender_email = os.getenv("IMAP_USER", "ordini@amrrecchia.it")
+        password = os.getenv("IMAP_PASSWORD", "")
+        if not sender_email or not password:
+            return
+        recipients = ["amministrazione@amrrecchia.it", "ordini@amrrecchia.it"]
+        nome = str(o.get("nome", ""))
+        tipo = str(o.get("tipo", "Permesso"))
+        dal = str(o.get("dal", ""))
+        al = str(o.get("al") or dal)
+        ore = str(o.get("ore") or "giornata intera")
+        note = str(o.get("note") or "—")
+        app_url = "https://amr-services.onrender.com/timbra"
+        periodo = f"dal {dal} al {al}" if (al and al != dal) else f"il {dal}"
+        subject = f"Nuova richiesta {tipo.lower()} – {nome} – {periodo}"
+
+        testo = (
+            "È stata inserita una nuova richiesta da approvare.\n\n"
+            f"Dipendente: {nome}\n"
+            f"Tipo: {tipo}\n"
+            f"Dal: {dal}\n"
+            f"Al: {al}\n"
+            f"Ore richieste: {ore}\n"
+            f"Note: {note}\n\n"
+            f"Per approvare o rifiutare: apri l'app {app_url} con il tuo PIN e vai nella scheda \"Approva\".\n\n"
+            "— App Timbrature AMR"
+        )
+        esc = _html.escape
+        html_body = (
+            '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1f36">'
+            '<p>È stata inserita una <b>nuova richiesta</b> da approvare.</p>'
+            '<table style="border-collapse:collapse;margin:10px 0">'
+            f'<tr><td style="padding:6px 14px 6px 0;color:#556987">Dipendente</td><td style="padding:6px 0;font-weight:600;color:#001C3A">{esc(nome)}</td></tr>'
+            f'<tr><td style="padding:6px 14px 6px 0;color:#556987">Tipo</td><td style="padding:6px 0;font-weight:600;color:#001C3A">{esc(tipo)}</td></tr>'
+            f'<tr><td style="padding:6px 14px 6px 0;color:#556987">Dal</td><td style="padding:6px 0;font-weight:600;color:#001C3A">{esc(dal)}</td></tr>'
+            f'<tr><td style="padding:6px 14px 6px 0;color:#556987">Al</td><td style="padding:6px 0;font-weight:600;color:#001C3A">{esc(al)}</td></tr>'
+            f'<tr><td style="padding:6px 14px 6px 0;color:#556987">Ore richieste</td><td style="padding:6px 0;font-weight:600;color:#001C3A">{esc(ore)}</td></tr>'
+            f'<tr><td style="padding:6px 14px 6px 0;color:#556987">Note</td><td style="padding:6px 0;font-weight:600;color:#001C3A">{esc(note)}</td></tr>'
+            '</table>'
+            f'<p><a href="{app_url}" style="display:inline-block;background:#5B8046;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600">Apri l&#39;app e approva</a></p>'
+            '<p style="color:#8a94a6;font-size:12px">Entra con il tuo PIN e vai nella scheda "Approva".<br>— App Timbrature AMR</p></div>'
+        )
+        msg = MIMEMultipart("alternative")
+        msg["From"] = formataddr(("Timbrature AMR", sender_email))
+        msg["To"] = ", ".join(recipients)
+        msg["Subject"] = subject
+        msg["Date"] = formatdate(localtime=True)
+        msg["Message-ID"] = make_msgid(domain="amrrecchia.it")
+        msg.attach(MIMEText(testo, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        with smtplib.SMTP_SSL("authsmtp.securemail.pro", 465, timeout=15) as s:
+            s.login(sender_email, password)
+            s.sendmail(sender_email, recipients, msg.as_string())
+        logger.info(f"[PERMESSI] Email nuova richiesta inviata via SMTP per {nome} ({dal})")
+    except Exception as e:
+        logger.warning(f"[PERMESSI] Errore invio email SMTP nuova richiesta: {e}")
+
+
 @app.route("/api/timbra/permessi", methods=["POST"])
 def api_timbra_permessi():
     """Richieste ferie / permessi dalla app Timbrature (PIN), scritte nel foglio 'Registro Permessi'."""
@@ -543,7 +612,10 @@ def api_timbra_permessi():
         payload[f] = v[:300] if isinstance(v, str) else v
     if action in ("permessi_richiedi", "permessi_annulla", "permessi_decidi"):
         logger.info(f"[PERMESSI] {action} da {ip}")
-    return _timbra_proxy(payload)
+    data, code = _timbra_call(payload)
+    if action == "permessi_richiedi" and code == 200 and data.get("ok") and data.get("richiesta"):
+        threading.Thread(target=_send_permesso_email_smtp, args=(data["richiesta"],), daemon=True).start()
+    return jsonify(data), code
 
 
 @app.route("/api/employees", methods=["GET"])

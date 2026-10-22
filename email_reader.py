@@ -203,6 +203,11 @@ def fetch_unseen_emails() -> List[ParsedEmail]:
                 sender_name, sender_email = _parse_sender(from_header)
                 date = msg.get("Date", "")
 
+                # Ignora notifiche interne dell'app Timbrature AMR (così restano NON LETTE nella casella)
+                if sender_name == "Timbrature AMR" or subject.startswith(("Nuova richiesta ", "Richiesta annullata")):
+                    logger.debug("Salto notifica interna Timbrature AMR: %s", subject)
+                    continue
+
                 body_text, body_html = _extract_parts(msg)
 
                 parsed = ParsedEmail(
