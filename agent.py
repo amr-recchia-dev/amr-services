@@ -92,9 +92,20 @@ def run_once(dry_run: bool = False) -> None:
 
     for email_obj in emails:
         try:
-            # 2. Controlla duplicati
-            if is_already_processed(email_obj.message_id):
-                logger.debug("⏭️  Già processata: %s", email_obj.subject[:40])
+            # 2. Controlla duplicati o notifiche già inserite da wix_forms_sync
+            subj_clean = (email_obj.subject or "").strip()
+            if is_already_processed(email_obj.message_id) or (
+                "[LEAD SITO WEB AMR]" in subj_clean
+                and not subj_clean.lower().startswith(("re:", "r:", "fwd:", "i:"))
+            ):
+                logger.debug("⏭️  Già processata o gestita da Wix Sync: %s", subj_clean[:40])
+                if not dry_run and not is_already_processed(email_obj.message_id):
+                    mark_as_processed(
+                        message_id=email_obj.message_id,
+                        subject=email_obj.subject,
+                        sender=email_obj.sender_email,
+                        tipo="preventivo_wix",
+                    )
                 skipped_duplicate += 1
                 continue
 
