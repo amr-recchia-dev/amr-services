@@ -364,6 +364,14 @@ def timbra_view():
     return render_template("timbra.html")
 
 
+@app.route("/admin", methods=["GET"])
+@app.route("/dashboard", methods=["GET"])
+def admin_dashboard_view():
+    """Dashboard Amministrazione & Agente Revisore Pre-Paghe (immune al bug multi-account Google /u/1/)."""
+    return render_template("admin_dashboard.html")
+
+
+
 @app.route("/timbra-sw.js", methods=["GET"])
 def timbra_sw():
     """Service worker: apre la pagina anche senza rete (le timbrature restano in coda)."""

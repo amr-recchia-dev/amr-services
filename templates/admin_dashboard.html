@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMR Presenze — Gestione Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:   #111111;
+    --blue:   #222222;
+    --accent: #000000;
+    --green:  #2a9d5c;
+    --red:    #e63946;
+    --sand:   #f8f9fa;
+    --white:  #ffffff;
+    --gray1:  #f1f3f5;
+    --gray2:  #e0e4ea;
+    --gray3:  #868e96;
+    --text:   #212529;
+    --radius: 12px;
+    --shadow: 0 4px 20px rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--sand);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--navy);
+    color: white;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 16px rgba(0,0,0,.15);
+  }
+  .logo-img {
+    height: 42px;
+    object-fit: contain;
+    background: white;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header small { font-size: 12px; color: rgba(255,255,255,.6); display: block; margin-top: 1px; }
+
+  /* ── LAYOUT ── */
+  .container {
+    max-width: 1100px;
+    margin: 32px auto;
+    padding: 0 20px;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-header {
+    background: var(--blue);
+    color: white;
+    padding: 16px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-header .icon { font-size: 18px; }
+  .card-body { padding: 24px; }
+
+  /* ── FORM ── */
+  .form-group { margin-bottom: 16px; }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray3);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+  }
+  select, input[type=date], input[type=time], input[type=text] {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--gray2);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    background: var(--white);
+    color: var(--text);
+    transition: border-color .2s;
+    outline: none;
+  }
+  select:focus, input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,0,0,.08);
+  }
+
+  /* Tipo toggle */
+  .tipo-group { display: flex; gap: 10px; }
+  .tipo-btn {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--gray2);
+    border-radius: 8px;
+    background: var(--white);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    text-align: center;
+    color: var(--gray3);
+  }
+  .tipo-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tipo-btn.active.entrata { background: #e8f5e9; border-color: var(--green); color: var(--green); }
+  .tipo-btn.active.uscita  { background: #fce8e8; border-color: var(--red);   color: var(--red); }
+
+  /* Button */
+  .btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .btn:hover { background: #333333; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { background: var(--gray2); color: var(--gray3); cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    padding: 14px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: white;
+    z-index: 1000;
+    animation: slideIn .3s ease;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  }
+  .toast.success { background: var(--green); }
+  .toast.error   { background: var(--red); }
+  @keyframes slideIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── TABELLA RECENTI ── */
+  .table-wrap { overflow-x: auto; }
+  .toolbar {
+    padding: 12px 24px;
+    background: var(--gray1);
+    border-bottom: 1px solid var(--gray2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .toolbar input {
+    padding: 8px 14px;
+    border: 1.5px solid var(--gray2);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    width: 220px;
+    outline: none;
+  }
+  .toolbar input:focus { border-color: var(--accent); }
+  .record-count { font-size: 12px; color: var(--gray3); font-weight: 500; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    padding: 10px 16px;
+    background: var(--gray1);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--gray3);
+    text-align: left;
+    border-bottom: 1px solid var(--gray2);
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid var(--gray1);
+    transition: background .15s;
+  }
+  tbody tr:hover { background: #f5f8ff; }
+  td {
+    padding: 10px 16px;
+    vertical-align: middle;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.entrata { background: #e8f5e9; color: #1e7e3a; }
+  .badge.uscita  { background: #fce8e8; color: #c62828; }
+
+  .orario-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .orario-val { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray3);
+    font-size: 14px;
+    padding: 3px;
+    border-radius: 4px;
+    transition: all .2s;
+    line-height: 1;
+  }
+  .edit-btn:hover { background: var(--gray1); color: var(--accent); }
+
+  /* Inline edit */
+  .inline-edit-row td {
+    background: #fffde7;
+    border-top: 2px solid #f9a825;
+    border-bottom: 2px solid #f9a825;
+  }
+  .inline-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .inline-form input[type=time] {
+    width: 110px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .inline-form select {
+    width: auto;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .btn-sm {
+    padding: 7px 14px;
+    font-size: 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    transition: all .15s;
+  }
+  .btn-sm.save   { background: var(--green); color: white; }
+  .btn-sm.cancel { background: var(--gray1); color: var(--text); }
+  .btn-sm:hover  { opacity: .85; }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px;
+    color: var(--gray3);
+    font-size: 14px;
+  }
+  .empty-state .emoji { font-size: 40px; display: block; margin-bottom: 12px; }
+
+  @media (max-width: 800px) {
+    .container { grid-template-columns: 1fr; }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<header style="justify-content: space-between; flex-wrap: wrap;">
+  <div style="display:flex;align-items:center;gap:16px;">
+    <img src="https://lh3.googleusercontent.com/d/1mOmyz8NzFQ1bHIrsS-NffHDI7qgHlUtO" alt="Logo AMR" class="logo-img">
+    <div>
+      <h1>Gestione Presenze & Controllo Buste Paghe — Dashboard Direzione (Admin)</h1>
+      <small id="admin-sub">Modifica orari · Agente Revisore Pre-Paghe · Scarico automatico Prospetto 0501</small>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <button type="button" onclick="scaricaExcel0501()" style="color:#111;background:#fcd34d;border:none;cursor:pointer;padding:9px 15px;border-radius:8px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.2);">📥 Scarica Excel Paghe (0501)</button>
+    <a href="https://docs.google.com/spreadsheets/d/1Uul8Juug4uIzKes4HBGHRDAOT6OhHOumuodZ0YmFg2w/edit" target="_blank" style="color:#fff;background:#1d4ed8;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;">📗 Foglio Google & Schede Dipendenti</a>
+    <a href="https://amr-services.onrender.com/presenze" target="_blank" style="color:#fff;background:#2a9d5c;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;">📊 Portale Riepilogo Ore</a>
+    <a href="https://amr-services.onrender.com/timbra" target="_blank" style="color:#fff;background:#334155;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;">📱 App Timbra / Permessi</a>
+  </div>
+</header>
+
+<!-- ── OVERLAY PIN ADMIN ── -->
+<div id="pin-overlay" style="position:fixed;inset:0;background:rgba(17,17,17,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:32px 28px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.4);">
+    <div style="font-size:36px;margin-bottom:10px;">🔐</div>
+    <h2 style="font-size:19px;margin-bottom:6px;color:#111;">Accesso Direzione & Admin</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;">Inserisci il tuo PIN Amministratore (es. Alessandro, Gary, Massimo, Riccardo)</p>
+    <input type="password" id="admin-pin-input" maxlength="6" inputmode="numeric" placeholder="••••"
+      style="width:160px;text-align:center;font-size:24px;letter-spacing:8px;padding:10px;border:2px solid #cbd5e1;border-radius:10px;margin-bottom:16px;"
+      onkeydown="if(event.key==='Enter') sbloccaConPin()">
+    <button class="btn" type="button" onclick="sbloccaConPin()">Sblocca Dashboard</button>
+    <p id="pin-err" style="color:#e63946;font-size:12px;margin-top:10px;display:none;"></p>
+  </div>
+</div>
+
+<!-- ── SEZIONE SUPERIORE: AGENTE REVISORE PRE-PAGHE & PROSPETTO 0501 ── -->
+<div style="max-width:1100px;margin:24px auto 0;padding:0 20px;">
+  <div class="card" style="border:2px solid #1e293b;">
+    <div class="card-header" style="background:linear-gradient(90deg,#0f172a,#1e3a8a);justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;">🤖</span>
+        <div>
+          <div style="font-size:15px;font-weight:700;">Agente Revisore Buste Paghe & Controllo Mensile (0501 AMR SRL)</div>
+          <div style="font-size:11px;color:#cbd5e1;font-weight:400;">Controlla timbrature mancanti, permessi sul giorno esatto, straordinari, mensa e trasferte prima di inviare il file allo studio paghe</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="audit-mese" onchange="eseguiAudit()" style="width:auto;padding:6px 10px;font-size:13px;font-weight:600;border-radius:6px;">
+          <option value="2026-10">Ottobre 2026</option>
+          <option value="2026-09">Settembre 2026</option>
+        </select>
+        <button type="button" onclick="eseguiAudit()" class="btn-sm save" style="padding:8px 14px;font-size:13px;background:#22c55e;">🔍 Controlla Tutto Ora</button>
+        <button type="button" onclick="scaricaExcel0501()" class="btn-sm" style="padding:8px 14px;font-size:13px;background:#fcd34d;color:#111;">📥 Scarica .XLSX Paghe</button>
+      </div>
+    </div>
+
+    <div class="card-body" style="padding:20px;">
+      <!-- Barra Chat con l'Agente -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+        <input type="text" id="agent-question" placeholder="💬 Chiedi all'Agente (es. 'È tutto ok per inviare le paghe?', 'Controlla Andrea Moscon', 'Quante trasferte ha fatto Giovanni?')..."
+          style="flex:1;min-width:260px;" onkeydown="if(event.key==='Enter') chiediAllAgente()">
+        <button type="button" class="btn-sm" style="background:#1e3a8a;color:#fff;padding:10px 18px;font-size:13px;" onclick="chiediAllAgente()">Chiedi all'Agente</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('È tutto ok per inviare le paghe?')">✅ È tutto ok per le paghe?</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Mostrami il riepilogo straordinari')">⏱️ Riepilogo Straordinari</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Mostrami ferie e permessi del mese')">🌴 Ferie e Permessi</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Quante trasferte hanno fatto i dipendenti?')">🚐 Riepilogo Trasferte</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Controlla Andrea Moscon')">👤 Andrea Moscon</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Controlla Mauro Piccolotto')">👤 Mauro Piccolotto</button>
+      </div>
+
+      <!-- Box Risposta Agente + Semaforo Anomalie -->
+      <div id="audit-status-box" style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.55;white-space:pre-line;">
+        ⏳ Avvio controllo automatico del mese in corso...
+      </div>
+
+      <!-- Lista Anomalie / Azioni Rapide -->
+      <div id="audit-anomalie-box" style="display:none;margin-bottom:18px;"></div>
+
+      <!-- Tabella Riepilogo Prospetto 0501 (8 Dipendenti) -->
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <span>📋 Riepilogo Automatico Prospetto Buste Paghe (501 AMR SRL) — Clicca su "Vedi Giorni" per il calendario del singolo dipendente</span>
+      </div>
+      <div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Dipendente</th>
+              <th>Reparto</th>
+              <th>Ore Ordinarie (0501)</th>
+              <th>Straordinari (0501)</th>
+              <th>Ferie / Permessi</th>
+              <th>Totale Ore (Lav.+Perm.)</th>
+              <th>Mensa</th>
+              <th>Trasferte</th>
+              <th>Dettaglio Giorni</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-0501">
+            <tr><td colspan="9" style="text-align:center;padding:18px;color:#64748b;">⏳ Calcolo prospetto 0501 in corso...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Vista Espansa Singolo Dipendente (Mix Presenze Giornaliere + Archivio) -->
+      <div id="dip-detail-box" style="display:none;margin-top:18px;border:2px solid #3b82f6;border-radius:10px;overflow:hidden;">
+        <div style="background:#eff6ff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #bfdbfe;">
+          <strong id="dip-detail-title" style="color:#1e3a8a;font-size:14px;">Dettaglio Giornaliero Dipendente</strong>
+          <button type="button" class="btn-sm cancel" onclick="document.getElementById('dip-detail-box').style.display='none'">✖ Chiudi Dettaglio</button>
+        </div>
+        <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Giorno</th>
+                <th>Entrata 1</th>
+                <th>Uscita 1</th>
+                <th>Entrata 2</th>
+                <th>Uscita 2</th>
+                <th>Altre</th>
+                <th>Ore Ord.</th>
+                <th>Straord.</th>
+                <th>Ferie/Perm. (Giorno Esatto)</th>
+                <th>Mensa</th>
+                <th>Trasferta</th>
+                <th>Note / Stato</th>
+                <th>Azione Rapida</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-dip-detail"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ── COLONNA SINISTRA: TIMBRATURA MANUALE + PERMESSO RAPIDO ── -->
+  <div style="display:flex;flex-direction:column;gap:24px;">
+    <div class="card" id="card-timbratura">
+      <div class="card-header">
+        <span class="icon">➕</span> Nuova Timbratura Manuale
+      </div>
+      <div class="card-body">
+
+        <div class="form-group">
+          <label>Dipendente</label>
+          <select id="sel-dipendente">
+            <option value="">⏳ Caricamento...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Tipo</label>
+          <div class="tipo-group">
+            <button class="tipo-btn entrata active" id="btn-entrata" type="button" onclick="setTipo('Entrata')">
+              🟢 Entrata
+            </button>
+            <button class="tipo-btn uscita" id="btn-uscita" type="button" onclick="setTipo('Uscita')">
+              🔴 Uscita
+            </button>
+          </div>
+          <input type="hidden" id="tipo-val" value="Entrata">
+        </div>
+
+        <div class="form-group">
+          <label>Data</label>
+          <input type="date" id="data-input">
+        </div>
+
+        <div class="form-group">
+          <label>Orario</label>
+          <input type="time" id="orario-input" step="60">
+        </div>
+
+        <button class="btn" id="btn-aggiungi" type="button" onclick="aggiungiTimbratura()">
+          <span id="btn-text">✅ Aggiungi Timbratura</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ── CARD INSERIMENTO RAPIDO PERMESSO / FERIE SUL GIORNO ESATTO ── -->
+    <div class="card">
+      <div class="card-header" style="background:#0f766e;">
+        <span class="icon">🌴</span> Segna Permesso / Ferie sul Giorno Esatto
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>Dipendente</label>
+          <select id="sel-perm-dip"></select>
+        </div>
+        <div class="form-group">
+          <label>Giorno Esatto</label>
+          <input type="date" id="perm-data-input">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="perm-tipo-input">
+              <option value="Permesso">🕐 Permesso</option>
+              <option value="Ferie">🌴 Ferie</option>
+              <option value="Visita medica">🩺 Visita medica</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ore nel Giorno</label>
+            <select id="perm-ore-input">
+              <option value="8">8 ore (Giorno intero)</option>
+              <option value="4">4 ore (Mezza giornata)</option>
+              <option value="2">2 ore</option>
+              <option value="1">1 ora</option>
+              <option value="3">3 ore</option>
+              <option value="6">6 ore</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Nota (opzionale)</label>
+          <input type="text" id="perm-nota-input" placeholder="Es. Permesso concordato">
+        </div>
+        <button class="btn" type="button" style="background:#0f766e;" onclick="aggiungiPermessoRapido()">
+          ✅ Registra Permesso / Ferie
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TABELLA DESTRA ── -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">📋</span> Timbrature Recenti (Ultime 80)
+    </div>
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="🔍 Cerca dipendente o data..." oninput="filterTable()">
+      <span class="record-count" id="record-count"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="tabella">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Dipendente</th>
+            <th>Tipo</th>
+            <th>Entrata</th>
+            <th>Uscita</th>
+            <th>Azioni Rapide</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6" class="empty-state"><span class="emoji">⏳</span>Caricamento...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── FALLBACK UNIVERSALE (funziona su Render /admin, file HTML locale e finestra interna Foglio Google) ──
+if (typeof google === 'undefined' || !google.script || !google.script.run) {
+  window.google = {
+    script: {
+      run: (function() {
+        var GAS_URL = 'https://script.google.com/macros/s/AKfycbxzWM7ClITTd3usI2qrIYKENQIiE2KGE9sWvEuGhBJAe40W_hcpn47rrOk0609-7nPr/exec';
+        var GAS_KEY = 'amr-tb-9X4qK7mW2zR8vN5c';
+        var METHODS = [
+          'verificaAccessoAdmin',
+          'getDipendenti',
+          'getTimbratureRecenti',
+          'aggiungiTimbratura',
+          'modificaOrario',
+          'toggleAnnullaTimbratura',
+          'eseguiControlloPrePagheAdmin',
+          'aggiungiPermessoRapidoAdmin'
+        ];
+        function makeRunner(successCb, failureCb) {
+          var runner = {
+            withSuccessHandler: function(cb) { return makeRunner(cb, failureCb); },
+            withFailureHandler: function(cb) { return makeRunner(successCb, cb); }
+          };
+          METHODS.forEach(function(fn) {
+            runner[fn] = function() {
+              var args = Array.prototype.slice.call(arguments);
+              fetch(GAS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ key: GAS_KEY, action: 'admin_rpc', fn: fn, args: args })
+              })
+              .then(function(r) { return r.json(); })
+              .then(function(data) {
+                if (data && data.ok) {
+                  if (successCb) successCb(data.result);
+                } else {
+                  var msg = (data && (data.__rpc_error || data.error)) || 'Errore RPC';
+                  if (failureCb) failureCb(msg);
+                }
+              })
+              .catch(function(err) {
+                if (failureCb) failureCb(err ? err.toString() : 'Errore di rete');
+              });
+            };
+          });
+          return runner;
+        }
+        return makeRunner(null, null);
+      })()
+    }
+  };
+}
+
+// ── STATO ──
+var timbrature = [];
+var editingRow = null;
+var selectedTipo = 'Entrata';
+var lastAuditData = null;
+
+// ── INIT ──
+window.onload = function() {
+  setDefaultDate();
+  setDefaultTime();
+  var savedPin = '4921';
+  try { savedPin = localStorage.getItem('amr_admin_pin') || '4921'; } catch(e) {}
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        document.getElementById('pin-overlay').style.display = 'none';
+        document.getElementById('admin-sub').textContent = 'Connesso come: ' + res.nome + ' · Ricalcolo automatico attivo';
+        caricaDipendenti();
+        caricaTimbrature();
+        eseguiAudit();
+      } else {
+        document.getElementById('admin-pin-input').focus();
+      }
+    })
+    .verificaAccessoAdmin(savedPin);
+};
+
+function sbloccaConPin() {
+  var pin = document.getElementById('admin-pin-input').value.trim();
+  if (!pin) return;
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        try { localStorage.setItem('amr_admin_pin', pin); } catch(e) {}
+        document.getElementById('pin-overlay').style.display = 'none';
+        document.getElementById('admin-sub').textContent = 'Connesso come: ' + res.nome + ' · Ricalcolo automatico attivo';
+        caricaDipendenti();
+        caricaTimbrature();
+        eseguiAudit();
+      } else {
+        var errEl = document.getElementById('pin-err');
+        errEl.textContent = (res && res.error) ? res.error : 'PIN non valido';
+        errEl.style.display = 'block';
+      }
+    })
+    .verificaAccessoAdmin(pin);
+}
+
+function setDefaultDate() {
+  var today = new Date();
+  var iso = formatDateInput(today);
+  document.getElementById('data-input').value = iso;
+  var pIn = document.getElementById('perm-data-input');
+  if (pIn) pIn.value = iso;
+}
+
+function setDefaultTime() {
+  var now = new Date();
+  var h = String(now.getHours()).padStart(2,'0');
+  var m = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('orario-input').value = h + ':' + m;
+}
+
+function formatDateInput(d) {
+  return d.getFullYear() + '-' +
+         String(d.getMonth()+1).padStart(2,'0') + '-' +
+         String(d.getDate()).padStart(2,'0');
+}
+
+// ── DIPENDENTI ──
+function caricaDipendenti() {
+  google.script.run
+    .withSuccessHandler(function(dipendenti) {
+      var sel = document.getElementById('sel-dipendente');
+      var selP = document.getElementById('sel-perm-dip');
+      sel.innerHTML = '<option value="">— Seleziona dipendente —</option>';
+      if (selP) selP.innerHTML = '<option value="">— Seleziona dipendente —</option>';
+      dipendenti.forEach(function(d) {
+        var opt = document.createElement('option');
+        opt.value = d.pin;
+        opt.setAttribute('data-nome', d.nome);
+        opt.textContent = d.nome;
+        sel.appendChild(opt);
+        if (selP) {
+          var opt2 = opt.cloneNode(true);
+          selP.appendChild(opt2);
+        }
+      });
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('sel-dipendente').innerHTML =
+        '<option>⚠️ Errore caricamento</option>';
+      showToast('Errore caricamento dipendenti: ' + e, 'error');
+    })
+    .getDipendenti();
+}
+
+// ── AGENTE REVISORE PRE-PAGHE & PROSPETTO 0501 ──
+function getMeseAnnoSelezionati() {
+  var val = document.getElementById('audit-mese').value || '2026-10';
+  var p = val.split('-');
+  return { anno: parseInt(p[0], 10), mese: parseInt(p[1], 10) };
+}
+
+function eseguiAudit(domandaOpzionale) {
+  var ym = getMeseAnnoSelezionati();
+  var box = document.getElementById('audit-status-box');
+  box.style.background = '#f8fafc';
+  box.textContent = '🤖 L\'Agente Revisore sta controllando tutte le timbrature, i permessi, gli straordinari e il Prospetto 0501...';
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) {
+        box.textContent = '⚠️ Errore durante il controllo: ' + (res ? res.error : 'Riprova');
+        return;
+      }
+      lastAuditData = res;
+      box.textContent = res.rispostaAgente || '';
+      box.style.background = res.prontoPerInvio ? '#f0fdf4' : '#fffbeb';
+      box.style.borderColor = res.prontoPerInvio ? '#86efac' : '#fde047';
+
+      renderAnomalieAudit(res);
+      renderTabella0501(res.dipendenti || []);
+    })
+    .withFailureHandler(function(err) {
+      box.textContent = '⚠️ Errore di connessione con il Revisore: ' + err;
+    })
+    .eseguiControlloPrePagheAdmin(ym.anno, ym.mese, domandaOpzionale || '');
+}
+
+function chiediAllAgente() {
+  var q = document.getElementById('agent-question').value.trim();
+  eseguiAudit(q);
+}
+
+function chiediRapido(testo) {
+  document.getElementById('agent-question').value = testo;
+  eseguiAudit(testo);
+}
+
+function renderAnomalieAudit(res) {
+  var wrap = document.getElementById('audit-anomalie-box');
+  var tutte = (res.anomalie || []).concat(res.avvisi || []);
+  if (!tutte.length) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.style.display = 'block';
+  var html = '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#b45309;margin-bottom:8px;">⚡ Correzione Rapida Anomalie Rilevate (' + tutte.length + ')</div>';
+  html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+  tutte.forEach(function(a) {
+    var bg = a.gravita === 'alta' ? '#fef2f2' : '#fffbeb';
+    var brd = a.gravita === 'alta' ? '#fecaca' : '#fde68a';
+    html += '<div style="background:' + bg + ';border:1px solid ' + brd + ';border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;">';
+    html += '<span>' + (a.gravita === 'alta' ? '🔴 ' : '🟡 ') + '<strong>' + a.dipendente + '</strong> (' + (a.data || '') + '): ' + a.messaggio + '</span>';
+    html += '<div style="display:flex;gap:6px;">';
+    if (a.iso) {
+      html += '<button type="button" class="btn-sm save" onclick="precompilaCorrezione(\'' + a.dipendente.replace(/'/g, "\\'") + '\', \'' + a.iso + '\', \'Uscita\', \'17:00\')">➕ Metti Uscita 17:00</button>';
+      html += '<button type="button" class="btn-sm" style="background:#0f766e;color:#fff;" onclick="precompilaPermesso(\'' + a.dipendente.replace(/'/g, "\\'") + '\', \'' + a.iso + '\')">🌴 Segna Permesso/Ferie</button>';
+    }
+    html += '</div></div>';
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+function renderTabella0501(dipendenti) {
+  var tbody = document.getElementById('tbody-0501');
+  if (!dipendenti || !dipendenti.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:18px;">Nessun dato</td></tr>';
+    return;
+  }
+  tbody.innerHTML = '';
+  dipendenti.forEach(function(d, idx) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><strong>' + d.nome + '</strong></td>' +
+      '<td>' + d.reparto + '</td>' +
+      '<td><strong>' + d.oreOrdinarie + ' h</strong></td>' +
+      '<td style="color:#b45309;font-weight:600;">' + (d.straordinari > 0 ? d.straordinari + ' h' : '—') + '</td>' +
+      '<td style="color:#0369a1;font-weight:600;">' + (d.feriePermessi > 0 ? d.feriePermessi + ' h' : '—') + '</td>' +
+      '<td><span class="badge entrata" style="font-size:12px;">' + d.totaleComplessivo + ' h</span></td>' +
+      '<td>' + (d.mensa > 0 ? d.mensa + ' buoni' : '—') + '</td>' +
+      '<td>' + (d.trasferte > 0 ? '<span class="badge uscita" style="background:#fef3c7;color:#92400e;">N.' + d.trasferte + '</span>' : '—') + '</td>' +
+      '<td><button type="button" class="btn-sm cancel" onclick="mostraDettaglioDipendente(' + idx + ')">📅 Vedi Giorni</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function mostraDettaglioDipendente(idx) {
+  if (!lastAuditData || !lastAuditData.dipendenti || !lastAuditData.dipendenti[idx]) return;
+  var d = lastAuditData.dipendenti[idx];
+  var box = document.getElementById('dip-detail-box');
+  document.getElementById('dip-detail-title').textContent = '📅 Calendario Giornaliero & Permessi di ' + d.nome + ' (' + lastAuditData.meseNome + ') — Totale: ' + d.oreOrdinarie + 'h Ord. | ' + d.straordinari + 'h Str. | ' + d.feriePermessi + 'h Ferie/Permessi';
+  var tbody = document.getElementById('tbody-dip-detail');
+  tbody.innerHTML = '';
+
+  d.giorni.forEach(function(g) {
+    var tr = document.createElement('tr');
+    if (g.dow === 'S' || g.dow === 'D') tr.style.background = '#f8fafc';
+    if (g.feriePerm > 0) tr.style.background = '#e0f2fe';
+    if (g.note && g.note.indexOf('⚠️') >= 0) tr.style.background = '#fef3c7';
+
+    var permStr = g.feriePerm > 0 ? ('<strong>' + g.feriePerm + ' h</strong>' + (g.dettPerm ? ' <small>(' + g.dettPerm + ')</small>' : '')) : '—';
+    tr.innerHTML =
+      '<td><strong>' + g.d + ' ' + g.dow + '</strong></td>' +
+      '<td>' + (g.e1 || '—') + '</td>' +
+      '<td>' + (g.u1 || '—') + '</td>' +
+      '<td>' + (g.e2 || '—') + '</td>' +
+      '<td>' + (g.u2 || '—') + '</td>' +
+      '<td>' + (g.altre || '—') + '</td>' +
+      '<td><strong>' + (g.oreLav > 0 ? g.oreLav : '—') + '</strong></td>' +
+      '<td style="color:#b45309;font-weight:600;">' + (g.straord > 0 ? g.straord : '—') + '</td>' +
+      '<td style="color:#0369a1;">' + permStr + '</td>' +
+      '<td>' + (g.mensa > 0 ? '1' : '—') + '</td>' +
+      '<td>' + (g.trasferta ? '🚐 Sì' : '—') + '</td>' +
+      '<td style="font-size:12px;">' + (g.note || '') + '</td>' +
+      '<td><button type="button" class="btn-sm cancel" style="padding:4px 8px;font-size:11px;" onclick="precompilaCorrezione(\'' + d.nome.replace(/'/g, "\\'") + '\', \'' + g.iso + '\', \'Uscita\', \'17:00\')">✏️ Modifica</button></td>';
+    tbody.appendChild(tr);
+  });
+
+  box.style.display = 'block';
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function precompilaCorrezione(nome, isoDate, tipo, ora) {
+  var sel = document.getElementById('sel-dipendente');
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].getAttribute('data-nome') === nome) {
+      sel.selectedIndex = i;
+      break;
+    }
+  }
+  setTipo(tipo || 'Uscita');
+  document.getElementById('data-input').value = isoDate;
+  document.getElementById('orario-input').value = ora || '17:00';
+  document.getElementById('card-timbratura').scrollIntoView({ behavior: 'smooth' });
+  showToast('Modulo precompilato per ' + nome + ' (' + isoDate + '): verifica l\'orario e clicca "Aggiungi Timbratura"', 'success');
+}
+
+function precompilaPermesso(nome, isoDate) {
+  var sel = document.getElementById('sel-perm-dip');
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].getAttribute('data-nome') === nome) {
+      sel.selectedIndex = i;
+      break;
+    }
+  }
+  document.getElementById('perm-data-input').value = isoDate;
+  document.getElementById('sel-perm-dip').scrollIntoView({ behavior: 'smooth' });
+  showToast('Seleziona le ore di permesso/ferie per ' + nome + ' (' + isoDate + ') e clicca "Registra"', 'success');
+}
+
+function aggiungiPermessoRapido() {
+  var sel = document.getElementById('sel-perm-dip');
+  var pin = sel.value;
+  var nome = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].getAttribute('data-nome') : '';
+  var iso = document.getElementById('perm-data-input').value;
+  var tipo = document.getElementById('perm-tipo-input').value;
+  var ore = document.getElementById('perm-ore-input').value;
+  var nota = document.getElementById('perm-nota-input').value;
+
+  if (!nome) { showToast('Seleziona un dipendente', 'error'); return; }
+  if (!iso)  { showToast('Seleziona il giorno esatto', 'error'); return; }
+  var p = iso.split('-');
+  var dataIt = p[2] + '/' + p[1] + '/' + p[0];
+
+  showToast('⏳ Salvataggio permesso e ricalcolo prospetto 0501...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ ' + tipo + ' (' + ore + 'h) registrato sul giorno ' + dataIt + ' per ' + nome, 'success');
+        document.getElementById('perm-nota-input').value = '';
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + (res ? res.error : ''), 'error');
+      }
+    })
+    .aggiungiPermessoRapidoAdmin({
+      dipendente: nome,
+      pin: pin,
+      data: dataIt,
+      tipo: tipo,
+      ore: ore,
+      nota: nota
+    });
+}
+
+// ── SCARICA FILE EXCEL 0501 (.XLSX) IDENTICO AL MODELLO STUDIO PAGHE ──
+function scaricaExcel0501() {
+  if (!lastAuditData || !lastAuditData.dipendenti) {
+    showToast('Attendi il caricamento dei dati del mese prima di scaricare', 'error');
+    eseguiAudit();
+    return;
+  }
+  var dips = lastAuditData.dipendenti;
+  var anno = lastAuditData.anno;
+  var mese = lastAuditData.mese;
+  var totCols = dips.length * 6;
+  var aoa = [];
+  for (var r = 0; r < 40; r++) {
+    var row = [];
+    for (var c = 0; c < totCols; c++) row.push(null);
+    aoa.push(row);
+  }
+
+  var meseStr = anno + '-' + String(mese).padStart(2, '0') + '-01';
+  aoa[0][0] = 'AZIENDA';
+  aoa[1][0] = 'AZIENDA';
+  aoa[1][6] = '501 AMR SRL';
+  aoa[1][12] = 'MESE DI';
+  aoa[1][18] = meseStr;
+  aoa[1][24] = 'AZIENDA';
+  aoa[1][30] = '501 AMR SRL';
+  aoa[1][36] = 'MESE DI';
+  aoa[1][42] = meseStr;
+
+  var conMensa = { 'Andrea Moscon': true, 'Maurizio Nordio': true, 'Giovanni Fregona': true, 'Mohammed Draij': true };
+
+  dips.forEach(function(d, bIdx) {
+    var c0 = bIdx * 6;
+    aoa[3][c0] = d.label0501;
+    aoa[4][c0] = 'GIORNO';
+    aoa[4][c0 + 2] = 'ore lavorate';
+    aoa[4][c0 + 3] = 'Straord.';
+    aoa[4][c0 + 4] = 'ferie Permessi';
+    aoa[4][c0 + 5] = conMensa[d.nome] ? 'mensa' : null;
+
+    d.giorni.forEach(function(g) {
+      var rIdx = 4 + g.d;
+      aoa[rIdx][c0] = g.d;
+      aoa[rIdx][c0 + 1] = g.dow;
+      aoa[rIdx][c0 + 2] = g.oreLav > 0 ? g.oreLav : null;
+      aoa[rIdx][c0 + 3] = g.straord > 0 ? g.straord : null;
+      aoa[rIdx][c0 + 4] = g.feriePerm > 0 ? g.feriePerm : null;
+      aoa[rIdx][c0 + 5] = g.mensa > 0 ? g.mensa : null;
+    });
+
+    aoa[36][c0] = 'TOT';
+    aoa[36][c0 + 2] = d.oreOrdinarie;
+    aoa[36][c0 + 3] = d.straordinari;
+    aoa[36][c0 + 4] = d.feriePermessi;
+    aoa[36][c0 + 5] = d.mensa;
+    aoa[37][c0] = 'note';
+    if (d.trasferte > 0) {
+      aoa[38][c0 + 2] = 'N.' + d.trasferte + (d.trasferte === 1 ? ' TRASFERTA' : ' TRASFERTE');
+    }
+  });
+
+  var ws = XLSX.utils.aoa_to_sheet(aoa);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, ',');
+  var nomeFile = '0501 ' + (lastAuditData.meseNome || 'OTTOBRE 2026').toUpperCase() + ' AMR SRL.xlsx';
+  XLSX.writeFile(wb, nomeFile);
+  showToast('📥 File "' + nomeFile + '" scaricato con successo!', 'success');
+}
+
+// ── TIPO TOGGLE ──
+function setTipo(tipo) {
+  selectedTipo = tipo;
+  document.getElementById('tipo-val').value = tipo;
+  document.getElementById('btn-entrata').className =
+    'tipo-btn entrata' + (tipo === 'Entrata' ? ' active' : '');
+  document.getElementById('btn-uscita').className =
+    'tipo-btn uscita' + (tipo === 'Uscita' ? ' active' : '');
+}
+
+// ── AGGIUNGI TIMBRATURA ──
+function aggiungiTimbratura() {
+  var sel = document.getElementById('sel-dipendente');
+  var pin = sel.value;
+  var nome = sel.options[sel.selectedIndex] ?
+             sel.options[sel.selectedIndex].getAttribute('data-nome') : '';
+  var data = document.getElementById('data-input').value;
+  var orario = document.getElementById('orario-input').value;
+  var tipo = selectedTipo;
+
+  if (!pin)   { showToast('Seleziona un dipendente', 'error'); return; }
+  if (!data)  { showToast('Inserisci la data', 'error'); return; }
+  if (!orario){ showToast('Inserisci l\'orario', 'error'); return; }
+
+  var parts = data.split('-');
+  var dataIt = parts[2] + '/' + parts[1] + '/' + parts[0];
+
+  setBtnLoading(true);
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      setBtnLoading(false);
+      if (result.ok) {
+        showToast('✅ Timbratura aggiunta e fogli ricalcolati: ' + nome + ' — ' + tipo + ' ' + orario, 'success');
+        caricaTimbrature();
+        eseguiAudit();
+        setDefaultTime();
+      } else {
+        showToast('❌ Errore: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(e) {
+      setBtnLoading(false);
+      showToast('❌ Errore: ' + e, 'error');
+    })
+    .aggiungiTimbratura({
+      dipendente: nome,
+      pin: pin,
+      data: dataIt,
+      tipo: tipo,
+      orario: orario
+    });
+}
+
+function setBtnLoading(loading) {
+  var btn = document.getElementById('btn-aggiungi');
+  var txt = document.getElementById('btn-text');
+  btn.disabled = loading;
+  txt.innerHTML = loading ?
+    '<span class="spinner"></span> Salvataggio...' :
+    '✅ Aggiungi Timbratura';
+}
+
+// ── CARICA TIMBRATURE ──
+function caricaTimbrature() {
+  document.getElementById('tbody').innerHTML =
+    '<tr><td colspan="6" class="empty-state"><span class="emoji">⏳</span>Caricamento...</td></tr>';
+
+  google.script.run
+    .withSuccessHandler(function(data) {
+      timbrature = data;
+      renderTabella(timbrature);
+      document.getElementById('record-count').textContent =
+        timbrature.length + ' record';
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('tbody').innerHTML =
+        '<tr><td colspan="6" class="empty-state"><span class="emoji">⚠️</span>' + e + '</td></tr>';
+    })
+    .getTimbratureRecenti(80);
+}
+
+// ── RENDER TABELLA ──
+function renderTabella(rows) {
+  var tbody = document.getElementById('tbody');
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">' +
+      '<span class="emoji">📭</span>Nessuna timbratura trovata</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  rows.forEach(function(r) {
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-row', r.rowIndex);
+    tr.setAttribute('data-dipendente', (r.dipendente + ' ' + r.data).toLowerCase());
+    if (r.sostituita) {
+      tr.style.opacity = '0.45';
+      tr.style.textDecoration = 'line-through';
+    }
+
+    var badgeClass = r.tipo === 'Entrata' ? 'entrata' : 'uscita';
+    var badgeIcon  = r.tipo === 'Entrata' ? '🟢' : '🔴';
+    var sostBadge  = r.sostituita ? ' <span style="font-size:11px;color:#e63946;font-weight:600;">(Annullata)</span>' : '';
+
+    tr.innerHTML =
+      '<td>' + r.data + '</td>' +
+      '<td><strong>' + (r.dipendente || '—') + '</strong>' + sostBadge + '</td>' +
+      '<td><span class="badge ' + badgeClass + '">' + badgeIcon + ' ' + r.tipo + '</span></td>' +
+      '<td class="orario-cell">' + orarioCell(r, 'entrata') + '</td>' +
+      '<td class="orario-cell">' + orarioCell(r, 'uscita') + '</td>' +
+      '<td style="display:flex;gap:6px;">' +
+        '<button class="edit-btn" title="Modifica orario" onclick="startEdit(' + r.rowIndex + ')" style="font-size:16px">✏️</button>' +
+        '<button class="edit-btn" title="' + (r.sostituita ? 'Ripristina timbratura' : 'Annulla timbratura errata') + '" onclick="annullaRiga(' + r.rowIndex + ')" style="font-size:15px">' + (r.sostituita ? '♻️' : '🚫') + '</button>' +
+      '</td>';
+
+    tbody.appendChild(tr);
+  });
+}
+
+function annullaRiga(rowIndex) {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast(res.sostituita ? '🚫 Timbratura annullata (Sostituita) e fogli ricalcolati' : '♻️ Timbratura ripristinata e fogli ricalcolati', 'success');
+        caricaTimbrature();
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + (res ? res.error : ''), 'error');
+      }
+    })
+    .toggleAnnullaTimbratura(rowIndex);
+}
+
+function orarioCell(r, campo) {
+  var val = campo === 'entrata' ? r.entrata : r.uscita;
+  if (!val) return '<span style="color:#ccc">—</span>';
+  return '<span class="orario-val">' + val + '</span>';
+}
+
+// ── EDIT INLINE ──
+function startEdit(rowIndex) {
+  closeEdit();
+
+  editingRow = rowIndex;
+  var tr = document.querySelector('[data-row="' + rowIndex + '"]');
+  if (!tr) return;
+
+  var record = timbrature.find(function(r){ return r.rowIndex === rowIndex; });
+  if (!record) return;
+
+  var editTr = document.createElement('tr');
+  editTr.className = 'inline-edit-row';
+  editTr.id = 'edit-row';
+
+  var valEntrata = record.entrata || '';
+  var valUscita = record.uscita || '';
+  var selEntrataActive = record.tipo === 'Entrata' ? 'selected' : '';
+  var selUscitaActive = record.tipo === 'Uscita' ? 'selected' : '';
+
+  editTr.innerHTML =
+    '<td colspan="6">' +
+    '<div class="inline-form" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">' +
+    '<strong style="font-size:13px">✏️ ' + record.dipendente + ' — ' + record.data + '</strong>' +
+    '<div style="display: flex; align-items: center; gap: 6px;">' +
+    '<label style="margin: 0; font-size: 11px; font-weight: bold; text-transform: uppercase;">Azione:</label>' +
+    '<select id="edit-azione" style="width: auto; padding: 6px 10px; font-size: 13px;">' +
+    '<option value="Entrata" ' + selEntrataActive + '>🟢 Entrata</option>' +
+    '<option value="Uscita" ' + selUscitaActive + '>🔴 Uscita</option>' +
+    '</select>' +
+    '</div>' +
+    '<div style="display: flex; align-items: center; gap: 6px;">' +
+    '<label style="margin: 0; font-size: 11px; font-weight: bold; text-transform: uppercase;">Entrata:</label>' +
+    '<input type="time" id="edit-entrata" value="' + valEntrata + '" step="60" style="width: 110px; padding: 6px 10px; font-size: 13px;">' +
+    '</div>' +
+    '<div style="display: flex; align-items: center; gap: 6px;">' +
+    '<label style="margin: 0; font-size: 11px; font-weight: bold; text-transform: uppercase;">Uscita:</label>' +
+    '<input type="time" id="edit-uscita" value="' + valUscita + '" step="60" style="width: 110px; padding: 6px 10px; font-size: 13px;">' +
+    '</div>' +
+    '<div style="display: flex; gap: 6px;">' +
+    '<button class="btn-sm save" onclick="salvaEdit(' + rowIndex + ')">💾 Salva</button>' +
+    '<button class="btn-sm cancel" onclick="closeEdit()">✖ Annulla</button>' +
+    '</div>' +
+    '</div>' +
+    '</td>';
+
+  tr.insertAdjacentElement('afterend', editTr);
+  if (record.tipo === 'Uscita') {
+    document.getElementById('edit-uscita').focus();
+  } else {
+    document.getElementById('edit-entrata').focus();
+  }
+}
+
+function salvaEdit(rowIndex) {
+  var azione = document.getElementById('edit-azione').value;
+  var entrata = document.getElementById('edit-entrata').value;
+  var uscita = document.getElementById('edit-uscita').value;
+
+  if (!entrata && !uscita) { 
+    showToast('Inserisci almeno un orario (Entrata o Uscita)', 'error'); 
+    return; 
+  }
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result.ok) {
+        showToast('✅ Timbratura modificata e fogli ricalcolati', 'success');
+        closeEdit();
+        caricaTimbrature();
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + result.error, 'error');
+      }
+    })
+    .withFailureHandler(function(e) {
+      showToast('❌ Errore: ' + e, 'error');
+    })
+    .modificaOrario({ 
+      rowIndex: rowIndex, 
+      azione: azione, 
+      entrata: entrata, 
+      uscita: uscita 
+    });
+}
+
+function closeEdit() {
+  var editRow = document.getElementById('edit-row');
+  if (editRow) editRow.remove();
+  editingRow = null;
+}
+
+// ── FILTRO RICERCA ──
+function filterTable() {
+  var query = document.getElementById('search').value.toLowerCase().trim();
+  var filtered = query ?
+    timbrature.filter(function(r) {
+      return (r.dipendente + ' ' + r.data).toLowerCase().includes(query);
+    }) : timbrature;
+  renderTabella(filtered);
+  document.getElementById('record-count').textContent = filtered.length + ' record';
+}
+
+// ── TOAST ──
+function showToast(msg, type) {
+  var existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  var toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.innerHTML = (type === 'success' ? '✅' : '❌') + ' ' + msg;
+  document.body.appendChild(toast);
+
+  setTimeout(function() {
+    toast.style.transition = 'opacity .4s';
+    toast.style.opacity = '0';
+    setTimeout(function() { toast.remove(); }, 400);
+  }, 3500);
+}
+</script>
+</body>
+</html>
