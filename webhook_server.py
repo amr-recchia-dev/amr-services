@@ -426,6 +426,7 @@ def api_timbra_registra():
         "lat": body.get("lat"),
         "lng": body.get("lng"),
         "acc": body.get("acc"),
+        "confermata": bool(body.get("confermata")),
     }
     logger.info(f"[TIMBRA] {azione} da {ip} (client_id={payload['client_id']})")
     # Copia di sicurezza su disco Render PRIMA di inviare a Google

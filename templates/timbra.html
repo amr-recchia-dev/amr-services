@@ -735,15 +735,36 @@
   }
 
   // ── Timbratura ───────────────────────────────────────────────
-  var busy = false;
+  var busy = false, lastDoneClose = 0;
+  function minutiDaOrario(hhmmStr) {
+    var m = String(hhmmStr || '').match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    var now = new Date();
+    var nowMin = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+    var evMin = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    return nowMin - evMin;
+  }
   function timbra(azione) {
     if (!user || busy) return;
-    var next = prossima(eventiCompleti());
+    if (!$('done').classList.contains('hidden')) return;
+    if (Date.now() - lastDoneClose < 2000) return;
+    var list = eventiCompleti();
+    var next = prossima(list);
+    var forceConfirm = false;
     if (azione !== next) {
       var msg = azione === 'Entrata'
         ? 'Risulta che sei già ENTRATO.\nVuoi registrare un\'altra ENTRATA?'
         : 'Risulta che non hai ancora timbrato l\'ENTRATA.\nVuoi registrare comunque l\'USCITA?';
       if (!confirm(msg)) return;
+      forceConfirm = true;
+    } else if (list.length > 0) {
+      var prev = list[list.length - 1];
+      var diffMin = minutiDaOrario(prev.orario);
+      if (diffMin !== null && diffMin >= -1 && diffMin < 5) {
+        var msgRavv = 'Hai appena timbrato ' + prev.azione.toUpperCase() + ' alle ' + prev.orario + '.\nSei sicuro di voler già registrare ' + azione.toUpperCase() + '?';
+        if (!confirm(msgRavv)) return;
+        forceConfirm = true;
+      }
     }
     busy = true;
     var ts = Date.now();
@@ -752,13 +773,14 @@
     waitFix().then(function (f) {
       var item = {
         client_id: uuid(), pin: user.pin, nome: user.nome, azione: azione, ts: ts,
-        lat: f ? f.lat : null, lng: f ? f.lng : null, acc: f ? f.acc : null, device_id: DEV
+        lat: f ? f.lat : null, lng: f ? f.lng : null, acc: f ? f.acc : null, device_id: DEV,
+        confermata: forceConfirm
       };
       // 1° la salvo sul dispositivo: così NON si perde mai, anche se la rete cade
       var q = load(K_QUEUE, []); q.push(item); save(K_QUEUE, q);
       renderMain();
       $('dT3').textContent = navigator.onLine ? 'Invio in corso…' : '📴 Senza rete: salvata sul dispositivo, verrà inviata da sola';
-      busy = false;
+      setTimeout(function () { busy = false; }, 1200);
       flush();
     });
   }
@@ -775,7 +797,9 @@
     clearTimeout(doneTimer);
     doneTimer = setTimeout(closeDone, KIOSK ? 4000 : 6000);
   }
-  function closeDone() {
+  function closeDone(e) {
+    if (e && e.preventDefault) { e.preventDefault(); e.stopPropagation(); }
+    lastDoneClose = Date.now();
     clearTimeout(doneTimer);
     $('done').className = 'hidden';
     if (KIOSK) logout(); else renderMain();
