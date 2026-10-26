@@ -595,6 +595,7 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
               var args = Array.prototype.slice.call(arguments);
               fetch(GAS_URL, {
                 method: 'POST',
+                credentials: 'omit',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ key: GAS_KEY, action: 'admin_rpc', fn: fn, args: args })
               })
