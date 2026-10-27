@@ -2,62 +2,152 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AMR Presenze — Gestione Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>AMR Presenze — Dashboard Direzione &amp; Paghe 0501</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --navy:   #111111;
-    --blue:   #222222;
-    --accent: #000000;
-    --green:  #2a9d5c;
-    --red:    #e63946;
-    --sand:   #f8f9fa;
+    --navy:   #0f172a;
+    --blue:   #1e293b;
+    --accent: #0f172a;
+    --green:  #16a34a;
+    --red:    #dc2626;
+    --sand:   #f1f5f9;
     --white:  #ffffff;
-    --gray1:  #f1f3f5;
-    --gray2:  #e0e4ea;
-    --gray3:  #868e96;
-    --text:   #212529;
+    --gray1:  #f8fafc;
+    --gray2:  #e2e8f0;
+    --gray3:  #64748b;
+    --text:   #0f172a;
     --radius: 12px;
-    --shadow: 0 4px 20px rgba(0,0,0,.08);
+    --shadow: 0 4px 18px rgba(15, 23, 42, .07);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
 
   body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--sand);
     color: var(--text);
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
-  /* ── HEADER ── */
-  header {
-    background: var(--navy);
+  /* ── STICKY COMPACT HEADER ── */
+  header.sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 950;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: white;
-    padding: 14px 32px;
+    padding: 10px 20px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    box-shadow: 0 2px 16px rgba(0,0,0,.15);
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, .22);
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
   }
   .logo-img {
-    height: 42px;
+    height: 36px;
     object-fit: contain;
     background: white;
-    padding: 4px 8px;
+    padding: 3px 7px;
     border-radius: 6px;
+    flex-shrink: 0;
   }
-  header h1 { font-size: 18px; font-weight: 600; }
-  header small { font-size: 12px; color: rgba(255,255,255,.6); display: block; margin-top: 1px; }
+  .header-titles {
+    min-width: 0;
+  }
+  .header-titles h1 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #cbd5e1;
+    margin-top: 2px;
+    flex-wrap: wrap;
+  }
+  .sec-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(34, 197, 94, 0.18);
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    color: #86efac;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .15s;
+  }
+  .sec-pill:hover { background: rgba(34, 197, 94, 0.3); color: #fff; }
 
-  /* ── LAYOUT ── */
+  .header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .hdr-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .15s;
+  }
+  .hdr-btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .hdr-btn.nav { background: rgba(255,255,255,0.09); color: #e2e8f0; border-color: rgba(255,255,255,0.14); }
+  .hdr-btn.nav:hover { background: rgba(255,255,255,0.18); color: #fff; }
+  .hdr-btn.gold { background: #fcd34d; color: #0f172a; font-weight: 700; box-shadow: 0 2px 8px rgba(252, 211, 77, .25); }
+  .hdr-btn.blue { background: #2563eb; color: #fff; }
+  .hdr-btn.green { background: #16a34a; color: #fff; }
+  .hdr-btn.slate { background: #334155; color: #f8fafc; border-color: #475569; }
+
+  /* ── FULL-WIDTH CONTAINERS (ZERO SPRECO DI PIXEL AI LATI) ── */
+  .top-section-wrap {
+    width: 100%;
+    max-width: 1880px;
+    margin: 14px auto 0;
+    padding: 0 16px;
+  }
+
   .container {
-    max-width: 1100px;
-    margin: 32px auto;
-    padding: 0 20px;
+    width: 100%;
+    max-width: 1880px;
+    margin: 16px auto 28px;
+    padding: 0 16px;
     display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 24px;
+    grid-template-columns: 410px 1fr;
+    gap: 18px;
     align-items: start;
   }
 
@@ -66,36 +156,37 @@
     background: var(--white);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
+    border: 1px solid var(--gray2);
     overflow: hidden;
   }
   .card-header {
     background: var(--blue);
     color: white;
-    padding: 16px 24px;
+    padding: 13px 20px;
     font-size: 14px;
     font-weight: 600;
-    letter-spacing: .3px;
+    letter-spacing: .2px;
     display: flex;
     align-items: center;
     gap: 8px;
   }
-  .card-header .icon { font-size: 18px; }
-  .card-body { padding: 24px; }
+  .card-header .icon { font-size: 17px; }
+  .card-body { padding: 18px 20px; }
 
   /* ── FORM ── */
-  .form-group { margin-bottom: 16px; }
+  .form-group { margin-bottom: 14px; }
   label {
     display: block;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--gray3);
     text-transform: uppercase;
-    letter-spacing: .5px;
-    margin-bottom: 6px;
+    letter-spacing: .4px;
+    margin-bottom: 5px;
   }
-  select, input[type=date], input[type=time], input[type=text] {
+  select, input[type=date], input[type=time], input[type=text], input[type=number] {
     width: 100%;
-    padding: 10px 14px;
+    padding: 9px 12px;
     border: 1.5px solid var(--gray2);
     border-radius: 8px;
     font-size: 14px;
@@ -106,8 +197,8 @@
     outline: none;
   }
   select:focus, input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(0,0,0,.08);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
   }
 
   /* Tipo toggle */
@@ -126,18 +217,18 @@
     color: var(--gray3);
   }
   .tipo-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .tipo-btn.active.entrata { background: #e8f5e9; border-color: var(--green); color: var(--green); }
-  .tipo-btn.active.uscita  { background: #fce8e8; border-color: var(--red);   color: var(--red); }
+  .tipo-btn.active.entrata { background: #dcfce7; border-color: var(--green); color: #15803d; }
+  .tipo-btn.active.uscita  { background: #fee2e2; border-color: var(--red);   color: #b91c1c; }
 
   /* Button */
   .btn {
     width: 100%;
-    padding: 13px;
+    padding: 12px;
     background: var(--accent);
     color: white;
     border: none;
     border-radius: 8px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     font-family: 'Inter', sans-serif;
@@ -148,38 +239,43 @@
     gap: 8px;
     margin-top: 4px;
   }
-  .btn:hover { background: #333333; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+  .btn:hover { background: #1e293b; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
   .btn:active { transform: translateY(0); }
   .btn:disabled { background: var(--gray2); color: var(--gray3); cursor: not-allowed; transform: none; box-shadow: none; }
 
   /* ── TOAST ── */
   .toast {
     position: fixed;
-    bottom: 24px; right: 24px;
-    padding: 14px 22px;
+    bottom: 20px; right: 20px;
+    padding: 13px 20px;
     border-radius: 10px;
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 13.5px;
+    font-weight: 600;
     color: white;
-    z-index: 1000;
-    animation: slideIn .3s ease;
+    z-index: 2000;
+    animation: slideIn .25s ease;
     display: flex; align-items: center; gap: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    box-shadow: 0 10px 28px rgba(0,0,0,.25);
+    max-width: calc(100vw - 32px);
   }
-  .toast.success { background: var(--green); }
-  .toast.error   { background: var(--red); }
+  .toast.success { background: #15803d; }
+  .toast.error   { background: #b91c1c; }
   @keyframes slideIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
 
-  /* ── TABELLA RECENTI ── */
-  .table-wrap { overflow-x: auto; }
+  /* ── TABELLE E STICKY FIRST COLUMN PER MOBILE ── */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .toolbar {
-    padding: 12px 24px;
+    padding: 11px 20px;
     background: var(--gray1);
     border-bottom: 1px solid var(--gray2);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: wrap;
   }
   .toolbar input {
     padding: 8px 14px;
@@ -187,11 +283,12 @@
     border-radius: 8px;
     font-size: 13px;
     font-family: 'Inter', sans-serif;
-    width: 220px;
+    width: 260px;
+    max-width: 100%;
     outline: none;
   }
-  .toolbar input:focus { border-color: var(--accent); }
-  .record-count { font-size: 12px; color: var(--gray3); font-weight: 500; }
+  .toolbar input:focus { border-color: #2563eb; }
+  .record-count { font-size: 12px; color: var(--gray3); font-weight: 600; }
 
   table {
     width: 100%;
@@ -199,26 +296,45 @@
     font-size: 13px;
   }
   thead th {
-    padding: 10px 16px;
+    padding: 10px 14px;
     background: var(--gray1);
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .4px;
-    color: var(--gray3);
+    color: #475569;
     text-align: left;
     border-bottom: 1px solid var(--gray2);
     white-space: nowrap;
   }
   tbody tr {
-    border-bottom: 1px solid var(--gray1);
-    transition: background .15s;
+    border-bottom: 1px solid var(--gray2);
+    transition: background .12s;
   }
-  tbody tr:hover { background: #f5f8ff; }
+  tbody tr:hover { background: #f1f5f9; }
   td {
-    padding: 10px 16px;
+    padding: 9px 14px;
     vertical-align: middle;
   }
+  /* Prima colonna bloccata a sinistra quando si scorre orizzontalmente da smartphone */
+  .sticky-col th:first-child,
+  .sticky-col td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: inherit;
+  }
+  .sticky-col thead th:first-child {
+    background: var(--gray1);
+    z-index: 3;
+  }
+  .sticky-col tbody tr {
+    background: #ffffff;
+  }
+  .sticky-col tbody tr:hover {
+    background: #f1f5f9;
+  }
+
   .badge {
     display: inline-block;
     padding: 3px 10px;
@@ -226,8 +342,8 @@
     font-size: 11px;
     font-weight: 600;
   }
-  .badge.entrata { background: #e8f5e9; color: #1e7e3a; }
-  .badge.uscita  { background: #fce8e8; color: #c62828; }
+  .badge.entrata { background: #dcfce7; color: #15803d; }
+  .badge.uscita  { background: #fee2e2; color: #b91c1c; }
 
   .orario-cell {
     display: flex;
@@ -250,7 +366,7 @@
 
   /* Inline edit */
   .inline-edit-row td {
-    background: #fffde7;
+    background: #fffde7 !important;
     border-top: 2px solid #f9a825;
     border-bottom: 2px solid #f9a825;
   }
@@ -271,18 +387,21 @@
     font-size: 13px;
   }
   .btn-sm {
-    padding: 7px 14px;
+    padding: 7px 12px;
     font-size: 12px;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 6px;
     cursor: pointer;
     font-weight: 600;
     font-family: 'Inter', sans-serif;
     transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
   .btn-sm.save   { background: var(--green); color: white; }
-  .btn-sm.cancel { background: var(--gray1); color: var(--text); }
-  .btn-sm:hover  { opacity: .85; }
+  .btn-sm.cancel { background: var(--gray1); color: var(--text); border-color: var(--gray2); }
+  .btn-sm:hover  { opacity: .9; }
 
   /* Spinner */
   .spinner {
@@ -297,41 +416,115 @@
 
   .empty-state {
     text-align: center;
-    padding: 48px;
+    padding: 40px;
     color: var(--gray3);
     font-size: 14px;
   }
-  .empty-state .emoji { font-size: 40px; display: block; margin-bottom: 12px; }
+  .empty-state .emoji { font-size: 36px; display: block; margin-bottom: 10px; }
 
-  @media (max-width: 800px) {
-    .container { grid-template-columns: 1fr; }
+  /* ── RESPONSIVE TABLET & MOBILE ── */
+  @media (max-width: 1080px) {
+    .container {
+      grid-template-columns: 1fr;
+    }
+    .left-forms-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px !important;
+    }
+  }
+  @media (max-width: 768px) {
+    header.sticky-header {
+      padding: 8px 10px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .header-titles h1 {
+      font-size: 13.5px;
+      white-space: normal;
+      line-height: 1.25;
+    }
+    .header-actions {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+      gap: 5px;
+    }
+    .hdr-btn {
+      padding: 6px 8px;
+      font-size: 11px;
+    }
+    .top-section-wrap,
+    .container {
+      padding: 0 8px;
+      margin-top: 10px;
+    }
+    .card-body {
+      padding: 14px 12px;
+    }
+    .card-header {
+      padding: 11px 14px;
+      font-size: 13px;
+    }
+    .left-forms-grid {
+      grid-template-columns: 1fr !important;
+    }
+    /* Impedisce lo zoom automatico su iPhone quando si tocca un input */
+    select, input[type=date], input[type=time], input[type=text], input[type=number] {
+      font-size: 16px;
+    }
+    .toolbar input {
+      width: 100%;
+    }
+    td, thead th {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .sticky-col th:first-child,
+    .sticky-col td:first-child {
+      box-shadow: 2px 0 5px rgba(0,0,0,0.06);
+    }
+  }
+  @media (max-width: 480px) {
+    .two-col-mobile-stack {
+      grid-template-columns: 1fr !important;
+    }
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
-<header style="justify-content: space-between; flex-wrap: wrap;">
-  <div style="display:flex;align-items:center;gap:16px;">
+<header class="sticky-header">
+  <div class="header-brand">
     <img src="https://lh3.googleusercontent.com/d/1mOmyz8NzFQ1bHIrsS-NffHDI7qgHlUtO" alt="Logo AMR" class="logo-img">
-    <div>
-      <h1>Gestione Presenze & Controllo Buste Paghe — Dashboard Direzione (Admin)</h1>
-      <small id="admin-sub">Modifica orari · Agente Revisore Pre-Paghe · Scarico automatico Prospetto 0501</small>
+    <div class="header-titles">
+      <h1>AMR Direzione — Presenze &amp; Buste Paghe (0501)</h1>
+      <div class="header-meta">
+        <span id="admin-sub">Ricalcolo e sincronizzazione 0501 attivi</span>
+        <a href="#card-sicurezza-backup" class="sec-pill" id="header-backup-badge" title="Clicca per vedere i dettagli dei Backup su Google Drive o eseguire un backup immediato">
+          🛡️ Backup Drive Attivo
+        </a>
+      </div>
     </div>
   </div>
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    <button type="button" onclick="scaricaExcel0501()" style="color:#111;background:#fcd34d;border:none;cursor:pointer;padding:9px 15px;border-radius:8px;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.2);">📥 Scarica Excel Paghe (0501)</button>
-    <a href="https://docs.google.com/spreadsheets/d/1Uul8Juug4uIzKes4HBGHRDAOT6OhHOumuodZ0YmFg2w/edit" target="_blank" style="color:#fff;background:#1d4ed8;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;">📗 Foglio Google & Schede Dipendenti</a>
-    <a href="https://amr-services.onrender.com/presenze" target="_blank" style="color:#fff;background:#2a9d5c;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;">📊 Portale Riepilogo Ore</a>
-    <a href="https://amr-services.onrender.com/timbra" target="_blank" style="color:#fff;background:#334155;text-decoration:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;">📱 App Timbra / Permessi</a>
+  <div class="header-actions">
+    <a href="#card-permessi" class="hdr-btn nav">🤒 Malattia / Ferie</a>
+    <a href="#card-timbratura" class="hdr-btn nav">⏱️ Timbratura</a>
+    <button type="button" onclick="eseguiBackupDriveOra()" class="hdr-btn green" title="Salva subito una copia di sicurezza su Google Drive">☁️ Backup Drive</button>
+    <button type="button" onclick="scaricaExcel0501()" class="hdr-btn gold">📥 Excel 0501</button>
+    <a href="https://docs.google.com/spreadsheets/d/1Uul8Juug4uIzKes4HBGHRDAOT6OhHOumuodZ0YmFg2w/edit" target="_blank" class="hdr-btn blue">📗 Foglio Presenze</a>
+    <a href="https://docs.google.com/spreadsheets/d/1V6sy22gwsy5ASCEWLnUvHKAa7k0n1aw1Jhi72YD-5HE/edit" target="_blank" class="hdr-btn slate">📄 Foglio 0501</a>
+    <a href="https://amr-services.onrender.com/timbra" target="_blank" class="hdr-btn slate">📱 App Timbra</a>
   </div>
 </header>
 
 <!-- ── OVERLAY PIN ADMIN ── -->
-<div id="pin-overlay" style="position:fixed;inset:0;background:rgba(17,17,17,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
+<div id="pin-overlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;">
   <div style="background:#fff;border-radius:16px;max-width:380px;width:100%;padding:32px 28px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.4);">
     <div style="font-size:36px;margin-bottom:10px;">🔐</div>
-    <h2 style="font-size:19px;margin-bottom:6px;color:#111;">Accesso Direzione & Admin</h2>
+    <h2 style="font-size:19px;margin-bottom:6px;color:#111;">Accesso Direzione &amp; Admin</h2>
     <p style="font-size:13px;color:#666;margin-bottom:20px;">Inserisci il tuo PIN Amministratore (es. Alessandro, Gary, Massimo, Riccardo)</p>
     <input type="password" id="admin-pin-input" maxlength="6" inputmode="numeric" placeholder="••••"
       style="width:160px;text-align:center;font-size:24px;letter-spacing:8px;padding:10px;border:2px solid #cbd5e1;border-radius:10px;margin-bottom:16px;"
@@ -342,17 +535,17 @@
 </div>
 
 <!-- ── SEZIONE SUPERIORE: AGENTE REVISORE PRE-PAGHE & PROSPETTO 0501 ── -->
-<div style="max-width:1100px;margin:24px auto 0;padding:0 20px;">
+<div class="top-section-wrap" id="sezione-0501">
   <div class="card" style="border:2px solid #1e293b;">
     <div class="card-header" style="background:linear-gradient(90deg,#0f172a,#1e3a8a);justify-content:space-between;flex-wrap:wrap;gap:12px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-size:22px;">🤖</span>
         <div>
-          <div style="font-size:15px;font-weight:700;">Agente Revisore Buste Paghe & Controllo Mensile (0501 AMR SRL)</div>
-          <div style="font-size:11px;color:#cbd5e1;font-weight:400;">Controlla timbrature mancanti, permessi sul giorno esatto, straordinari, mensa e trasferte prima di inviare il file allo studio paghe</div>
+          <div style="font-size:15px;font-weight:700;">Agente Revisore Buste Paghe &amp; Controllo Mensile (0501 AMR SRL)</div>
+          <div style="font-size:11px;color:#cbd5e1;font-weight:400;">Controlla timbrature mancanti, permessi/malattia, straordinari, mensa e trasferte · Modifica libera 0501 sia da qui che dal Foglio Google</div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <select id="audit-mese" onchange="eseguiAudit()" style="width:auto;padding:6px 10px;font-size:13px;font-weight:600;border-radius:6px;">
           <option value="2026-10">Ottobre 2026</option>
           <option value="2026-09">Settembre 2026</option>
@@ -362,47 +555,63 @@
       </div>
     </div>
 
-    <div class="card-body" style="padding:20px;">
-      <!-- Barra Chat con l'Agente -->
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-        <input type="text" id="agent-question" placeholder="💬 Chiedi all'Agente (es. 'È tutto ok per inviare le paghe?', 'Controlla Andrea Moscon', 'Quante trasferte ha fatto Giovanni?')..."
-          style="flex:1;min-width:260px;" onkeydown="if(event.key==='Enter') chiediAllAgente()">
-        <button type="button" class="btn-sm" style="background:#1e3a8a;color:#fff;padding:10px 18px;font-size:13px;" onclick="chiediAllAgente()">Chiedi all'Agente</button>
+    <div class="card-body">
+      <!-- Barra Chat Operativa con l'Agente -->
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:#1e3a8a;margin-bottom:6px;">
+          💬 SCRIVI ALL'ASSISTENTE PER CONTROLLARE O PER FARE MODIFICHE AUTOMATICHE SUL FOGLIO E SUL 0501:
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+          <input type="text" id="agent-question" placeholder="Es: 'Segna malattia a Mauro dal 20/10 al 22/10' · 'Imposta nel 0501 a Nordio il 15/10 8 ore ordinarie e 2 di straordinario' · 'Togli trasferta a Andrea il 14/10'..."
+            style="flex:1;min-width:240px;background:#fff;" onkeydown="if(event.key==='Enter') chiediAllAgente()">
+          <button type="button" class="btn-sm" style="background:#1e3a8a;color:#fff;padding:10px 18px;font-size:13px;" onclick="chiediAllAgente()">⚡ Esegui / Chiedi all'Assistente</button>
+        </div>
+        <div style="font-size:11px;color:#475569;">
+          💡 <strong>Esempi rapidi:</strong>
+          <em>"Metti uscita alle 17:00 a Giovanni il 23/10"</em> ·
+          <em>"Segna 8 ore di malattia a Mauro il 22/10"</em> ·
+          <em>"Togli la trasferta a Andrea il 14/10"</em> ·
+          <em>"Imposta nel 0501 a Jamal il 20/10 8 ore ordinarie e 2 di straordinario"</em>
+        </div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
         <button type="button" class="btn-sm cancel" onclick="chiediRapido('È tutto ok per inviare le paghe?')">✅ È tutto ok per le paghe?</button>
         <button type="button" class="btn-sm cancel" onclick="chiediRapido('Mostrami il riepilogo straordinari')">⏱️ Riepilogo Straordinari</button>
-        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Mostrami ferie e permessi del mese')">🌴 Ferie e Permessi</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Mostrami ferie e permessi del mese')">🌴 Ferie, Permessi e Malattia</button>
         <button type="button" class="btn-sm cancel" onclick="chiediRapido('Quante trasferte hanno fatto i dipendenti?')">🚐 Riepilogo Trasferte</button>
-        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Controlla Andrea Moscon')">👤 Andrea Moscon</button>
-        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Controlla Mauro Piccolotto')">👤 Mauro Piccolotto</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Controlla Jamal Sriti')">👤 Jamal Sriti</button>
+        <button type="button" class="btn-sm cancel" onclick="chiediRapido('Controlla Maurizio Nordio')">👤 Maurizio Nordio</button>
       </div>
 
       <!-- Box Risposta Agente + Semaforo Anomalie -->
-      <div id="audit-status-box" style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.55;white-space:pre-line;">
+      <div id="audit-status-box" style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;line-height:1.55;white-space:pre-line;">
         ⏳ Avvio controllo automatico del mese in corso...
       </div>
 
       <!-- Lista Anomalie / Azioni Rapide -->
-      <div id="audit-anomalie-box" style="display:none;margin-bottom:18px;"></div>
+      <div id="audit-anomalie-box" style="display:none;margin-bottom:16px;"></div>
 
       <!-- Tabella Riepilogo Prospetto 0501 (8 Dipendenti) -->
-      <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <span>📋 Riepilogo Automatico Prospetto Buste Paghe (501 AMR SRL) — Clicca su "Vedi Giorni" per il calendario del singolo dipendente</span>
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <span>📋 Prospetto Buste Paghe (501 AMR SRL) — Clicca su "✏️ Vedi / Modifica 0501" per modificare ogni cella (oppure modifica direttamente sul Foglio Google!)</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="https://docs.google.com/spreadsheets/d/1Uul8Juug4uIzKes4HBGHRDAOT6OhHOumuodZ0YmFg2w/edit" target="_blank" class="btn-sm cancel" style="text-decoration:none;">📊 Apri Scheda 0501 nel Gestionale</a>
+          <a href="https://docs.google.com/spreadsheets/d/1V6sy22gwsy5ASCEWLnUvHKAa7k0n1aw1Jhi72YD-5HE/edit" target="_blank" class="btn-sm cancel" style="text-decoration:none;border-color:#0f766e;color:#0f766e;">📗 Apri File Google 0501 Dedicato</a>
+        </div>
       </div>
       <div class="table-wrap" style="border:1px solid #e2e8f0;border-radius:8px;">
-        <table>
+        <table class="sticky-col" id="tabella-0501">
           <thead>
             <tr>
               <th>Dipendente</th>
               <th>Reparto</th>
               <th>Ore Ordinarie (0501)</th>
               <th>Straordinari (0501)</th>
-              <th>Ferie / Permessi</th>
+              <th>Ferie / Perm. / Malattia</th>
               <th>Totale Ore (Lav.+Perm.)</th>
               <th>Mensa</th>
               <th>Trasferte</th>
-              <th>Dettaglio Giorni</th>
+              <th>Azioni 0501</th>
             </tr>
           </thead>
           <tbody id="tbody-0501">
@@ -411,14 +620,51 @@
         </table>
       </div>
 
-      <!-- Vista Espansa Singolo Dipendente (Mix Presenze Giornaliere + Archivio) -->
-      <div id="dip-detail-box" style="display:none;margin-top:18px;border:2px solid #3b82f6;border-radius:10px;overflow:hidden;">
-        <div style="background:#eff6ff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #bfdbfe;">
-          <strong id="dip-detail-title" style="color:#1e3a8a;font-size:14px;">Dettaglio Giornaliero Dipendente</strong>
-          <button type="button" class="btn-sm cancel" onclick="document.getElementById('dip-detail-box').style.display='none'">✖ Chiudi Dettaglio</button>
+      <!-- Pannello Gestione e Modifica Trasferte -->
+      <div id="trasf-edit-box" style="display:none;margin-top:16px;border:2px solid #f59e0b;border-radius:10px;overflow:hidden;background:#fffbeb;">
+        <div style="background:#fef3c7;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fde68a;flex-wrap:wrap;gap:10px;">
+          <strong id="trasf-edit-title" style="color:#92400e;font-size:14px;">🚐 Gestione e Modifica Trasferte</strong>
+          <button type="button" class="btn-sm cancel" onclick="document.getElementById('trasf-edit-box').style.display='none'">✖ Chiudi</button>
         </div>
-        <div class="table-wrap" style="max-height:420px;overflow-y:auto;">
-          <table>
+        <div style="padding:14px 16px;">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:space-between;background:#ffffff;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span style="font-size:13px;font-weight:700;color:#78350f;">🔢 Totale Trasferte nel File Paghe (0501):</span>
+              <input type="number" id="trasf-override-val" min="0" max="31" style="width:80px;padding:6px 10px;font-weight:700;font-size:14px;">
+              <button type="button" class="btn-sm save" style="background:#d97706;" onclick="salvaTotaleTrasferteManuale()">💾 Imposta Totale Mese</button>
+              <button type="button" class="btn-sm cancel" onclick="ripristinaTotaleTrasferteAuto()" title="Calcola automaticamente dai singoli giorni segnati in trasferta">🔄 Ricalcola da Giorni</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:12px;font-weight:700;color:#78350f;">➕ Aggiungi giorno in trasferta:</span>
+              <input type="date" id="trasf-add-date" style="width:145px;padding:6px 10px;font-size:13px;">
+              <input type="text" id="trasf-add-luogo" placeholder="Luogo / Cantiere (opz.)" style="width:170px;padding:6px 10px;font-size:13px;">
+              <button type="button" class="btn-sm save" onclick="aggiungiGiornoTrasfertaDaBox()">🚐 Segna Trasferta</button>
+            </div>
+          </div>
+
+          <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px;text-transform:uppercase;">
+            📅 Giorni del Mese (Clicca su "Togli Trasferta" o "Segna Trasferta" per modificare il singolo giorno):
+          </div>
+          <div id="trasf-days-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:8px;max-height:320px;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- Vista Espansa & Editor Diretto Cella-per-Cella 0501 Singolo Dipendente -->
+      <div id="dip-detail-box" style="display:none;margin-top:16px;border:2px solid #3b82f6;border-radius:10px;overflow:hidden;">
+        <div style="background:#eff6ff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #bfdbfe;flex-wrap:wrap;gap:10px;">
+          <strong id="dip-detail-title" style="color:#1e3a8a;font-size:14px;">Dettaglio Giornaliero &amp; Editor 0501</strong>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <input type="text" id="nota-0501-input" placeholder="Nota riga 38 del 0501 (opz.)" style="width:210px;padding:5px 10px;font-size:12px;">
+            <button type="button" class="btn-sm save" onclick="salvaNota0501Dipendente()">💾 Salva Nota 0501</button>
+            <button type="button" class="btn-sm cancel" onclick="ripristinaTutto0501Dipendente()" title="Ripristina tutti i giorni di questo dipendente al calcolo automatico">🔄 Ripristina Tutto Auto</button>
+            <button type="button" class="btn-sm cancel" onclick="document.getElementById('dip-detail-box').style.display='none'">✖ Chiudi</button>
+          </div>
+        </div>
+        <div style="background:#f8fafc;padding:8px 16px;font-size:12px;color:#334155;border-bottom:1px solid #e2e8f0;">
+          💡 <strong>Modifica diretta 0501:</strong> cambia i numeri di <em>Ore Ord.</em>, <em>Straord.</em>, <em>Ferie/Perm./Malattia</em> e <em>Mensa</em> qui sotto e clicca <strong>💾 Salva 0501</strong> sulla riga (oppure modifica direttamente le celle nel Foglio Google 0501: le tue modifiche vengono rilevate e mantenute!).
+        </div>
+        <div class="table-wrap" style="max-height:480px;overflow-y:auto;">
+          <table class="sticky-col" id="tabella-dip-detail">
             <thead>
               <tr>
                 <th>Giorno</th>
@@ -427,13 +673,13 @@
                 <th>Entrata 2</th>
                 <th>Uscita 2</th>
                 <th>Altre</th>
-                <th>Ore Ord.</th>
-                <th>Straord.</th>
-                <th>Ferie/Perm. (Giorno Esatto)</th>
-                <th>Mensa</th>
+                <th>Ore Ord. (0501)</th>
+                <th>Straord. (0501)</th>
+                <th>Ferie / Perm. / Mal. (0501)</th>
+                <th>Mensa (0501)</th>
                 <th>Trasferta</th>
-                <th>Note / Stato</th>
-                <th>Azione Rapida</th>
+                <th>Dettaglio / Note</th>
+                <th>Salva Cella 0501</th>
               </tr>
             </thead>
             <tbody id="tbody-dip-detail"></tbody>
@@ -446,8 +692,8 @@
 
 <div class="container">
 
-  <!-- ── COLONNA SINISTRA: TIMBRATURA MANUALE + PERMESSO RAPIDO ── -->
-  <div style="display:flex;flex-direction:column;gap:24px;">
+  <!-- ── COLONNA SINISTRA: TIMBRATURA MANUALE + PERMESSO/FERIE/MALATTIA/VISITA MEDICA ── -->
+  <div class="left-forms-grid" style="display:flex;flex-direction:column;gap:18px;">
     <div class="card" id="card-timbratura">
       <div class="card-header">
         <span class="icon">➕</span> Nuova Timbratura Manuale
@@ -474,14 +720,30 @@
           <input type="hidden" id="tipo-val" value="Entrata">
         </div>
 
-        <div class="form-group">
-          <label>Data</label>
-          <input type="date" id="data-input">
+        <div class="two-col-mobile-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group">
+            <label>Data</label>
+            <input type="date" id="data-input">
+          </div>
+
+          <div class="form-group">
+            <label>Orario</label>
+            <input type="time" id="orario-input" step="60">
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>Orario</label>
-          <input type="time" id="orario-input" step="60">
+        <div class="two-col-mobile-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group">
+            <label>Sede / Trasferta</label>
+            <select id="modalita-input">
+              <option value="Sede">🏢 Sede AMR</option>
+              <option value="Trasferta">🚐 Trasferta</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Luogo / Cantiere (opz.)</label>
+            <input type="text" id="luogo-input" placeholder="Es. Cantiere / Sede">
+          </div>
         </div>
 
         <button class="btn" id="btn-aggiungi" type="button" onclick="aggiungiTimbratura()">
@@ -491,77 +753,124 @@
       </div>
     </div>
 
-    <!-- ── CARD INSERIMENTO RAPIDO PERMESSO / FERIE SUL GIORNO ESATTO ── -->
-    <div class="card">
+    <!-- ── CARD INSERIMENTO RAPIDO MALATTIA / FERIE / PERMESSO / VISITA MEDICA ── -->
+    <div class="card" id="card-permessi">
       <div class="card-header" style="background:#0f766e;">
-        <span class="icon">🌴</span> Segna Permesso / Ferie sul Giorno Esatto
+        <span class="icon">🤒</span> Segna Malattia · Ferie · Permesso · Visita Medica
       </div>
       <div class="card-body">
         <div class="form-group">
           <label>Dipendente</label>
           <select id="sel-perm-dip"></select>
         </div>
-        <div class="form-group">
-          <label>Giorno Esatto</label>
-          <input type="date" id="perm-data-input">
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="two-col-mobile-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
           <div class="form-group">
-            <label>Tipo</label>
+            <label>Dal Giorno</label>
+            <input type="date" id="perm-data-input" onchange="if(!document.getElementById('perm-data-fine-input').value) document.getElementById('perm-data-fine-input').value=this.value;">
+          </div>
+          <div class="form-group">
+            <label>Al Giorno (opz.)</label>
+            <input type="date" id="perm-data-fine-input">
+          </div>
+        </div>
+        <div class="two-col-mobile-stack" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="form-group">
+            <label>Tipo Giustificativo</label>
             <select id="perm-tipo-input">
+              <option value="Malattia">🤒 Malattia</option>
               <option value="Permesso">🕐 Permesso</option>
               <option value="Ferie">🌴 Ferie</option>
               <option value="Visita medica">🩺 Visita medica</option>
             </select>
           </div>
           <div class="form-group">
-            <label>Ore nel Giorno</label>
+            <label>Ore al Giorno</label>
             <select id="perm-ore-input">
               <option value="8">8 ore (Giorno intero)</option>
               <option value="4">4 ore (Mezza giornata)</option>
-              <option value="2">2 ore</option>
+              <option value="0.5">0,5 ore (30 min)</option>
               <option value="1">1 ora</option>
+              <option value="1.5">1,5 ore</option>
+              <option value="2">2 ore</option>
+              <option value="2.5">2,5 ore</option>
               <option value="3">3 ore</option>
+              <option value="3.5">3,5 ore</option>
+              <option value="5">5 ore</option>
               <option value="6">6 ore</option>
+              <option value="7">7 ore</option>
+              <option value="7.5">7,5 ore</option>
             </select>
           </div>
         </div>
         <div class="form-group">
-          <label>Nota (opzionale)</label>
-          <input type="text" id="perm-nota-input" placeholder="Es. Permesso concordato">
+          <label>Nota / N. Certificato Malattia (opzionale)</label>
+          <input type="text" id="perm-nota-input" placeholder="Es. Certificato INPS / Visita specialistica">
         </div>
         <button class="btn" type="button" style="background:#0f766e;" onclick="aggiungiPermessoRapido()">
-          ✅ Registra Permesso / Ferie
+          ✅ Registra Malattia / Ferie / Permesso
         </button>
       </div>
     </div>
   </div>
 
-  <!-- ── TABELLA DESTRA ── -->
-  <div class="card">
-    <div class="card-header">
-      <span class="icon">📋</span> Timbrature Recenti (Ultime 80)
+  <!-- ── COLONNA DESTRA: TIMBRATURE RECENTI + STATO SICUREZZA & BACKUP MULTI-SERVER GOOGLE DRIVE ── -->
+  <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">📋</span> Timbrature Recenti (Ultime 80)
+      </div>
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="🔍 Cerca dipendente, data o luogo..." oninput="filterTable()">
+        <span class="record-count" id="record-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table id="tabella" class="sticky-col">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Dipendente</th>
+              <th>Tipo &amp; Luogo</th>
+              <th>Entrata</th>
+              <th>Uscita</th>
+              <th>Azioni Rapide</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="6" class="empty-state"><span class="emoji">⏳</span>Caricamento...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-    <div class="toolbar">
-      <input type="text" id="search" placeholder="🔍 Cerca dipendente o data..." oninput="filterTable()">
-      <span class="record-count" id="record-count"></span>
-    </div>
-    <div class="table-wrap">
-      <table id="tabella">
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Dipendente</th>
-            <th>Tipo</th>
-            <th>Entrata</th>
-            <th>Uscita</th>
-            <th>Azioni Rapide</th>
-          </tr>
-        </thead>
-        <tbody id="tbody">
-          <tr><td colspan="6" class="empty-state"><span class="emoji">⏳</span>Caricamento...</td></tr>
-        </tbody>
-      </table>
+
+    <!-- ── CARD CYBERSECURITY & BACKUP MULTI-VAULT SU GOOGLE DRIVE ── -->
+    <div class="card" id="card-sicurezza-backup" style="border:1.5px solid #16a34a;">
+      <div class="card-header" style="background:linear-gradient(90deg,#064e3b,#0f766e);justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="icon">🛡️</span>
+          <span>Cybersecurity &amp; Backup Continuo Multi-Server (Google Drive + Cloud)</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn-sm" style="background:#fcd34d;color:#0f172a;" onclick="eseguiBackupDriveOra()">☁️ Salva Backup su Google Drive Ora</button>
+          <a id="link-backup-vault1" href="https://docs.google.com/spreadsheets/d/12F8ZPPnYMwjW4_pE46WbA7gQ7qBCFcLqpKC05XAkOiU/edit" target="_blank" class="btn-sm cancel" style="text-decoration:none;">📂 Apri Cassaforte Drive #1 (Storico 30gg/13m)</a>
+          <a id="link-backup-vault2" href="https://docs.google.com/spreadsheets/d/11FJbnUAW1WwWxsuEqru4NH_biPotk7RkcpvQhH_i9JA/edit" target="_blank" class="btn-sm cancel" style="text-decoration:none;">📂 Apri Cassaforte Drive #2 (Mirror)</a>
+        </div>
+      </div>
+      <div class="card-body" style="background:#f0fdf4;font-size:12.5px;color:#14532d;line-height:1.55;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+          <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">
+            <strong style="color:#065f46;display:block;margin-bottom:4px;">☁️ 1. Backup Google Drive (2 Casseforti Separate)</strong>
+            <div id="backup-status-text">Ogni notte alle <strong>23:30</strong> (e su richiesta) salva copie congelate di <em>Timbrature</em>, <em>Permessi</em> e <em>Prospetto 0501</em> (ultimi 30 giorni + 1° del mese per 13 mesi).</div>
+          </div>
+          <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">
+            <strong style="color:#065f46;display:block;margin-bottom:4px;">🔄 2. Ridondanza Multi-Server (Google Cloud + Render)</strong>
+            <div>Sincronizzazione automatica ogni 10 minuti tra Server Cloud Render (<code>amr-services</code>), Gestionale Principale Google Cloud, File <code>0501</code> dedicato e Casseforti Drive.</div>
+          </div>
+          <div style="background:#fff;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">
+            <strong style="color:#065f46;display:block;margin-bottom:4px;">🔐 3. Protezione Cybersecurity Attiva</strong>
+            <div>Crittografia <strong>HTTPS/TLS 1.3</strong>, doppia verifica (Account Google Autorizzato + PIN Direzione), chiave segreta API, <code>LockService</code> anti-conflitto e <em>Soft-Delete</em> (nessuna timbratura viene mai persa).</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -583,7 +892,13 @@ if (typeof google === 'undefined' || !google.script || !google.script.run) {
           'modificaOrario',
           'toggleAnnullaTimbratura',
           'eseguiControlloPrePagheAdmin',
-          'aggiungiPermessoRapidoAdmin'
+          'aggiungiPermessoRapidoAdmin',
+          'setTrasfertaGiornoAdmin',
+          'setTotaleTrasferteMeseAdmin',
+          'salvaCella0501Admin',
+          'resetCella0501Admin',
+          'getStatoBackupAdmin',
+          'eseguiBackupAdessoAdmin'
         ];
         function makeRunner(successCb, failureCb) {
           var runner = {
@@ -637,10 +952,11 @@ window.onload = function() {
     .withSuccessHandler(function(res) {
       if (res && res.ok) {
         document.getElementById('pin-overlay').style.display = 'none';
-        document.getElementById('admin-sub').textContent = 'Connesso come: ' + res.nome + ' · Ricalcolo automatico attivo';
+        document.getElementById('admin-sub').textContent = 'Connesso come: ' + res.nome + ' · Sincronizzazione 0501 attiva';
         caricaDipendenti();
         caricaTimbrature();
         eseguiAudit();
+        caricaStatoBackup();
       } else {
         document.getElementById('admin-pin-input').focus();
       }
@@ -656,10 +972,11 @@ function sbloccaConPin() {
       if (res && res.ok) {
         try { localStorage.setItem('amr_admin_pin', pin); } catch(e) {}
         document.getElementById('pin-overlay').style.display = 'none';
-        document.getElementById('admin-sub').textContent = 'Connesso come: ' + res.nome + ' · Ricalcolo automatico attivo';
+        document.getElementById('admin-sub').textContent = 'Connesso come: ' + res.nome + ' · Sincronizzazione 0501 attiva';
         caricaDipendenti();
         caricaTimbrature();
         eseguiAudit();
+        caricaStatoBackup();
       } else {
         var errEl = document.getElementById('pin-err');
         errEl.textContent = (res && res.error) ? res.error : 'PIN non valido';
@@ -669,12 +986,56 @@ function sbloccaConPin() {
     .verificaAccessoAdmin(pin);
 }
 
+function caricaStatoBackup() {
+  google.script.run
+    .withSuccessHandler(function(st) {
+      if (!st || !st.ok) return;
+      if (st.file && st.file.indexOf('http') === 0) {
+        var a1 = document.getElementById('link-backup-vault1');
+        if (a1) a1.href = st.file;
+      }
+      var badge = document.getElementById('header-backup-badge');
+      var box = document.getElementById('backup-status-text');
+      if (st.ultimoBackup) {
+        if (badge) badge.textContent = '🛡️ Backup Drive OK (' + st.ultimoBackup + ' · ' + (st.totaleCopie || 0) + ' snapshot)';
+        if (box) box.innerHTML = '✅ <strong>Ultimo backup automatico:</strong> ' + st.ultimoBackup + ' (Esito: <strong>' + (st.ultimoEsito || 'OK') + '</strong> · <strong>' + (st.totaleCopie || 0) + '</strong> schede storiche salvate su Google Drive).';
+      }
+    })
+    .getStatoBackupAdmin();
+}
+
+function eseguiBackupDriveOra() {
+  showToast('☁️ Salvataggio backup completo (Timbrature + Permessi + 0501) su Google Drive in corso...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ Backup salvato su Google Drive (' + (res.ora || 'ora') + ') in entrambe le casseforti!', 'success');
+        caricaStatoBackup();
+      } else {
+        showToast('⚠️ Risultato backup: ' + (res ? (res.esito || res.error) : 'errore'), 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('❌ Errore backup: ' + err, 'error');
+    })
+    .eseguiBackupAdessoAdmin();
+}
+
 function setDefaultDate() {
   var today = new Date();
   var iso = formatDateInput(today);
   document.getElementById('data-input').value = iso;
   var pIn = document.getElementById('perm-data-input');
-  if (pIn) pIn.value = iso;
+  var pFine = document.getElementById('perm-data-fine-input');
+  if (pIn) {
+    pIn.value = iso;
+    pIn.addEventListener('change', function() {
+      if (pFine && (!pFine.value || pFine.value < pIn.value)) {
+        pFine.value = pIn.value;
+      }
+    });
+  }
+  if (pFine) pFine.value = iso;
 }
 
 function setDefaultTime() {
@@ -729,7 +1090,9 @@ function eseguiAudit(domandaOpzionale) {
   var ym = getMeseAnnoSelezionati();
   var box = document.getElementById('audit-status-box');
   box.style.background = '#f8fafc';
-  box.textContent = '🤖 L\'Agente Revisore sta controllando tutte le timbrature, i permessi, gli straordinari e il Prospetto 0501...';
+  box.textContent = domandaOpzionale
+    ? '🤖 L\'Assistente sta eseguendo la tua richiesta e ricalcolando il Prospetto 0501...'
+    : '🤖 L\'Agente Revisore sta controllando tutte le timbrature, i permessi, gli straordinari e il Prospetto 0501...';
 
   google.script.run
     .withSuccessHandler(function(res) {
@@ -739,11 +1102,23 @@ function eseguiAudit(domandaOpzionale) {
       }
       lastAuditData = res;
       box.textContent = res.rispostaAgente || '';
-      box.style.background = res.prontoPerInvio ? '#f0fdf4' : '#fffbeb';
-      box.style.borderColor = res.prontoPerInvio ? '#86efac' : '#fde047';
+      box.style.background = (res.azioniEseguite && res.azioniEseguite.length > 0) ? '#ecfdf5' : (res.prontoPerInvio ? '#f0fdf4' : '#fffbeb');
+      box.style.borderColor = (res.azioniEseguite && res.azioniEseguite.length > 0) ? '#34d399' : (res.prontoPerInvio ? '#86efac' : '#fde047');
+
+      if (res.azioniEseguite && res.azioniEseguite.length > 0) {
+        showToast('⚡ Assistente: ' + res.azioniEseguite.join(' · '), 'success');
+        document.getElementById('agent-question').value = '';
+        caricaTimbrature();
+      }
 
       renderAnomalieAudit(res);
       renderTabella0501(res.dipendenti || []);
+      if (currentTrasfDipIdx !== null && document.getElementById('trasf-edit-box').style.display !== 'none') {
+        apriModificaTrasferte(currentTrasfDipIdx, true);
+      }
+      if (currentDetailDipIdx !== null && document.getElementById('dip-detail-box').style.display !== 'none') {
+        mostraDettaglioDipendente(currentDetailDipIdx, true);
+      }
     })
     .withFailureHandler(function(err) {
       box.textContent = '⚠️ Errore di connessione con il Revisore: ' + err;
@@ -775,18 +1150,24 @@ function renderAnomalieAudit(res) {
   tutte.forEach(function(a) {
     var bg = a.gravita === 'alta' ? '#fef2f2' : '#fffbeb';
     var brd = a.gravita === 'alta' ? '#fecaca' : '#fde68a';
+    var safeNome = a.dipendente.replace(/'/g, "\\'");
     html += '<div style="background:' + bg + ';border:1px solid ' + brd + ';border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;">';
     html += '<span>' + (a.gravita === 'alta' ? '🔴 ' : '🟡 ') + '<strong>' + a.dipendente + '</strong> (' + (a.data || '') + '): ' + a.messaggio + '</span>';
-    html += '<div style="display:flex;gap:6px;">';
+    html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
     if (a.iso) {
-      html += '<button type="button" class="btn-sm save" onclick="precompilaCorrezione(\'' + a.dipendente.replace(/'/g, "\\'") + '\', \'' + a.iso + '\', \'Uscita\', \'17:00\')">➕ Metti Uscita 17:00</button>';
-      html += '<button type="button" class="btn-sm" style="background:#0f766e;color:#fff;" onclick="precompilaPermesso(\'' + a.dipendente.replace(/'/g, "\\'") + '\', \'' + a.iso + '\')">🌴 Segna Permesso/Ferie</button>';
+      html += '<button type="button" class="btn-sm save" onclick="chiediRapido(\'Metti uscita alle 17:00 a ' + safeNome + ' il ' + (a.data || a.iso) + '\')">⚡ Metti Uscita 17:00</button>';
+      html += '<button type="button" class="btn-sm" style="background:#dc2626;color:#fff;" onclick="chiediRapido(\'Segna 8 ore di malattia a ' + safeNome + ' il ' + (a.data || a.iso) + '\')">🤒 8h Malattia</button>';
+      html += '<button type="button" class="btn-sm" style="background:#0f766e;color:#fff;" onclick="chiediRapido(\'Segna 8 ore di ferie a ' + safeNome + ' il ' + (a.data || a.iso) + '\')">🌴 8h Ferie</button>';
+      html += '<button type="button" class="btn-sm cancel" onclick="precompilaCorrezione(\'' + safeNome + '\', \'' + a.iso + '\', \'Uscita\', \'17:00\')">✏️ Altra ora...</button>';
     }
     html += '</div></div>';
   });
   html += '</div>';
   wrap.innerHTML = html;
 }
+
+var currentTrasfDipIdx = null;
+var currentDetailDipIdx = null;
 
 function renderTabella0501(dipendenti) {
   var tbody = document.getElementById('tbody-0501');
@@ -797,6 +1178,13 @@ function renderTabella0501(dipendenti) {
   tbody.innerHTML = '';
   dipendenti.forEach(function(d, idx) {
     var tr = document.createElement('tr');
+    var trasfHtml = '<div style="display:flex;align-items:center;gap:6px;">' +
+      (d.trasferte > 0
+        ? '<span class="badge uscita" style="background:#fef3c7;color:#92400e;">N.' + d.trasferte + '</span>'
+        : '<span style="color:#94a3b8;font-size:12px;">0</span>') +
+      '<button type="button" class="btn-sm cancel" style="padding:3px 8px;font-size:11px;border-color:#f59e0b;color:#b45309;background:#fffbeb;" onclick="apriModificaTrasferte(' + idx + ')">🚐 Modifica</button>' +
+      '</div>';
+
     tr.innerHTML =
       '<td><strong>' + d.nome + '</strong></td>' +
       '<td>' + d.reparto + '</td>' +
@@ -805,27 +1193,154 @@ function renderTabella0501(dipendenti) {
       '<td style="color:#0369a1;font-weight:600;">' + (d.feriePermessi > 0 ? d.feriePermessi + ' h' : '—') + '</td>' +
       '<td><span class="badge entrata" style="font-size:12px;">' + d.totaleComplessivo + ' h</span></td>' +
       '<td>' + (d.mensa > 0 ? d.mensa + ' buoni' : '—') + '</td>' +
-      '<td>' + (d.trasferte > 0 ? '<span class="badge uscita" style="background:#fef3c7;color:#92400e;">N.' + d.trasferte + '</span>' : '—') + '</td>' +
-      '<td><button type="button" class="btn-sm cancel" onclick="mostraDettaglioDipendente(' + idx + ')">📅 Vedi Giorni</button></td>';
+      '<td>' + trasfHtml + '</td>' +
+      '<td><button type="button" class="btn-sm save" style="padding:5px 10px;font-size:12px;" onclick="mostraDettaglioDipendente(' + idx + ')">✏️ Vedi / Modifica 0501</button></td>';
     tbody.appendChild(tr);
   });
 }
 
-function mostraDettaglioDipendente(idx) {
+function apriModificaTrasferte(idx, noScroll) {
   if (!lastAuditData || !lastAuditData.dipendenti || !lastAuditData.dipendenti[idx]) return;
+  currentTrasfDipIdx = idx;
+  var d = lastAuditData.dipendenti[idx];
+  var box = document.getElementById('trasf-edit-box');
+  document.getElementById('trasf-edit-title').textContent = '🚐 Gestione e Modifica Trasferte di ' + d.nome + ' (' + lastAuditData.meseNome + ') — Attuali: N.' + d.trasferte;
+  document.getElementById('trasf-override-val').value = d.trasferte;
+
+  var listEl = document.getElementById('trasf-days-list');
+  listEl.innerHTML = '';
+
+  // Mostra prima i giorni già in trasferta, poi gli altri giorni lavorati
+  var giorniLavorati = d.giorni.filter(function(g) { return g.trasferta || g.oreLav > 0 || g.straord > 0 || g.e1 || g.e2; });
+  if (giorniLavorati.length === 0) {
+    listEl.innerHTML = '<div style="padding:10px;color:#78350f;font-size:13px;">Nessun giorno con timbrature trovato. Usa il box qui sopra per aggiungere un giorno in trasferta o impostare il totale mensile.</div>';
+  } else {
+    giorniLavorati.forEach(function(g) {
+      var card = document.createElement('div');
+      var isT = !!g.trasferta;
+      card.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:12px;border:1px solid ' + (isT ? '#f59e0b' : '#e2e8f0') + ';background:' + (isT ? '#fef3c7' : '#ffffff') + ';';
+      var dataLbl = (g.data || (String(g.d).padStart(2,'0') + '/' + String(lastAuditData.mese).padStart(2,'0'))) + ' (' + g.dow + ')';
+      var luogoInfo = g.luogo ? ('<div style="font-size:11px;color:#64748b;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + g.luogo.replace(/"/g, '&quot;') + '">📍 ' + g.luogo + '</div>') : '';
+      var safeNome = d.nome.replace(/'/g, "\\'");
+      var btnHtml = isT
+        ? '<button type="button" class="btn-sm" style="background:#dc2626;color:#fff;padding:4px 8px;font-size:11px;" onclick="cambiaTrasfertaGiorno(\'' + safeNome + '\', \'' + g.iso + '\', false)">❌ Togli Trasferta</button>'
+        : '<button type="button" class="btn-sm cancel" style="padding:4px 8px;font-size:11px;" onclick="cambiaTrasfertaGiorno(\'' + safeNome + '\', \'' + g.iso + '\', true)">🚐 Segna Trasferta</button>';
+
+      card.innerHTML =
+        '<div><strong>' + (isT ? '🚐 ' : '🏢 ') + dataLbl + '</strong>' + luogoInfo + '</div>' +
+        btnHtml;
+      listEl.appendChild(card);
+    });
+  }
+
+  box.style.display = 'block';
+  if (!noScroll) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cambiaTrasfertaGiorno(nomeDip, isoDate, nuovoStatoTrasferta, luogoOpz) {
+  showToast('⏳ Aggiornamento trasferta per ' + nomeDip + ' (' + isoDate + ')...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ ' + nomeDip + ' (' + isoDate + '): impostato come ' + (nuovoStatoTrasferta ? '🚐 TRASFERTA' : '🏢 SEDE'), 'success');
+        caricaTimbrature();
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + (res ? res.error : ''), 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('❌ Errore: ' + err, 'error');
+    })
+    .setTrasfertaGiornoAdmin({
+      dipendente: nomeDip,
+      data: isoDate,
+      trasferta: nuovoStatoTrasferta,
+      luogo: luogoOpz || ''
+    });
+}
+
+function aggiungiGiornoTrasfertaDaBox() {
+  if (currentTrasfDipIdx === null || !lastAuditData || !lastAuditData.dipendenti[currentTrasfDipIdx]) return;
+  var d = lastAuditData.dipendenti[currentTrasfDipIdx];
+  var iso = document.getElementById('trasf-add-date').value;
+  var luogo = document.getElementById('trasf-add-luogo').value.trim();
+  if (!iso) {
+    showToast('Seleziona la data del giorno da mettere in trasferta', 'error');
+    return;
+  }
+  cambiaTrasfertaGiorno(d.nome, iso, true, luogo);
+}
+
+function salvaTotaleTrasferteManuale() {
+  if (currentTrasfDipIdx === null || !lastAuditData || !lastAuditData.dipendenti[currentTrasfDipIdx]) return;
+  var d = lastAuditData.dipendenti[currentTrasfDipIdx];
+  var val = document.getElementById('trasf-override-val').value;
+  var ym = getMeseAnnoSelezionati();
+  showToast('⏳ Impostazione totale N.' + val + ' trasferte per ' + d.nome + '...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ Totale trasferte di ' + d.nome + ' impostato a N.' + val, 'success');
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + (res ? res.error : ''), 'error');
+      }
+    })
+    .setTotaleTrasferteMeseAdmin({
+      dipendente: d.nome,
+      anno: ym.anno,
+      mese: ym.mese,
+      valore: val
+    });
+}
+
+function ripristinaTotaleTrasferteAuto() {
+  if (currentTrasfDipIdx === null || !lastAuditData || !lastAuditData.dipendenti[currentTrasfDipIdx]) return;
+  var d = lastAuditData.dipendenti[currentTrasfDipIdx];
+  var ym = getMeseAnnoSelezionati();
+  showToast('⏳ Ripristino conteggio automatico trasferte dai singoli giorni...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ Conteggio trasferte ripristinato in automatico per ' + d.nome, 'success');
+        eseguiAudit();
+      }
+    })
+    .setTotaleTrasferteMeseAdmin({
+      dipendente: d.nome,
+      anno: ym.anno,
+      mese: ym.mese,
+      valore: ''
+    });
+}
+
+function mostraDettaglioDipendente(idx, noScroll) {
+  if (!lastAuditData || !lastAuditData.dipendenti || !lastAuditData.dipendenti[idx]) return;
+  currentDetailDipIdx = idx;
   var d = lastAuditData.dipendenti[idx];
   var box = document.getElementById('dip-detail-box');
-  document.getElementById('dip-detail-title').textContent = '📅 Calendario Giornaliero & Permessi di ' + d.nome + ' (' + lastAuditData.meseNome + ') — Totale: ' + d.oreOrdinarie + 'h Ord. | ' + d.straordinari + 'h Str. | ' + d.feriePermessi + 'h Ferie/Permessi';
+  document.getElementById('dip-detail-title').textContent = '📅 Editor Foglio 0501 & Calendario Giornaliero di ' + d.nome + ' (' + lastAuditData.meseNome + ') — Totale: ' + d.oreOrdinarie + 'h Ord. | ' + d.straordinari + 'h Str. | ' + d.feriePermessi + 'h Ferie/Perm./Mal. | N.' + d.trasferte + ' Trasferte';
+  var notaInput = document.getElementById('nota-0501-input');
+  if (notaInput) notaInput.value = d.nota0501 || '';
+
   var tbody = document.getElementById('tbody-dip-detail');
   tbody.innerHTML = '';
+  var safeNome = d.nome.replace(/'/g, "\\'");
 
   d.giorni.forEach(function(g) {
     var tr = document.createElement('tr');
     if (g.dow === 'S' || g.dow === 'D') tr.style.background = '#f8fafc';
     if (g.feriePerm > 0) tr.style.background = '#e0f2fe';
     if (g.note && g.note.indexOf('⚠️') >= 0) tr.style.background = '#fef3c7';
+    if (g.note && g.note.indexOf('✏️ Modifica 0501') >= 0) tr.style.background = '#f0fdf4';
 
-    var permStr = g.feriePerm > 0 ? ('<strong>' + g.feriePerm + ' h</strong>' + (g.dettPerm ? ' <small>(' + g.dettPerm + ')</small>' : '')) : '—';
+    var dettBadge = g.dettPerm ? ('<div style="font-size:10px;color:#0369a1;margin-top:2px;">' + g.dettPerm + '</div>') : '';
+    var trasfBtn = g.trasferta
+      ? '<button type="button" class="btn-sm" style="background:#fef3c7;color:#92400e;border:1px solid #f59e0b;padding:3px 8px;font-size:11px;" title="Clicca per togliere la trasferta e passare a Sede" onclick="cambiaTrasfertaGiorno(\'' + safeNome + '\', \'' + g.iso + '\', false)">🚐 Sì</button>'
+      : '<button type="button" class="btn-sm cancel" style="padding:3px 8px;font-size:11px;opacity:0.75;" title="Clicca per segnare questo giorno in Trasferta" onclick="cambiaTrasfertaGiorno(\'' + safeNome + '\', \'' + g.iso + '\', true)">🏢 No</button>';
+
+    var inpStyle = 'width:62px;padding:4px 6px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;font-weight:600;text-align:center;';
     tr.innerHTML =
       '<td><strong>' + g.d + ' ' + g.dow + '</strong></td>' +
       '<td>' + (g.e1 || '—') + '</td>' +
@@ -833,18 +1348,117 @@ function mostraDettaglioDipendente(idx) {
       '<td>' + (g.e2 || '—') + '</td>' +
       '<td>' + (g.u2 || '—') + '</td>' +
       '<td>' + (g.altre || '—') + '</td>' +
-      '<td><strong>' + (g.oreLav > 0 ? g.oreLav : '—') + '</strong></td>' +
-      '<td style="color:#b45309;font-weight:600;">' + (g.straord > 0 ? g.straord : '—') + '</td>' +
-      '<td style="color:#0369a1;">' + permStr + '</td>' +
-      '<td>' + (g.mensa > 0 ? '1' : '—') + '</td>' +
-      '<td>' + (g.trasferta ? '🚐 Sì' : '—') + '</td>' +
-      '<td style="font-size:12px;">' + (g.note || '') + '</td>' +
-      '<td><button type="button" class="btn-sm cancel" style="padding:4px 8px;font-size:11px;" onclick="precompilaCorrezione(\'' + d.nome.replace(/'/g, "\\'") + '\', \'' + g.iso + '\', \'Uscita\', \'17:00\')">✏️ Modifica</button></td>';
+      '<td><input type="number" step="0.5" min="0" max="24" id="ov-ord-' + g.d + '" value="' + (g.oreLav > 0 ? g.oreLav : '') + '" placeholder="0" style="' + inpStyle + 'color:#0f172a;"></td>' +
+      '<td><input type="number" step="0.5" min="0" max="24" id="ov-str-' + g.d + '" value="' + (g.straord > 0 ? g.straord : '') + '" placeholder="0" style="' + inpStyle + 'color:#b45309;"></td>' +
+      '<td><input type="number" step="0.5" min="0" max="24" id="ov-perm-' + g.d + '" value="' + (g.feriePerm > 0 ? g.feriePerm : '') + '" placeholder="0" style="' + inpStyle + 'color:#0369a1;">' + dettBadge + '</td>' +
+      '<td><input type="number" step="1" min="0" max="2" id="ov-mensa-' + g.d + '" value="' + (g.mensa > 0 ? g.mensa : '') + '" placeholder="0" style="width:46px;padding:4px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;text-align:center;"></td>' +
+      '<td>' + trasfBtn + '</td>' +
+      '<td style="font-size:11px;max-width:210px;">' + (g.note || '') + (g.luogo ? '<div style="color:#64748b;font-size:10px;">📍 ' + g.luogo + '</div>' : '') + '</td>' +
+      '<td style="white-space:nowrap;">' +
+        '<button type="button" class="btn-sm save" style="padding:4px 8px;font-size:11px;margin-right:4px;" title="Salva queste celle sul foglio 0501" onclick="salvaRiga0501(\'' + safeNome + '\', ' + g.d + ')">💾 Salva 0501</button>' +
+        '<button type="button" class="btn-sm cancel" style="padding:4px 6px;font-size:11px;margin-right:4px;" title="Ripristina ricalcolo automatico per questo giorno" onclick="resetRiga0501(\'' + safeNome + '\', ' + g.d + ')">🔄 Auto</button>' +
+        '<button type="button" class="btn-sm cancel" style="padding:4px 6px;font-size:11px;" title="Aggiungi/correggi timbratura oraria" onclick="precompilaCorrezione(\'' + safeNome + '\', \'' + g.iso + '\', \'Uscita\', \'17:00\')">⏱️</button>' +
+      '</td>';
     tbody.appendChild(tr);
   });
 
   box.style.display = 'block';
-  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (!noScroll) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function salvaRiga0501(nomeDip, giornoNum) {
+  var ym = getMeseAnnoSelezionati();
+  var vOrd = document.getElementById('ov-ord-' + giornoNum).value;
+  var vStr = document.getElementById('ov-str-' + giornoNum).value;
+  var vPerm = document.getElementById('ov-perm-' + giornoNum).value;
+  var vMensa = document.getElementById('ov-mensa-' + giornoNum).value;
+
+  showToast('⏳ Salvataggio giorno ' + giornoNum + ' su foglio 0501 per ' + nomeDip + '...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ Giorno ' + giornoNum + ' di ' + nomeDip + ' salvato nel Foglio 0501!', 'success');
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + (res ? res.error : ''), 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      showToast('❌ Errore: ' + err, 'error');
+    })
+    .salvaCella0501Admin({
+      dipendente: nomeDip,
+      anno: ym.anno,
+      mese: ym.mese,
+      giorno: giornoNum,
+      ord: vOrd === '' ? 0 : Number(vOrd),
+      str: vStr === '' ? 0 : Number(vStr),
+      perm: vPerm === '' ? 0 : Number(vPerm),
+      mensa: vMensa === '' ? 0 : Number(vMensa)
+    });
+}
+
+function resetRiga0501(nomeDip, giornoNum) {
+  var ym = getMeseAnnoSelezionati();
+  showToast('⏳ Ripristino calcolo automatico giorno ' + giornoNum + ' per ' + nomeDip + '...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ Giorno ' + giornoNum + ' ripristinato al calcolo automatico!', 'success');
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + (res ? res.error : ''), 'error');
+      }
+    })
+    .resetCella0501Admin({
+      dipendente: nomeDip,
+      anno: ym.anno,
+      mese: ym.mese,
+      giorno: giornoNum
+    });
+}
+
+function salvaNota0501Dipendente() {
+  if (currentDetailDipIdx === null || !lastAuditData || !lastAuditData.dipendenti[currentDetailDipIdx]) return;
+  var d = lastAuditData.dipendenti[currentDetailDipIdx];
+  var ym = getMeseAnnoSelezionati();
+  var nota = document.getElementById('nota-0501-input').value;
+  showToast('⏳ Salvataggio nota 0501 per ' + d.nome + '...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ Nota 0501 salvata per ' + d.nome, 'success');
+        eseguiAudit();
+      } else {
+        showToast('❌ Errore: ' + (res ? res.error : ''), 'error');
+      }
+    })
+    .salvaCella0501Admin({
+      dipendente: d.nome,
+      anno: ym.anno,
+      mese: ym.mese,
+      nota0501: nota
+    });
+}
+
+function ripristinaTutto0501Dipendente() {
+  if (currentDetailDipIdx === null || !lastAuditData || !lastAuditData.dipendenti[currentDetailDipIdx]) return;
+  var d = lastAuditData.dipendenti[currentDetailDipIdx];
+  var ym = getMeseAnnoSelezionati();
+  showToast('⏳ Ripristino di tutte le celle 0501 al calcolo automatico per ' + d.nome + '...', 'success');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.ok) {
+        showToast('✅ Tutte le celle 0501 di ' + d.nome + ' ripristinate al calcolo automatico!', 'success');
+        eseguiAudit();
+      }
+    })
+    .resetCella0501Admin({
+      dipendente: d.nome,
+      anno: ym.anno,
+      mese: ym.mese,
+      tuttoDipendente: true
+    });
 }
 
 function precompilaCorrezione(nome, isoDate, tipo, ora) {
@@ -862,7 +1476,7 @@ function precompilaCorrezione(nome, isoDate, tipo, ora) {
   showToast('Modulo precompilato per ' + nome + ' (' + isoDate + '): verifica l\'orario e clicca "Aggiungi Timbratura"', 'success');
 }
 
-function precompilaPermesso(nome, isoDate) {
+function precompilaPermesso(nome, isoDate, tipoOpz) {
   var sel = document.getElementById('sel-perm-dip');
   for (var i = 0; i < sel.options.length; i++) {
     if (sel.options[i].getAttribute('data-nome') === nome) {
@@ -871,8 +1485,11 @@ function precompilaPermesso(nome, isoDate) {
     }
   }
   document.getElementById('perm-data-input').value = isoDate;
+  var fineEl = document.getElementById('perm-data-fine-input');
+  if (fineEl) fineEl.value = isoDate;
+  if (tipoOpz) document.getElementById('perm-tipo-input').value = tipoOpz;
   document.getElementById('sel-perm-dip').scrollIntoView({ behavior: 'smooth' });
-  showToast('Seleziona le ore di permesso/ferie per ' + nome + ' (' + isoDate + ') e clicca "Registra"', 'success');
+  showToast('Seleziona tipo e ore per ' + nome + ' (' + isoDate + ') e clicca "Registra"', 'success');
 }
 
 function aggiungiPermessoRapido() {
@@ -880,20 +1497,25 @@ function aggiungiPermessoRapido() {
   var pin = sel.value;
   var nome = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].getAttribute('data-nome') : '';
   var iso = document.getElementById('perm-data-input').value;
+  var isoFineEl = document.getElementById('perm-data-fine-input');
+  var isoFine = (isoFineEl && isoFineEl.value) ? isoFineEl.value : iso;
   var tipo = document.getElementById('perm-tipo-input').value;
   var ore = document.getElementById('perm-ore-input').value;
   var nota = document.getElementById('perm-nota-input').value;
 
   if (!nome) { showToast('Seleziona un dipendente', 'error'); return; }
-  if (!iso)  { showToast('Seleziona il giorno esatto', 'error'); return; }
+  if (!iso)  { showToast('Seleziona il giorno di inizio', 'error'); return; }
   var p = iso.split('-');
   var dataIt = p[2] + '/' + p[1] + '/' + p[0];
+  var p2 = isoFine.split('-');
+  var dataFineIt = p2.length === 3 ? (p2[2] + '/' + p2[1] + '/' + p2[0]) : dataIt;
 
-  showToast('⏳ Salvataggio permesso e ricalcolo prospetto 0501...', 'success');
+  showToast('⏳ Salvataggio ' + tipo + ' e ricalcolo prospetto 0501...', 'success');
   google.script.run
     .withSuccessHandler(function(res) {
       if (res && res.ok) {
-        showToast('✅ ' + tipo + ' (' + ore + 'h) registrato sul giorno ' + dataIt + ' per ' + nome, 'success');
+        var periodoLbl = (dataFineIt && dataFineIt !== dataIt) ? ('dal ' + dataIt + ' al ' + dataFineIt) : ('sul giorno ' + dataIt);
+        showToast('✅ ' + tipo + ' (' + ore + 'h/gg) registrato ' + periodoLbl + ' per ' + nome, 'success');
         document.getElementById('perm-nota-input').value = '';
         eseguiAudit();
       } else {
@@ -904,6 +1526,8 @@ function aggiungiPermessoRapido() {
       dipendente: nome,
       pin: pin,
       data: dataIt,
+      dataInizio: dataIt,
+      dataFine: dataFineIt,
       tipo: tipo,
       ore: ore,
       nota: nota
@@ -966,6 +1590,9 @@ function scaricaExcel0501() {
     aoa[36][c0 + 4] = d.feriePermessi;
     aoa[36][c0 + 5] = d.mensa;
     aoa[37][c0] = 'note';
+    if (d.nota0501) {
+      aoa[37][c0 + 2] = d.nota0501;
+    }
     if (d.trasferte > 0) {
       aoa[38][c0 + 2] = 'N.' + d.trasferte + (d.trasferte === 1 ? ' TRASFERTA' : ' TRASFERTE');
     }
@@ -997,6 +1624,8 @@ function aggiungiTimbratura() {
              sel.options[sel.selectedIndex].getAttribute('data-nome') : '';
   var data = document.getElementById('data-input').value;
   var orario = document.getElementById('orario-input').value;
+  var modalita = document.getElementById('modalita-input') ? document.getElementById('modalita-input').value : 'Sede';
+  var luogo = document.getElementById('luogo-input') ? document.getElementById('luogo-input').value.trim() : '';
   var tipo = selectedTipo;
 
   if (!pin)   { showToast('Seleziona un dipendente', 'error'); return; }
@@ -1012,7 +1641,8 @@ function aggiungiTimbratura() {
     .withSuccessHandler(function(result) {
       setBtnLoading(false);
       if (result.ok) {
-        showToast('✅ Timbratura aggiunta e fogli ricalcolati: ' + nome + ' — ' + tipo + ' ' + orario, 'success');
+        showToast('✅ Timbratura aggiunta e fogli ricalcolati: ' + nome + ' — ' + tipo + ' ' + orario + ' (' + modalita + ')', 'success');
+        if (document.getElementById('luogo-input')) document.getElementById('luogo-input').value = '';
         caricaTimbrature();
         eseguiAudit();
         setDefaultTime();
@@ -1029,7 +1659,9 @@ function aggiungiTimbratura() {
       pin: pin,
       data: dataIt,
       tipo: tipo,
-      orario: orario
+      orario: orario,
+      modalita: modalita,
+      luogo: luogo
     });
 }
 
@@ -1083,15 +1715,19 @@ function renderTabella(rows) {
     var badgeClass = r.tipo === 'Entrata' ? 'entrata' : 'uscita';
     var badgeIcon  = r.tipo === 'Entrata' ? '🟢' : '🔴';
     var sostBadge  = r.sostituita ? ' <span style="font-size:11px;color:#e63946;font-weight:600;">(Annullata)</span>' : '';
+    var isTrasf    = String(r.modalita || '').toLowerCase() === 'trasferta';
+    var modBadge   = isTrasf
+      ? ' <span class="badge" style="background:#fef3c7;color:#92400e;font-size:11px;margin-left:4px;" title="' + (r.luogo || 'Trasferta') + '">🚐 Trasferta</span>'
+      : ' <span class="badge" style="background:#f1f5f9;color:#475569;font-size:11px;margin-left:4px;" title="' + (r.luogo || 'Sede') + '">🏢 Sede</span>';
 
     tr.innerHTML =
       '<td>' + r.data + '</td>' +
       '<td><strong>' + (r.dipendente || '—') + '</strong>' + sostBadge + '</td>' +
-      '<td><span class="badge ' + badgeClass + '">' + badgeIcon + ' ' + r.tipo + '</span></td>' +
+      '<td><span class="badge ' + badgeClass + '">' + badgeIcon + ' ' + r.tipo + '</span>' + modBadge + '</td>' +
       '<td class="orario-cell">' + orarioCell(r, 'entrata') + '</td>' +
       '<td class="orario-cell">' + orarioCell(r, 'uscita') + '</td>' +
       '<td style="display:flex;gap:6px;">' +
-        '<button class="edit-btn" title="Modifica orario" onclick="startEdit(' + r.rowIndex + ')" style="font-size:16px">✏️</button>' +
+        '<button class="edit-btn" title="Modifica orario o trasferta" onclick="startEdit(' + r.rowIndex + ')" style="font-size:16px">✏️</button>' +
         '<button class="edit-btn" title="' + (r.sostituita ? 'Ripristina timbratura' : 'Annulla timbratura errata') + '" onclick="annullaRiga(' + r.rowIndex + ')" style="font-size:15px">' + (r.sostituita ? '♻️' : '🚫') + '</button>' +
       '</td>';
 
@@ -1138,6 +1774,9 @@ function startEdit(rowIndex) {
   var valUscita = record.uscita || '';
   var selEntrataActive = record.tipo === 'Entrata' ? 'selected' : '';
   var selUscitaActive = record.tipo === 'Uscita' ? 'selected' : '';
+  var isTrasf = String(record.modalita || '').toLowerCase() === 'trasferta';
+  var selSedeActive = !isTrasf ? 'selected' : '';
+  var selTrasfActive = isTrasf ? 'selected' : '';
 
   editTr.innerHTML =
     '<td colspan="6">' +
@@ -1148,6 +1787,13 @@ function startEdit(rowIndex) {
     '<select id="edit-azione" style="width: auto; padding: 6px 10px; font-size: 13px;">' +
     '<option value="Entrata" ' + selEntrataActive + '>🟢 Entrata</option>' +
     '<option value="Uscita" ' + selUscitaActive + '>🔴 Uscita</option>' +
+    '</select>' +
+    '</div>' +
+    '<div style="display: flex; align-items: center; gap: 6px;">' +
+    '<label style="margin: 0; font-size: 11px; font-weight: bold; text-transform: uppercase;">Luogo:</label>' +
+    '<select id="edit-modalita" style="width: auto; padding: 6px 10px; font-size: 13px;">' +
+    '<option value="Sede" ' + selSedeActive + '>🏢 Sede</option>' +
+    '<option value="Trasferta" ' + selTrasfActive + '>🚐 Trasferta</option>' +
     '</select>' +
     '</div>' +
     '<div style="display: flex; align-items: center; gap: 6px;">' +
@@ -1175,6 +1821,7 @@ function startEdit(rowIndex) {
 
 function salvaEdit(rowIndex) {
   var azione = document.getElementById('edit-azione').value;
+  var modalita = document.getElementById('edit-modalita') ? document.getElementById('edit-modalita').value : 'Sede';
   var entrata = document.getElementById('edit-entrata').value;
   var uscita = document.getElementById('edit-uscita').value;
 
@@ -1200,6 +1847,7 @@ function salvaEdit(rowIndex) {
     .modificaOrario({ 
       rowIndex: rowIndex, 
       azione: azione, 
+      modalita: modalita,
       entrata: entrata, 
       uscita: uscita 
     });
