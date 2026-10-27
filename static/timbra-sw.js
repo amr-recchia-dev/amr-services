@@ -1,9 +1,11 @@
-/* AMR Timbra – service worker
- * Tiene in memoria la pagina /timbra così si apre anche senza rete o con rete bloccata.
- * Le chiamate /api/* NON vengono mai messe in cache: le timbrature
- * offline sono gestite dalla coda nella pagina (localStorage).
+/* AMR Timbra – service worker (v4 Offline-First istantaneo)
+ * Apre SEMPRE istantaneamente la pagina /timbra dalla memoria del telefono
+ * (zero attesa di rete, zero schermo bianco su iPhone anche con 4G/Wi-Fi bloccato),
+ * e aggiorna silenziosamente i file in background quando la connessione è stabile.
+ * Le chiamate /api/* NON vengono mai messe in cache: le timbrature e le richieste
+ * offline sono gestite dalla coda locale nella pagina (localStorage).
  */
-const CACHE = 'amr-timbra-v3';
+const CACHE = 'amr-timbra-v4';
 const ASSETS = ['/timbra', '/static/timbra-icon-192.png', '/static/timbra-icon-512.png', '/static/timbra-manifest.json',
   '/static/leaflet/leaflet.js', '/static/leaflet/leaflet.css'];
 
@@ -23,7 +25,7 @@ function fetchWithTimeout(req, ms) {
   if (typeof AbortController === 'undefined') return fetch(req);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
-  return fetch(req, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+  return fetch(req, { signal: ctrl.signal, cache: 'no-store' }).finally(() => clearTimeout(timer));
 }
 
 self.addEventListener('fetch', (e) => {
@@ -32,18 +34,39 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/')) return;
   if (!ASSETS.includes(url.pathname)) return;
 
-  // Rete con timeout rapido (2.5s) per evitare schermo bianco su iPhone quando il 4G/Wi-Fi in capannone è bloccato.
-  // Salva in cache SOLO risposte HTTP 200 valide.
+  // Strategia Offline-First istantanea (Stale-While-Revalidate):
+  // 1. Se la pagina/risorsa è già nella memoria del telefono, la mostra SUBITO (0 ms, mai schermo bianco).
+  // 2. Intanto in background scarica la versione aggiornata dal server (solo se HTTP 200 valida).
   e.respondWith(
-    fetchWithTimeout(e.request, 2500)
-      .then((resp) => {
-        if (!resp || !resp.ok || resp.status !== 200) {
-          return caches.match(url.pathname).then((cached) => cached || resp);
+    caches.open(CACHE).then((cache) =>
+      cache.match(url.pathname).then((cachedResp) => {
+        const netPromise = fetchWithTimeout(e.request, 4000)
+          .then((netResp) => {
+            if (netResp && netResp.ok && netResp.status === 200) {
+              cache.put(url.pathname, netResp.clone());
+              return netResp;
+            }
+            return cachedResp || netResp;
+          })
+          .catch(() => cachedResp);
+
+        // Se abbiamo già la pagina sul telefono, la restituiamo ISTANTANEAMENTE senza aspettare la rete!
+        if (cachedResp) {
+          e.waitUntil(netPromise.catch(() => {}));
+          return cachedResp;
         }
-        const copy = resp.clone();
-        caches.open(CACHE).then((c) => c.put(url.pathname, copy));
-        return resp;
+        return netPromise;
       })
-      .catch(() => caches.match(url.pathname))
+    )
   );
+});
+
+self.addEventListener('sync', (e) => {
+  if (e.tag === 'amr-timbra-flush') {
+    e.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: 'FLUSH_QUEUE' }));
+      })
+    );
+  }
 });

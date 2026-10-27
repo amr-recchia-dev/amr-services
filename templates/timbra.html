@@ -312,14 +312,15 @@
   var KIOSK = localStorage.getItem('amr_timbra_kiosk') === '1';
 
   var K_PIN = 'amr_timbra_pin', K_USER = 'amr_timbra_user', K_QUEUE = 'amr_timbra_queue', K_KNOWN = 'amr_timbra_known';
-  var GPS_WAIT_MS = 5000, GPS_MAX_AGE = 120000, FETCH_TIMEOUT = 45000;
+  var K_PERM_QUEUE = 'amr_perm_queue', K_PERM_CACHE = 'amr_perm_cache_';
+  var GPS_WAIT_MS = 3500, GPS_MAX_AGE = 120000, FETCH_TIMEOUT = 15000, LOGIN_TIMEOUT = 3500;
 
   var $ = function (id) { return document.getElementById(id); };
   var pin = '';
   var user = null;          // { pin, nome, dipartimento, eventi_oggi, prossima, day }
   var fix = null;           // ultima posizione GPS
   var watchId = null;
-  var flushing = false;
+  var flushing = false, flushingPerm = false;
   var idleTimer = null, doneTimer = null;
 
   // ── Utilità ──────────────────────────────────────────────────
@@ -347,9 +348,10 @@
     return Promise.resolve('raw-' + text);
   }
 
-  function api(path, body) {
+  function api(path, body, customTimeout) {
+    var timeoutMs = customTimeout || FETCH_TIMEOUT;
     var ctrl = window.AbortController ? new AbortController() : null;
-    var t = setTimeout(function () { ctrl && ctrl.abort(); }, FETCH_TIMEOUT);
+    var t = setTimeout(function () { ctrl && ctrl.abort(); }, timeoutMs);
     return fetch(path, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined, cache: 'no-store'
@@ -369,14 +371,33 @@
   }
   setInterval(tick, 1000); tick();
 
-  // ── Stato rete ───────────────────────────────────────────────
+  // ── Stato rete e coda ────────────────────────────────────────
+  function pendingCount() {
+    return load(K_QUEUE, []).length + load(K_PERM_QUEUE, []).length;
+  }
   function netUi() {
     var on = navigator.onLine;
-    $('net').textContent = on ? '● Online' : '● Senza rete';
-    $('net').className = on ? '' : 'off';
+    var n = pendingCount();
+    if (!on) {
+      $('net').textContent = n ? ('● Offline · ' + n + ' in coda') : '● Offline (attivo)';
+      $('net').className = 'off';
+    } else if (n > 0) {
+      $('net').textContent = '⏳ Sincronizzo (' + n + ')…';
+      $('net').className = 'off';
+    } else {
+      $('net').textContent = '● Online';
+      $('net').className = '';
+    }
   }
-  window.addEventListener('online', function () { netUi(); flush(); });
+  function flushAll() {
+    netUi();
+    flush();
+    flushPermessi();
+  }
+  window.addEventListener('online', function () { netUi(); flushAll(); if (user && !KIOSK) refresh(); });
   window.addEventListener('offline', netUi);
+  window.addEventListener('pageshow', function () { netUi(); flushAll(); if (user && !KIOSK) refresh(); });
+  window.addEventListener('focus', function () { netUi(); flushAll(); });
   netUi();
 
   // ── PIN ──────────────────────────────────────────────────────
@@ -399,20 +420,34 @@
   });
 
   function doLogin(p) {
-    $('pinMsg').className = 'msg info';
-    $('pinMsg').textContent = 'Verifico il PIN…';
-    api('/api/timbra/login', { pin: p, device_id: DEV, kiosk: KIOSK }).then(function (res) {
-      if (res.ok) {
-        rememberKnown(p, res);
-        enter(p, res);
-      } else if (res._status === 401 || res._status === 400) {
-        pinError('PIN non riconosciuto. Riprova.');
-      } else if (res._status === 429) {
-        pinError('Troppi tentativi: attendi un minuto.');
-      } else {
-        offlineLogin(p);
+    // 1. Se il PIN è già conosciuto su questo dispositivo, entra ISTANTANEAMENTE (0 ms) senza aspettare la rete,
+    //    e aggiorna silenziosamente i dati in background appena la connessione è stabile!
+    sha(p).then(function (h) {
+      var known = load(K_KNOWN, {})[h];
+      if (known && !KIOSK) {
+        enter(p, { nome: known.nome, dipartimento: known.dipartimento || '', eventi_oggi: known.day === today() ? (known.eventi_oggi || []) : [], prossima: null, admin: !!known.admin, offline: true });
+        refresh();
+        return;
       }
-    }).catch(function () { offlineLogin(p); });
+      if (!navigator.onLine) {
+        offlineLogin(p);
+        return;
+      }
+      $('pinMsg').className = 'msg info';
+      $('pinMsg').textContent = 'Verifico il PIN…';
+      api('/api/timbra/login', { pin: p, device_id: DEV, kiosk: KIOSK }, LOGIN_TIMEOUT).then(function (res) {
+        if (res.ok) {
+          rememberKnown(p, res);
+          enter(p, res);
+        } else if (res._status === 401 || res._status === 400) {
+          pinError('PIN non riconosciuto. Riprova.');
+        } else if (res._status === 429) {
+          pinError('Troppi tentativi: attendi un minuto.');
+        } else {
+          offlineLogin(p);
+        }
+      }).catch(function () { offlineLogin(p); });
+    });
   }
 
   function pinError(m) {
@@ -422,11 +457,11 @@
   }
 
   // Ricorda (in forma cifrata) i PIN già usati su questo dispositivo:
-  // così si può timbrare anche quando il Wi-Fi non c'è.
+  // così si può entrare e timbrare istantaneamente anche quando il Wi-Fi/4G non c'è o è bloccato.
   function rememberKnown(p, res) {
     sha(p).then(function (h) {
       var known = load(K_KNOWN, {});
-      known[h] = { nome: res.nome, dipartimento: res.dipartimento || '' };
+      known[h] = { nome: res.nome, dipartimento: res.dipartimento || '', admin: !!res.admin, eventi_oggi: res.eventi_oggi || [], day: today() };
       save(K_KNOWN, known);
     });
   }
@@ -435,11 +470,12 @@
     sha(p).then(function (h) {
       var k = load(K_KNOWN, {})[h];
       if (k) {
-        enter(p, { nome: k.nome, dipartimento: k.dipartimento, eventi_oggi: [], prossima: null, offline: true });
-      } else if (confirm('Non c\'è connessione e questo PIN non è ancora stato usato su questo dispositivo.\n\nVuoi timbrare comunque? La timbratura verrà salvata e verificata appena torna la rete.')) {
-        enter(p, { nome: 'PIN ' + p.replace(/./g, '•'), dipartimento: 'Verifica in attesa di rete', eventi_oggi: [], prossima: null, offline: true });
+        enter(p, { nome: k.nome, dipartimento: k.dipartimento, eventi_oggi: k.day === today() ? (k.eventi_oggi || []) : [], prossima: null, admin: !!k.admin, offline: true });
+        refresh();
       } else {
-        pin = ''; drawDots(); $('pinMsg').textContent = '';
+        // Anche se è la prima volta in assoluto e non c'è rete, fa entrare subito senza bloccare l'operatore
+        enter(p, { nome: 'PIN ' + p.replace(/./g, '•'), dipartimento: 'Sincronizzazione in attesa di rete', eventi_oggi: [], prossima: null, offline: true });
+        refresh();
       }
     });
   }
@@ -464,7 +500,11 @@
     startGps();
     resetIdle();
     if (!res.offline) { loadPermessi(true); devUi(res.dispositivo, res.dispositivo_msg); }
-    else devUi(null);
+    else {
+      var cachedPerm = load(K_PERM_CACHE + p, null);
+      if (cachedPerm) renderPermessi(cachedPerm);
+      devUi(null);
+    }
   }
 
   // Avviso "telefono non autorizzato"
@@ -535,16 +575,18 @@
 
   function renderQueue() {
     var qAll = load(K_QUEUE, []);
-    var n = qAll.length;
+    var pAll = load(K_PERM_QUEUE, []);
+    var n = qAll.length + pAll.length;
     var nb = qAll.filter(function (x) { return x.bloccata; }).length;
     var box = $('queueBox');
     if (n) {
       box.textContent = nb
         ? '⛔ ' + nb + (nb === 1 ? ' timbratura in attesa' : ' timbrature in attesa') + ' che l\'amministrazione autorizzi questo telefono. Partiranno da sole: non disinstallare l\'app.'
-        : '⏳ ' + n + (n === 1 ? ' timbratura salvata' : ' timbrature salvate') + ' su questo dispositivo: verranno inviate appena c\'è rete. Non chiudere e non disinstallare l\'app.';
+        : '⏳ ' + n + (n === 1 ? ' operazione salvata' : ' operazioni salvate') + ' sul telefono: verranno sincronizzate automaticamente appena la connessione è stabile.';
       box.classList.remove('hidden');
     } else box.classList.add('hidden');
     $('foot').textContent = 'AMR Recchia' + (KIOSK ? ' · Modalità tablet' : '') + (n ? ' · in coda: ' + n : '');
+    netUi();
   }
 
   // ── GPS ──────────────────────────────────────────────────────
@@ -744,6 +786,14 @@
     var evMin = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
     return nowMin - evMin;
   }
+  function requestBgSync() {
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      navigator.serviceWorker.ready.then(function (reg) {
+        return reg.sync.register('amr-timbra-flush');
+      }).catch(function () {});
+    }
+  }
+
   function timbra(azione) {
     if (!user || busy) return;
     if (!$('done').classList.contains('hidden')) return;
@@ -768,21 +818,37 @@
     }
     busy = true;
     var ts = Date.now();
+    var cid = uuid();
     vibrate(30);
-    showDone(azione, ts, 'Salvataggio in corso…');
-    waitFix().then(function (f) {
-      var item = {
-        client_id: uuid(), pin: user.pin, nome: user.nome, azione: azione, ts: ts,
-        lat: f ? f.lat : null, lng: f ? f.lng : null, acc: f ? f.acc : null, device_id: DEV,
-        confermata: forceConfirm
-      };
-      // 1° la salvo sul dispositivo: così NON si perde mai, anche se la rete cade
-      var q = load(K_QUEUE, []); q.push(item); save(K_QUEUE, q);
-      renderMain();
-      $('dT3').textContent = navigator.onLine ? 'Invio in corso…' : '📴 Senza rete: salvata sul dispositivo, verrà inviata da sola';
-      setTimeout(function () { busy = false; }, 1200);
-      flush();
-    });
+
+    // 1° SALVATAGGIO IMMEDIATO AL MILLISECONDO 0 SUL TELEFONO (anche prima del GPS o della rete!)
+    // Così anche se l'utente chiude subito l'app o non c'è linea, la timbratura è già al sicuro.
+    var initialFix = (fix && Date.now() - fix.t < GPS_MAX_AGE) ? fix : null;
+    var item = {
+      client_id: cid, pin: user.pin, nome: user.nome, azione: azione, ts: ts,
+      lat: initialFix ? initialFix.lat : null, lng: initialFix ? initialFix.lng : null, acc: initialFix ? initialFix.acc : null,
+      device_id: DEV, confermata: forceConfirm
+    };
+    var q = load(K_QUEUE, []); q.push(item); save(K_QUEUE, q);
+    renderMain();
+    requestBgSync();
+    showDone(azione, ts, navigator.onLine ? '✓ Salvata sul telefono · sincronizzazione…' : '📴 Salvata sul telefono: verrà inviata da sola appena torna la rete');
+    setTimeout(function () { busy = false; }, 1000);
+
+    if (initialFix) {
+      flushAll();
+    } else {
+      waitFix().then(function (f) {
+        if (f) {
+          var qNow = load(K_QUEUE, []);
+          qNow.forEach(function (x) {
+            if (x.client_id === cid && x.lat === null) { x.lat = f.lat; x.lng = f.lng; x.acc = f.acc; }
+          });
+          save(K_QUEUE, qNow);
+        }
+        flushAll();
+      });
+    }
   }
   $('bIn').addEventListener('click', function () { timbra('Entrata'); });
   $('bOut').addEventListener('click', function () { timbra('Uscita'); });
@@ -823,11 +889,14 @@
         if (user && user.pin === item.pin && res.eventi_oggi) {
           user.eventi_oggi = res.eventi_oggi; user.day = today();
           if (res.nome && user.nome.indexOf('PIN ') === 0) { user.nome = res.nome; $('nome').textContent = res.nome; $('avatar').textContent = initials(res.nome); }
-          if (!KIOSK) save(K_USER, user);
+          if (!KIOSK) {
+            save(K_USER, user);
+            rememberKnown(user.pin, { nome: user.nome, dipartimento: user.dipartimento, admin: user.admin, eventi_oggi: user.eventi_oggi });
+          }
         }
         if (user && user.pin === item.pin) devUi(res.dispositivo === 'associato' ? 'associato' : null);
         if (!$('done').classList.contains('hidden')) {
-          $('dT3').textContent = res.offline ? '✓ Registrata (inviata in ritardo per mancanza di rete)'
+          $('dT3').textContent = res.offline ? '✓ Sincronizzata (inviata al ritorno della rete)'
             : '✓ Registrata' + (res.tipo === 'Trasferta' ? ' · in trasferta' : res.tipo === 'Sede' ? ' · in sede' : '');
           if (res.luogo) $('dT3').textContent += '\n📍 ' + res.luogo.replace(/^Sede AMR · /, '');
           vibrate([40, 40, 40]);
@@ -865,9 +934,16 @@
     }).catch(function () { flushing = false; renderQueue(); });
   }
   function drop(id) { save(K_QUEUE, load(K_QUEUE, []).filter(function (x) { return x.client_id !== id; })); }
-  setInterval(flush, 20000);
+
+  // Riprova automaticamente ogni 8 secondi se ci sono dati in coda, altrimenti ogni 25 secondi
+  setInterval(function () {
+    if (pendingCount() > 0) flushAll();
+  }, 8000);
+  setInterval(function () {
+    flushAll();
+  }, 25000);
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') { flush(); if (user && !KIOSK) refresh(); }
+    if (document.visibilityState === 'visible') { flushAll(); if (user && !KIOSK) refresh(); }
   });
 
   // ── Inattività (solo tablet) ─────────────────────────────────
@@ -886,6 +962,7 @@
       if (res.ok && user && user.pin === p) {
         user.nome = res.nome; user.dipartimento = res.dipartimento || ''; user.eventi_oggi = res.eventi_oggi || []; user.day = today();
         if (!!res.admin !== !!user.admin) { user.admin = !!res.admin; setAdmin(user.admin); }
+        rememberKnown(p, res);
         loadPermessi(true);
         save(K_USER, user); $('nome').textContent = user.nome; $('dip').textContent = user.dipartimento; renderMain();
       } else if (res._status === 401) { logout(); pinError('Il tuo PIN è cambiato: inseriscilo di nuovo.'); }
@@ -909,7 +986,7 @@
   function tipoIcon(t) { t = String(t || '').toLowerCase(); return t.indexOf('ferie') === 0 ? '🌴' : t.indexOf('visita') === 0 ? '🩺' : t.indexOf('permesso') === 0 ? '🕐' : '📝'; }
   function range(o) {
     var r = (o.dal === o.al || !o.al) ? 'il ' + o.dal : 'dal ' + o.dal + ' al ' + o.al;
-    if (o.ore) r += ' · ' + (/^\d+([.,]\d+)?$/.test(o.ore) ? o.ore.replace('.', ',') + ' ore' : o.ore);
+    if (o.ore) r += ' · ' + (/^\d+([.,]\d+)?$/.test(o.ore) ? String(o.ore).replace('.', ',') + ' ore' : o.ore);
     return r;
   }
   function setBadge(id, n) { var b = $(id); b.textContent = n; b.classList.toggle('hidden', !n); }
@@ -951,20 +1028,40 @@
   function loadPermessi(silent) {
     if (!user) return;
     var p = user.pin;
-    if (!silent && !$('listaPerm').innerHTML) $('listaPerm').innerHTML = '<div class="empty">Caricamento…</div>';
+    var cached = load(K_PERM_CACHE + p, null);
+    if (cached) renderPermessi(cached);
+    else if (!silent && !$('listaPerm').innerHTML) $('listaPerm').innerHTML = '<div class="empty">Caricamento…</div>';
     permApi('lista').then(function (res) {
       if (!user || user.pin !== p) return;
-      if (!res.ok) { if (!silent) { $('listaPerm').innerHTML = ''; $('listaPerm').appendChild(el('div', 'empty', 'Impossibile caricare: ' + (res.error || 'riprova'))); } return; }
-      renderPermessi(res.richieste || []);
+      if (!res.ok) {
+        if (!silent && !cached) { $('listaPerm').innerHTML = ''; $('listaPerm').appendChild(el('div', 'empty', 'Impossibile caricare: ' + (res.error || 'riprova'))); }
+        return;
+      }
+      var list = res.richieste || [];
+      save(K_PERM_CACHE + p, list);
+      renderPermessi(list);
       if (res.admin !== undefined && !!res.admin !== !!user.admin) { user.admin = !!res.admin; setAdmin(user.admin); if (!KIOSK) save(K_USER, user); }
     }).catch(function () {
-      if (!silent) $('listaPerm').innerHTML = '<div class="empty">📴 Serve la connessione per vedere le richieste</div>';
+      if (cached) renderPermessi(cached);
+      else if (!silent) $('listaPerm').innerHTML = '<div class="empty">📴 Modalità offline: le nuove richieste verranno salvate e inviate appena torna la rete</div>';
     });
   }
 
   function renderPermessi(list) {
     var box = $('listaPerm'); box.innerHTML = '';
-    if (!list.length) box.innerHTML = '<div class="empty">Non hai ancora fatto richieste</div>';
+    var pendingPerm = load(K_PERM_QUEUE, []).filter(function (q) { return user && q.pin === user.pin; });
+    if (!list.length && !pendingPerm.length) box.innerHTML = '<div class="empty">Non hai ancora fatto richieste</div>';
+    pendingPerm.forEach(function (pq) {
+      var d = reqEl({
+        tipo: pq.tipo,
+        stato: '⏳ In coda (attesa rete)',
+        dal: itDate(pq.dal),
+        al: itDate(pq.al || pq.dal),
+        ore: pq.ore ? String(pq.ore) : '',
+        note: pq.note || ''
+      }, false);
+      box.appendChild(d);
+    });
     list.forEach(function (o) {
       var d = reqEl(o, false);
       if (stCls(o.stato) === 'att') {
@@ -986,6 +1083,38 @@
       save(key, seen); nuove = 0;
     }
     setBadge('badgePerm', nuove);
+  }
+
+  function flushPermessi() {
+    if (flushingPerm) return;
+    var pq = load(K_PERM_QUEUE, []);
+    if (!pq.length) { renderQueue(); return; }
+    flushingPerm = true;
+    var item = pq[0];
+    api('/api/timbra/permessi', {
+      pin: item.pin,
+      azione: 'richiedi',
+      tipo: item.tipo,
+      dal: item.dal,
+      al: item.al,
+      ore: item.ore,
+      note: item.note,
+      client_id: item.client_id
+    }).then(function (res) {
+      if (res.ok || (!res.retry && (res._status === 400 || res._status === 401))) {
+        save(K_PERM_QUEUE, load(K_PERM_QUEUE, []).filter(function (x) { return x.client_id !== item.client_id; }));
+        flushingPerm = false;
+        renderQueue();
+        if (user && user.pin === item.pin) loadPermessi(true);
+        flushPermessi();
+      } else {
+        flushingPerm = false;
+        renderQueue();
+      }
+    }).catch(function () {
+      flushingPerm = false;
+      renderQueue();
+    });
   }
 
   function annulla(o) {
@@ -1045,16 +1174,42 @@
       (dal === al ? 'Giorno: ' + itDate(dal) : 'Dal ' + itDate(dal) + ' al ' + itDate(al)) +
       (ore ? '\nOre: ' + String(ore).replace('.', ',') : '');
     if (!confirm('Confermi la richiesta?\n\n' + riepilogo)) return;
+    var reqItem = {
+      pin: user.pin, tipo: formTipo, dal: dal, al: al, ore: ore,
+      note: $('pNote').value.trim(), client_id: formCid, ts: Date.now()
+    };
+    function accodaPermessoOffline() {
+      var pq = load(K_PERM_QUEUE, []);
+      if (!pq.some(function (x) { return x.client_id === reqItem.client_id; })) {
+        pq.push(reqItem);
+        save(K_PERM_QUEUE, pq);
+      }
+      requestBgSync();
+      closeForm(); vibrate([40, 40, 40]);
+      renderQueue();
+      renderPermessi(load(K_PERM_CACHE + user.pin, []));
+      alert('⏳ Richiesta salvata sul telefono!\n\nAnche se in questo momento non c\'è rete stabile, l\'app la invierà da sola appena la connessione riprende.');
+    }
+    if (!navigator.onLine) {
+      accodaPermessoOffline();
+      return;
+    }
     permBusy = true; $('bInvia').disabled = true; $('bInvia').textContent = 'Invio in corso…';
-    permApi('richiedi', { tipo: formTipo, dal: dal, al: al, ore: ore, note: $('pNote').value.trim(), client_id: formCid })
+    permApi('richiedi', { tipo: reqItem.tipo, dal: reqItem.dal, al: reqItem.al, ore: reqItem.ore, note: reqItem.note, client_id: reqItem.client_id })
       .then(function (res) {
         if (res.ok) {
           closeForm(); vibrate([40, 40, 40]);
           alert('✅ Richiesta inviata!\n\nL\'amministrazione riceve subito una email.\nLa risposta la vedrai qui, in "Le mie richieste".');
           loadPermessi();
-        } else msg.textContent = res.error || 'Errore, riprova';
+        } else if (res.retry) {
+          accodaPermessoOffline();
+        } else {
+          msg.textContent = res.error || 'Errore, riprova';
+        }
       })
-      .catch(function () { msg.textContent = '📴 Nessuna connessione: la richiesta NON è stata inviata. Riprova quando c\'è rete.'; })
+      .catch(function () {
+        accodaPermessoOffline();
+      })
       .then(function () { permBusy = false; $('bInvia').disabled = false; $('bInvia').textContent = 'Invia richiesta'; });
   });
 
@@ -1219,10 +1374,16 @@
     }
   }
   renderQueue();
-  flush();
+  flushAll();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/timbra-sw.js', { scope: '/' }).catch(function () {});
+    navigator.serviceWorker.addEventListener('message', function (ev) {
+      if (ev && ev.data && ev.data.type === 'FLUSH_QUEUE') {
+        flushAll();
+        if (user && !KIOSK) refresh();
+      }
+    });
   }
 })();
 </script>
