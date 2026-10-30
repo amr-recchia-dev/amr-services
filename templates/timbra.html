@@ -548,7 +548,20 @@
 
   function prossima(list) {
     if (!list.length) return 'Entrata';
-    return list[list.length - 1].azione === 'Entrata' ? 'Uscita' : 'Entrata';
+    var last = list[list.length - 1];
+    if (last.azione === 'Uscita') {
+      var m = String(last.orario || '').match(/^(\d{1,2}):(\d{2})/);
+      if (m) {
+        var lastMin = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        var now = new Date();
+        var nowMin = now.getHours() * 60 + now.getMinutes();
+        if (lastMin >= 11 * 60 + 15 && lastMin <= 14 * 60 && nowMin >= 15 * 60) {
+          return 'Uscita';
+        }
+      }
+      return 'Entrata';
+    }
+    return 'Uscita';
   }
 
   function renderMain() {
