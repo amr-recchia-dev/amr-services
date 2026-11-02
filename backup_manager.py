@@ -389,7 +389,9 @@ def run_backup(upload_to_drive: bool = True, include_monday: bool = True) -> Dic
                     logger.warning(err_msg)
                     errors.append(err_msg)
 
-            # ── 4. Presenze Snapshot ───────────────────────────────────────────
+            # ── 4. Presenze & Fogli Excel 0501 Snapshot ────────────────────────
+            xlsx_0501_oct_file = None
+            xlsx_presenze_full_file = None
             try:
                 pres_snap = _collect_presenze_snapshot()
                 pres_file = tmp_path / f"presenze_snapshot_{ts_str}.json"
@@ -401,6 +403,36 @@ def run_backup(upload_to_drive: bool = True, include_monday: bool = True) -> Dic
                 err_msg = f"Errore snapshot Presenze: {e}"
                 logger.warning(err_msg)
                 errors.append(err_msg)
+
+            # Esporta i file Excel (.xlsx) reali del Prospetto Paghe 0501 (Ottobre + Registro Completo con tutte le tab 0501)
+            try:
+                g_tok = drive_client.get_access_token()
+                xlsx_mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                # A) File dedicato "0501 OTTOBRE 26 AMR SRL"
+                r_oct = requests.get(
+                    "https://www.googleapis.com/drive/v3/files/1V6sy22gwsy5ASCEWLnUvHKAa7k0n1aw1Jhi72YD-5HE/export",
+                    headers={"Authorization": f"Bearer {g_tok}"},
+                    params={"mimeType": xlsx_mime},
+                    timeout=45,
+                )
+                if r_oct.ok and r_oct.content:
+                    xlsx_0501_oct_file = tmp_path / f"0501_OTTOBRE_2026_AMR_SRL_{ts_str}.xlsx"
+                    xlsx_0501_oct_file.write_bytes(r_oct.content)
+                    counts["xlsx_0501_ottobre_bytes"] = len(r_oct.content)
+
+                # B) Registro Presenze Principale completo (include tab "Prospetto Paghe 0501", "0501 Ottobre 2026", "0501 Novembre 2026" e schede degli 8 dipendenti)
+                r_full = requests.get(
+                    "https://www.googleapis.com/drive/v3/files/1Uul8Juug4uIzKes4HBGHRDAOT6OhHOumuodZ0YmFg2w/export",
+                    headers={"Authorization": f"Bearer {g_tok}"},
+                    params={"mimeType": xlsx_mime},
+                    timeout=60,
+                )
+                if r_full.ok and r_full.content:
+                    xlsx_presenze_full_file = tmp_path / f"Registro_Presenze_e_0501_Completo_{ts_str}.xlsx"
+                    xlsx_presenze_full_file.write_bytes(r_full.content)
+                    counts["xlsx_presenze_completo_bytes"] = len(r_full.content)
+            except Exception as e_xlsx:
+                logger.warning("Esportazione XLSX 0501 opzionale non completata: %s", e_xlsx)
 
             # ── 5. Manifest ────────────────────────────────────────────────────
             manifest = {
@@ -446,8 +478,12 @@ def run_backup(upload_to_drive: bool = True, include_monday: bool = True) -> Dic
                     # Carica lo ZIP completo
                     drive_zip_id = drive_client.upload_file(zip_filepath, day_id, filename=zip_filename)
 
-                    # Carica anche il CSV timbrature e lo snapshot Monday leggibili direttamente da Drive
+                    # Carica anche il CSV timbrature, i file Excel 0501 e lo snapshot Monday leggibili direttamente da Drive
                     drive_client.upload_file(str(timbra_csv_file), day_id, filename=timbra_csv_file.name)
+                    if xlsx_0501_oct_file and xlsx_0501_oct_file.exists():
+                        drive_client.upload_file(str(xlsx_0501_oct_file), day_id, filename=xlsx_0501_oct_file.name)
+                    if xlsx_presenze_full_file and xlsx_presenze_full_file.exists():
+                        drive_client.upload_file(str(xlsx_presenze_full_file), day_id, filename=xlsx_presenze_full_file.name)
                     if monday_file and monday_file.exists():
                         drive_client.upload_file(str(monday_file), day_id, filename=monday_file.name)
 
