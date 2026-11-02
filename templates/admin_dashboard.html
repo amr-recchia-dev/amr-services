@@ -904,34 +904,54 @@
       withSuccessHandler: function(cb) { return makeRunner(cb, failureCb); },
       withFailureHandler: function(cb) { return makeRunner(successCb, cb); }
     };
+    var isExternalServer = window.location && window.location.hostname &&
+      window.location.hostname.indexOf('google.com') === -1 &&
+      window.location.hostname.indexOf('googleusercontent.com') === -1;
+
     METHODS.forEach(function(fn) {
       runner[fn] = function() {
         var args = Array.prototype.slice.call(arguments);
-        fetch(GAS_URL, {
-          method: 'POST',
-          credentials: 'omit',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ key: GAS_KEY, action: 'admin_rpc', fn: fn, args: args })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data && data.ok) {
-            if (successCb) successCb(data.result);
-          } else {
-            var msg = (data && (data.__rpc_error || data.error)) || 'Errore RPC';
-            if (failureCb) failureCb(msg);
-          }
-        })
-        .catch(function(err) {
-          if (_nativeRun && typeof _nativeRun[fn] === 'function') {
-            var nr = _nativeRun;
-            if (successCb) nr = nr.withSuccessHandler(successCb);
-            if (failureCb) nr = nr.withFailureHandler(failureCb);
-            nr[fn].apply(nr, args);
-          } else if (failureCb) {
-            failureCb(err ? err.toString() : 'Errore di rete');
-          }
-        });
+        var payloadStr = JSON.stringify({ key: GAS_KEY, action: 'admin_rpc', fn: fn, args: args });
+
+        function callGasDirect() {
+          return fetch(GAS_URL, {
+            method: 'POST',
+            credentials: 'omit',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: payloadStr
+          }).then(function(r) { return r.json(); });
+        }
+
+        var reqPromise = isExternalServer
+          ? fetch('/api/admin/rpc', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fn: fn, args: args })
+            }).then(function(r) {
+              if (!r.ok) return callGasDirect();
+              return r.json();
+            }).catch(function() { return callGasDirect(); })
+          : callGasDirect();
+
+        reqPromise
+          .then(function(data) {
+            if (data && data.ok) {
+              if (successCb) successCb(data.result);
+            } else {
+              var msg = (data && (data.__rpc_error || data.error)) || 'Errore RPC';
+              if (failureCb) failureCb(msg);
+            }
+          })
+          .catch(function(err) {
+            if (_nativeRun && typeof _nativeRun[fn] === 'function') {
+              var nr = _nativeRun;
+              if (successCb) nr = nr.withSuccessHandler(successCb);
+              if (failureCb) nr = nr.withFailureHandler(failureCb);
+              nr[fn].apply(nr, args);
+            } else if (failureCb) {
+              failureCb(err ? err.toString() : 'Errore di rete');
+            }
+          });
       };
     });
     return runner;

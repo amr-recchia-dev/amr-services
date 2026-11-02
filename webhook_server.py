@@ -365,10 +365,34 @@ def timbra_view():
 
 
 @app.route("/admin", methods=["GET"])
-@app.route("/dashboard", methods=["GET"])
+@app.route("/admin-presenze", methods=["GET"])
+@app.route("/gestione-presenze", methods=["GET"])
 def admin_dashboard_view():
     """Dashboard Amministrazione & Agente Revisore Pre-Paghe (immune al bug multi-account Google /u/1/)."""
     return render_template("admin_dashboard.html")
+
+
+@app.route("/api/admin/rpc", methods=["POST"])
+def api_admin_rpc():
+    """Proxy server-to-server per la Dashboard Admin: evita qualsiasi redirect/CORS verso script.google.com."""
+    import requests as _rq
+    body = request.get_json(silent=True) or {}
+    fn = str(body.get("fn", "")).strip()
+    args = body.get("args") if isinstance(body.get("args"), list) else []
+    if not fn:
+        return jsonify({"ok": False, "error": "Funzione RPC mancante"}), 400
+    payload = {
+        "key": AMR_TIMBRA_KEY,
+        "action": "admin_rpc",
+        "fn": fn,
+        "args": args,
+    }
+    try:
+        r = _rq.post(AMR_TIMBRA_URL, json=payload, timeout=90)
+        return jsonify(r.json()), 200
+    except Exception as e:
+        logger.warning(f"[ADMIN RPC] Errore proxy {fn}: {e}")
+        return jsonify({"ok": False, "error": f"Errore comunicazione: {e}"}), 503
 
 
 
