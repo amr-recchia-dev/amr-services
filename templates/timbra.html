@@ -976,8 +976,8 @@
         user.nome = res.nome; user.dipartimento = res.dipartimento || ''; user.eventi_oggi = res.eventi_oggi || []; user.day = today();
         if (!!res.admin !== !!user.admin) { user.admin = !!res.admin; setAdmin(user.admin); }
         rememberKnown(p, res);
-        loadPermessi(true);
         save(K_USER, user); $('nome').textContent = user.nome; $('dip').textContent = user.dipartimento; renderMain();
+        setTimeout(function () { if (user && user.pin === p) loadPermessi(true); }, 3500);
       } else if (res._status === 401) { logout(); pinError('Il tuo PIN è cambiato: inseriscilo di nuovo.'); }
     }).catch(function () {});
   }
@@ -1390,7 +1390,9 @@
   flushAll();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/timbra-sw.js', { scope: '/' }).catch(function () {});
+    navigator.serviceWorker.register('/timbra-sw.js', { scope: '/' }).then(function (reg) {
+      try { reg.update(); } catch (e) {}
+    }).catch(function () {});
     navigator.serviceWorker.addEventListener('message', function (ev) {
       if (ev && ev.data && ev.data.type === 'FLUSH_QUEUE') {
         flushAll();
