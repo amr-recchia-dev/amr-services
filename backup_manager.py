@@ -406,28 +406,23 @@ def run_backup(upload_to_drive: bool = True, include_monday: bool = True) -> Dic
 
             # Esporta i file Excel (.xlsx) reali del Prospetto Paghe 0501 (Ottobre + Registro Completo con tutte le tab 0501)
             try:
-                g_tok = drive_client.get_access_token()
-                xlsx_mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                # A) File dedicato "0501 OTTOBRE 26 AMR SRL"
+                xlsx_sig = b"PK\x03\x04"
+                # A) File dedicato "0501 AMR SRL" (Ottobre 2026 / mese paghe attivo)
                 r_oct = requests.get(
-                    "https://www.googleapis.com/drive/v3/files/1V6sy22gwsy5ASCEWLnUvHKAa7k0n1aw1Jhi72YD-5HE/export",
-                    headers={"Authorization": f"Bearer {g_tok}"},
-                    params={"mimeType": xlsx_mime},
+                    "https://docs.google.com/spreadsheets/d/1V6sy22gwsy5ASCEWLnUvHKAa7k0n1aw1Jhi72YD-5HE/export?format=xlsx",
                     timeout=45,
                 )
-                if r_oct.ok and r_oct.content:
+                if r_oct.ok and r_oct.content and r_oct.content[:4] == xlsx_sig:
                     xlsx_0501_oct_file = tmp_path / f"0501_OTTOBRE_2026_AMR_SRL_{ts_str}.xlsx"
                     xlsx_0501_oct_file.write_bytes(r_oct.content)
                     counts["xlsx_0501_ottobre_bytes"] = len(r_oct.content)
 
                 # B) Registro Presenze Principale completo (include tab "Prospetto Paghe 0501", "0501 Ottobre 2026", "0501 Novembre 2026" e schede degli 8 dipendenti)
                 r_full = requests.get(
-                    "https://www.googleapis.com/drive/v3/files/1Uul8Juug4uIzKes4HBGHRDAOT6OhHOumuodZ0YmFg2w/export",
-                    headers={"Authorization": f"Bearer {g_tok}"},
-                    params={"mimeType": xlsx_mime},
+                    "https://docs.google.com/spreadsheets/d/1Uul8Juug4uIzKes4HBGHRDAOT6OhHOumuodZ0YmFg2w/export?format=xlsx",
                     timeout=60,
                 )
-                if r_full.ok and r_full.content:
+                if r_full.ok and r_full.content and r_full.content[:4] == xlsx_sig:
                     xlsx_presenze_full_file = tmp_path / f"Registro_Presenze_e_0501_Completo_{ts_str}.xlsx"
                     xlsx_presenze_full_file.write_bytes(r_full.content)
                     counts["xlsx_presenze_completo_bytes"] = len(r_full.content)
