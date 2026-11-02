@@ -9,9 +9,19 @@ import os
 from typing import Dict, List, Optional, Tuple
 
 import requests
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    import pathlib as _pl
+    _ef = _pl.Path(__file__).parent / ".env"
+    if _ef.exists():
+        for _l in _ef.read_text(encoding="utf-8").splitlines():
+            _l = _l.strip()
+            if _l and not _l.startswith("#") and "=" in _l:
+                _k, _v = _l.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN", "")
@@ -171,22 +181,24 @@ def _create_or_update_on_board(board_id: str, group_id: str, item_name: str, col
     """Crea o aggiorna (anti-duplicato) un item su una specifica board Monday (COMMERCIALE o NEW COMMERCIALE)."""
     try:
         check_q = """
-        query ($board_id: [ID!]) {
-          boards(ids: $board_id) {
-            items_page(limit: 50) {
-              items {
-                id
-                name
-                column_values(ids: ["testo_mkn1sqb4"]) {
-                  text
-                }
+        query ($board_id: ID!, $item_name: String!) {
+          items_page_by_column_values(
+            limit: 25
+            board_id: $board_id
+            columns: [{ column_id: "name", column_values: [$item_name] }]
+          ) {
+            items {
+              id
+              name
+              column_values(ids: ["testo_mkn1sqb4"]) {
+                text
               }
             }
           }
         }
         """
-        existing = _graphql(check_q, {"board_id": [str(board_id)]})
-        recent_items = existing.get("boards", [{}])[0].get("items_page", {}).get("items", [])
+        existing = _graphql(check_q, {"board_id": str(board_id), "item_name": item_name.strip()})
+        recent_items = existing.get("items_page_by_column_values", {}).get("items", [])
         norm_item_name = item_name.strip().lower()
         norm_proj = (classification.nome_progetto or "").strip().lower()
 
@@ -194,7 +206,7 @@ def _create_or_update_on_board(board_id: str, group_id: str, item_name: str, col
             it_name = it.get("name", "").strip().lower()
             cols = it.get("column_values", [])
             it_proj = (cols[0].get("text") or "").strip().lower() if cols else ""
-            if it_name == norm_item_name and norm_proj and (norm_proj in it_proj or it_proj in norm_proj):
+            if it_name == norm_item_name and norm_proj and it_proj and (norm_proj in it_proj or it_proj in norm_proj):
                 logger.info(
                     "⚠️ Item per '%s' - '%s' già esistente su board %s (id: %s). Aggiorno l'item invece di duplicarlo.",
                     item_name, classification.nome_progetto, board_id, it["id"]

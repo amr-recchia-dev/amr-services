@@ -7,14 +7,43 @@ import sqlite3
 import logging
 from pathlib import Path
 
+import csv
+import io
 import os
-DB_PATH = os.getenv("DB_PATH", str(Path(__file__).parent / "processed_emails.db"))
+import shutil
+
+_BUNDLE_DB_PATH = str(Path(__file__).parent / "processed_emails.db")
+
+
+def _resolve_db_path() -> str:
+    env_path = os.getenv("DB_PATH", "").strip()
+    if env_path:
+        return env_path
+    # Se siamo su Render col disco persistente montato (/var/data), usiamo quello
+    base_dir = os.getenv("TIMBRA_LOG_DIR", "").strip() or "/var/data"
+    if os.path.isdir(base_dir) and (os.getenv("TIMBRA_LOG_DIR") or os.path.ismount(base_dir)):
+        persist_dir = os.path.join(base_dir, "timbrature")
+        os.makedirs(persist_dir, exist_ok=True)
+        return os.path.join(persist_dir, "processed_emails.db")
+    return _BUNDLE_DB_PATH
+
+
+DB_PATH = _resolve_db_path()
 logger = logging.getLogger(__name__)
 
 
 def init_db() -> None:
-    """Crea il database e le tabelle se non esistono."""
+    """Crea il database e le tabelle se non esistono, migrando eventuali record dal file locale del repository."""
+    if DB_PATH != _BUNDLE_DB_PATH and not os.path.exists(DB_PATH) and os.path.exists(_BUNDLE_DB_PATH):
+        try:
+            os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+            shutil.copy2(_BUNDLE_DB_PATH, DB_PATH)
+            logger.info("📦 Copiato database iniziale da %s a %s", _BUNDLE_DB_PATH, DB_PATH)
+        except Exception as e:
+            logger.warning("Impossibile copiare DB iniziale su disco persistente: %s", e)
+
     with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS processed_emails (
                 message_id     TEXT PRIMARY KEY,
@@ -30,6 +59,26 @@ def init_db() -> None:
             ON processed_emails (processed_at)
         """)
         conn.commit()
+
+    # Se il DB persistente esiste già e abbiamo anche il DB del bundle, uniamo eventuali record mancanti
+    if DB_PATH != _BUNDLE_DB_PATH and os.path.exists(_BUNDLE_DB_PATH):
+        try:
+            with sqlite3.connect(_BUNDLE_DB_PATH) as src_conn:
+                rows = src_conn.execute(
+                    "SELECT message_id, subject, sender, tipo, monday_item_id, processed_at FROM processed_emails"
+                ).fetchall()
+            if rows:
+                with sqlite3.connect(DB_PATH) as dst_conn:
+                    dst_conn.executemany(
+                        """INSERT OR IGNORE INTO processed_emails
+                           (message_id, subject, sender, tipo, monday_item_id, processed_at)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        rows,
+                    )
+                    dst_conn.commit()
+        except Exception as e:
+            logger.debug("Merge opzionale da bundle DB ignorato: %s", e)
+
     logger.debug("Database inizializzato: %s", DB_PATH)
 
 
@@ -70,4 +119,23 @@ def get_stats() -> dict:
             FROM processed_emails
             GROUP BY tipo
         """).fetchall()
-    return {"total": total, "by_type": dict(by_type)}
+    return {"total": total, "by_type": dict(by_type), "db_path": DB_PATH}
+
+
+def esporta_csv() -> str:
+    """Esporta l'intero storico processed_emails in formato CSV."""
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["message_id", "subject", "sender", "tipo", "monday_item_id", "processed_at"])
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            rows = conn.execute(
+                "SELECT message_id, subject, sender, tipo, monday_item_id, processed_at "
+                "FROM processed_emails ORDER BY processed_at DESC"
+            ).fetchall()
+        for r in rows:
+            writer.writerow(r)
+    except Exception as e:
+        logger.warning("Errore esportazione CSV processed_emails: %s", e)
+    return buf.getvalue()
+

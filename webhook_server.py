@@ -1208,6 +1208,91 @@ timbra_loc_thread = threading.Thread(
 timbra_loc_thread.start()
 
 
+# ── Backup Automatico Multi-Destinazione (Ogni 4 Ore) ───────────────────────
+
+def _backup_auth_ok() -> bool:
+    """Verifica autorizzazione per gli endpoint di backup (PIN Admin, WEBHOOK_SECRET o AMR_TIMBRA_KEY)."""
+    import hmac
+    body = request.get_json(silent=True) or {} if request.is_json else {}
+    pin = str(
+        request.args.get("pin")
+        or request.headers.get("X-AMR-PIN")
+        or body.get("pin")
+        or ""
+    ).strip()
+    if pin in _TIMBRA_ADMIN_PINS:
+        return True
+    secret = str(
+        request.headers.get("X-Admin-Secret")
+        or request.headers.get("X-Backup-Key")
+        or request.args.get("secret")
+        or request.args.get("key")
+        or body.get("key")
+        or ""
+    ).strip()
+    if _admin_secret_ok(secret):
+        return True
+    if AMR_TIMBRA_KEY and secret and hmac.compare_digest(secret, AMR_TIMBRA_KEY):
+        return True
+    return False
+
+
+@app.route("/api/backup/status", methods=["GET", "POST"])
+def api_backup_status():
+    """Restituisce lo stato dell'ultimo backup e la lista degli archivi recenti."""
+    if not _backup_auth_ok():
+        return jsonify({"ok": False, "error": "Accesso riservato all'amministrazione"}), 403
+    import backup_manager
+    return jsonify({"ok": True, **backup_manager.get_status()}), 200
+
+
+@app.route("/api/backup/run", methods=["POST"])
+def api_backup_run():
+    """Avvia immediatamente un backup completo (disco + Google Drive amrrecchia2@gmail.com)."""
+    if not _backup_auth_ok():
+        return jsonify({"ok": False, "error": "Accesso riservato all'amministrazione"}), 403
+    import backup_manager
+    body = request.get_json(silent=True) or {} if request.is_json else {}
+    include_monday = body.get("include_monday", True)
+    upload_drive = body.get("upload_to_drive", True)
+    res = backup_manager.run_backup(upload_to_drive=bool(upload_drive), include_monday=bool(include_monday))
+    return jsonify(res), (200 if res.get("ok") else 409)
+
+
+@app.route("/api/backup/download", methods=["GET", "POST"])
+def api_backup_download():
+    """Scarica l'ultimo archivio ZIP completo di backup (usato anche dal server secondario Hetzner)."""
+    if not _backup_auth_ok():
+        return jsonify({"ok": False, "error": "Accesso riservato all'amministrazione"}), 403
+    from flask import send_file
+    import backup_manager
+    latest_zip = backup_manager.get_latest_archive_path()
+    if not latest_zip or not os.path.exists(latest_zip):
+        # Se non esiste ancora uno zip, creane uno veloce senza Monday se richiesto o completo
+        res = backup_manager.run_backup(upload_to_drive=False, include_monday=False)
+        latest_zip = res.get("archive_path")
+    if not latest_zip or not os.path.exists(latest_zip):
+        return jsonify({"ok": False, "error": "Nessun archivio di backup disponibile"}), 404
+    return send_file(
+        latest_zip,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=os.path.basename(latest_zip),
+    )
+
+
+try:
+    import backup_manager as _bm
+    backup_thread = threading.Thread(
+        target=_bm.start_backup_loop,
+        daemon=True,
+        name="backup-4h-loop",
+    )
+    backup_thread.start()
+except Exception as _bkp_err:
+    logger.error(f"❌ Impossibile avviare thread backup automatico: {_bkp_err}")
+
+
 if __name__ == "__main__":
     port = int(os.getenv("WEBHOOK_PORT", 8080))
     logger.info("=" * 55)
@@ -1224,3 +1309,4 @@ if __name__ == "__main__":
     logger.info("   Poi copia l'URL https:// nel webhook di Monday.com")
     logger.info("")
     app.run(host="0.0.0.0", port=port, debug=False)
+

@@ -10,9 +10,11 @@ import time
 import logging
 import requests
 from pathlib import Path
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 logger = logging.getLogger("drive_client")
 
 # === Configurazione ===
@@ -94,7 +96,7 @@ _token_cache = {"access_token": None, "expires_at": 0}
 def get_access_token() -> str:
     """
     Ritorna un access token valido per Google Drive.
-    Strategia (compatibile Mac locale + Railway cloud):
+    Strategia (compatibile Mac locale + Render/Railway cloud):
     1. Usa cache in-memory se non scaduta
     2. Prova da GOOGLE_REFRESH_TOKEN (env var) → rinnova via API
     3. Prova da drive_token.json locale → rinnova se scaduto
@@ -105,7 +107,7 @@ def get_access_token() -> str:
     if _token_cache["access_token"] and time.time() < _token_cache["expires_at"] - 300:
         return _token_cache["access_token"]
 
-    # 2. Ottieni refresh_token: env var ha priorità (Railway), poi file locale
+    # 2. Ottieni refresh_token: env var ha priorità, poi file locale
     refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN", "")
     if not refresh_token:
         token_file = _load_token()
@@ -115,8 +117,7 @@ def get_access_token() -> str:
     if not refresh_token:
         raise DriveAuthRequired(
             "GOOGLE_REFRESH_TOKEN non configurato. "
-            "Su Railway: aggiungi la variabile d'ambiente GOOGLE_REFRESH_TOKEN. "
-            "In locale: esegui python3 setup_drive_oauth.py"
+            "Aggiungi GOOGLE_REFRESH_TOKEN nelle variabili d'ambiente o esegui setup_drive_oauth.py"
         )
 
     # 3. Rinnova l'access token

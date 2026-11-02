@@ -21,9 +21,19 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Tuple
 
 import requests
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    import pathlib as _pl
+    _ef = _pl.Path(__file__).parent / ".env"
+    if _ef.exists():
+        for _l in _ef.read_text(encoding="utf-8").splitlines():
+            _l = _l.strip()
+            if _l and not _l.startswith("#") and "=" in _l:
+                _k, _v = _l.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN", "")
@@ -504,16 +514,59 @@ def _search_by_order_ref(ref: str) -> MatchResult:
     return MatchResult(found=False)
 
 
-def _search_by_client_name(client_name: str, varianti: List[str], nome_progetto: str = "") -> MatchResult:
-    """
-    Cerca per nome cliente con fuzzy matching su entrambe le board.
-    Considera anche le varianti del nome trovate nell'email, il file client_patterns.json,
-    il nome progetto per disambiguare e la knowledge base clienti.
+# Parole generiche che NON identificano uno specifico progetto
+_PROJECT_STOPWORDS = {
+    "preventivo", "richiesta", "offerta", "quotazione", "stima", "costi", "costo",
+    "ordine", "acquisto", "conferma", "modifica", "aggiornamento", "variazione",
+    "realizzazione", "fattibilita", "fattibilità", "verifica", "campionatura",
+    "polistirolo", "eps", "resina", "stampa", "taglio", "fresa", "cnc", "3d",
+    "elementi", "elemento", "pezzi", "pezzo", "scritta", "scritte", "logo", "loghi",
+    "cliente", "progetto", "commessa", "fornitura", "produzione", "allestimento",
+    "urgente", "nuova", "nuovo", "info", "informazioni", "disponibilita", "disponibilità",
+    "per", "del", "della", "dei", "degli", "delle", "con", "senza", "sul", "sulla",
+    "nel", "nella", "alla", "alle", "agli", "dal", "dalla", "tra", "fra", "che",
+    "non", "piu", "più", "anche", "come", "sono", "siamo", "buongiorno", "salve",
+    "gentile", "cortese", "attenzione", "spett", "srl", "srls", "spa", "snc", "sas",
+    "re", "fw", "fwd", "rif", "vs", "ns", "oda", "po", "amr", "recchia",
+}
 
-    Restituisce:
-    - found=True, ambiguous=False → candidato individuato o selezionato il più recente
-    - found=True, ambiguous=True  → ambiguità reale tra clienti diversi
-    - found=False                 → nessun candidato sopra la soglia
+
+def _extract_specific_project_tokens(text: str, client_names: List[str]) -> set:
+    """
+    Estrae i token specifici che identificano un progetto, escludendo:
+    - parole corte (< 3 caratteri, a meno che non siano codici alfanumerici con cifre)
+    - stopwords generiche di preventivi/lavorazioni
+    - parole che fanno parte del nome stesso del cliente
+    """
+    client_tokens = set()
+    for cn in client_names:
+        client_tokens.update(_normalize_text(cn).split())
+
+    raw_tokens = _normalize_text(text).split()
+    specific = set()
+    for t in raw_tokens:
+        if t in _PROJECT_STOPWORDS or t in client_tokens:
+            continue
+        if len(t) >= 3 or (len(t) >= 2 and any(ch.isdigit() for ch in t)):
+            specific.add(t)
+    return specific
+
+
+def _search_by_client_name(
+    client_name: str,
+    varianti: List[str],
+    nome_progetto: str = "",
+    email_subject: str = "",
+    tipo: str = "",
+) -> MatchResult:
+    """
+    Cerca per nome cliente + corrispondenza progetto su entrambe le board.
+    IMPORTANTE: In Monday ogni riga commerciale rappresenta uno specifico progetto/preventivo,
+    mentre il nome dell'item è il nome dell'azienda cliente.
+    Pertanto, se un cliente storico (es. Posterland, Xpose Forpress, Grafiche Antiga, Moncler)
+    invia una richiesta per un NUOVO progetto che non condivide parole chiave specifiche
+    con i progetti già aperti per quel cliente, restituisce MatchResult(found=False)
+    così viene creata una NUOVA riga visibile su COMMERCIALE e NEW COMMERCIALE.
     """
     if not client_name:
         return MatchResult(found=False)
@@ -557,9 +610,10 @@ def _search_by_client_name(client_name: str, varianti: List[str], nome_progetto:
                 # Estrai eventuale nome progetto dall'item
                 proj_col = ""
                 for cv in item.get("column_values", []):
-                    if cv.get("id") in ("testo_mkn1sqb4", "text_mm51yk45"):
-                        proj_col = (cv.get("text") or "").strip()
-                        break
+                    if cv.get("id") in ("testo_mkn1sqb4", "text_mm51yk45", "lookup_mknz7srg"):
+                        val_txt = (cv.get("text") or "").strip()
+                        if val_txt:
+                            proj_col = (proj_col + " " + val_txt).strip()
 
                 candidates.append({
                     "id": item["id"],
@@ -576,85 +630,81 @@ def _search_by_client_name(client_name: str, varianti: List[str], nome_progetto:
         )
         return MatchResult(found=False)
 
-    # Ordina per score decrescente e poi per ID decrescente (più recente)
-    candidates.sort(key=lambda x: (x["score"], int(x["id"]) if x["id"].isdigit() else 0), reverse=True)
-    best = candidates[0]
+    # Verifica se il progetto dell'email corrisponde davvero a uno dei progetti esistenti del cliente
+    incoming_proj_text = f"{nome_progetto} {email_subject}".strip()
+    incoming_tokens = _extract_specific_project_tokens(incoming_proj_text, search_names)
+    subj_lower = (email_subject or "").strip().lower()
+    is_reply = subj_lower.startswith(("re:", "r:", "aw:")) or "re:" in subj_lower[:15]
 
-    high_score_candidates = [c for c in candidates if c["score"] >= 0.75]
+    best_proj_match = None
+    max_common = 0
+    best_overlap_ratio = 0.0
 
-    # Se ci sono più candidati dello stesso cliente:
-    if len(high_score_candidates) > 1:
-        # 1. Prova a disambiguare tramite parole chiave del nome progetto
-        if nome_progetto:
-            proj_tokens = set(_normalize_text(nome_progetto).split())
-            best_proj_match = None
-            max_common = 0
-            for c in high_score_candidates:
-                cand_tokens = set(_normalize_text(c.get("project", "") + " " + c["name"]).split())
-                common = len(proj_tokens & cand_tokens)
-                if common > max_common:
-                    max_common = common
-                    best_proj_match = c
-            if best_proj_match and max_common >= 1:
-                logger.info(
-                    "🎯 Disambiguazione riuscita tramite progetto ('%s') → item '%s' (id: %s)",
-                    nome_progetto, best_proj_match["name"], best_proj_match["id"]
-                )
-                return MatchResult(
-                    found=True,
-                    item_id=best_proj_match["id"],
-                    item_name=best_proj_match["name"],
-                    board_id=best_proj_match["board_id"],
-                    confidence=best_proj_match["score"],
-                    ambiguous=False,
-                    candidates=high_score_candidates,
-                )
+    for c in candidates:
+        cand_tokens = _extract_specific_project_tokens(
+            f"{c.get('project', '')} {c['name']}",
+            search_names,
+        )
+        if not cand_tokens or not incoming_tokens:
+            continue
+        common_tokens = incoming_tokens & cand_tokens
+        common = len(common_tokens)
+        overlap_ratio = common / max(1, min(len(incoming_tokens), len(cand_tokens)))
+        if (common, overlap_ratio) > (max_common, best_overlap_ratio):
+            max_common = common
+            best_overlap_ratio = overlap_ratio
+            best_proj_match = c
 
-        # 2. Se tutti i candidati si riferiscono allo stesso cliente (es. MLM Consulting duplicato):
-        # Seleziona l'item più recente senza creare una nuova commessa fittizia
-        names_in_candidates = {c["name"].lower().strip() for c in high_score_candidates}
-        if len(names_in_candidates) <= 2:
-            # Ordina per ID decrescente (il più recente su Monday)
-            high_score_candidates.sort(key=lambda x: int(x["id"]) if x["id"].isdigit() else 0, reverse=True)
-            chosen = high_score_candidates[0]
+    # Regola anti-occultamento:
+    # 1) Se l'email ha parole specifiche di progetto e NESSUNA coincide con le righe esistenti del cliente
+    #    → è un NUOVO PROGETTO di un cliente già noto! Creiamo una nuova riga (found=False).
+    if incoming_tokens:
+        min_required_common = 1 if is_reply else (1 if len(incoming_tokens) == 1 else 2)
+        if best_proj_match and (max_common >= min_required_common or best_overlap_ratio >= 0.6):
             logger.info(
-                "🎯 Client con più item esistenti: selezionato il più recente '%s' (id: %s) evitando duplicati",
-                chosen["name"], chosen["id"]
+                "🎯 Match cliente+progetto confermato ('%s' / '%s', %d token specifici in comune) → item '%s' (id: %s)",
+                client_name, nome_progetto, max_common, best_proj_match["name"], best_proj_match["id"]
             )
             return MatchResult(
                 found=True,
-                item_id=chosen["id"],
-                item_name=chosen["name"],
-                board_id=chosen["board_id"],
-                confidence=chosen["score"],
+                item_id=best_proj_match["id"],
+                item_name=best_proj_match["name"],
+                board_id=best_proj_match["board_id"],
+                confidence=best_proj_match["score"],
                 ambiguous=False,
-                candidates=high_score_candidates,
+                candidates=candidates,
             )
+        else:
+            logger.info(
+                "🆕 Cliente '%s' già presente su Monday (%d righe), ma il progetto '%s' è NUOVO "
+                "(token specifici: %s, max in comune: %d) → creo NUOVA RIGA!",
+                client_name, len(candidates), nome_progetto, sorted(incoming_tokens), max_common
+            )
+            return MatchResult(found=False)
 
-        logger.warning(
-            "⚠️ Match ambiguo per '%s': %d candidati distinti (best score: %.2f)",
-            client_name, len(high_score_candidates), best["score"]
+    # 2) Se l'email non ha alcun token specifico di progetto:
+    #    - Se è un nuovo preventivo / nuova richiesta / nuovo ordine → crea comunque nuova riga
+    #    - Se è una risposta (Re:/R:) o un aggiornamento generico → aggiorna l'item più recente del cliente
+    if tipo in ("preventivo", "nuova_richiesta", "ordine") and not is_reply:
+        logger.info(
+            "🆕 Nuova richiesta/preventivo per '%s' senza progetto specifico preesistente → creo NUOVA RIGA",
+            client_name
         )
-        return MatchResult(
-            found=True,
-            item_id=best["id"],
-            item_name=best["name"],
-            board_id=best["board_id"],
-            confidence=best["score"],
-            ambiguous=True,
-            candidates=high_score_candidates,
-        )
+        return MatchResult(found=False)
 
+    # Ordina per ID decrescente (il più recente su Monday) per aggiornamenti generici senza progetto
+    candidates.sort(key=lambda x: int(x["id"]) if x["id"].isdigit() else 0, reverse=True)
+    chosen = candidates[0]
     logger.info(
-        "✅ Match fuzzy per '%s' → item '%s' (id: %s, score: %.2f, board: %s)",
-        client_name, best["name"], best["id"], best["score"], best["board_id"]
+        "✅ Aggiornamento su cliente esistente '%s' → selezionato item più recente '%s' (id: %s, board: %s)",
+        client_name, chosen["name"], chosen["id"], chosen["board_id"]
     )
     return MatchResult(
         found=True,
-        item_id=best["id"],
-        item_name=best["name"],
-        board_id=best["board_id"],
-        confidence=best["score"],
+        item_id=chosen["id"],
+        item_name=chosen["name"],
+        board_id=chosen["board_id"],
+        confidence=chosen["score"],
         ambiguous=False,
         candidates=candidates,
     )
@@ -662,17 +712,18 @@ def _search_by_client_name(client_name: str, varianti: List[str], nome_progetto:
 
 # ── API pubblica ───────────────────────────────────────────────────────────────
 
-def find_commessa(classification) -> MatchResult:
+def find_commessa(classification, email_subject: str = "") -> MatchResult:
     """
     Entry point principale: cerca la commessa su entrambe le board Monday.com.
 
     Strategia:
     1. Numero ordine/commessa (se presente) → match esatto
-    2. Nome cliente fuzzy matching
+    2. Nome cliente + verifica stesso progetto
 
     Args:
         classification: ClassificationResult con i campi azienda,
                         riferimento_ordine e cliente_varianti.
+        email_subject:  Oggetto originale dell'email (opzionale, aiuta a capire se è Re:/R: o nuovo progetto).
 
     Returns:
         MatchResult con l'esito della ricerca.
@@ -685,12 +736,22 @@ def find_commessa(classification) -> MatchResult:
         if result.found:
             return result
 
-    # Strategia 2: fuzzy match per nome cliente con supporto al nome progetto
+    # Strategia 2: fuzzy match per nome cliente + corrispondenza progetto
     client_name = getattr(classification, "azienda", "") or ""
     varianti = getattr(classification, "cliente_varianti", []) or []
     nome_progetto = getattr(classification, "nome_progetto", "") or ""
-    logger.info("🔍 Ricerca fuzzy per cliente: '%s' (progetto: '%s', varianti: %s)", client_name, nome_progetto, varianti)
-    result = _search_by_client_name(client_name, varianti, nome_progetto=nome_progetto)
+    tipo = getattr(classification, "tipo", "") or ""
+    logger.info(
+        "🔍 Ricerca per cliente: '%s' (progetto: '%s', tipo: '%s', varianti: %s)",
+        client_name, nome_progetto, tipo, varianti
+    )
+    result = _search_by_client_name(
+        client_name,
+        varianti,
+        nome_progetto=nome_progetto,
+        email_subject=email_subject,
+        tipo=tipo,
+    )
     return result
 
 

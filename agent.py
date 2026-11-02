@@ -142,7 +142,7 @@ def run_once(dry_run: bool = False) -> None:
             monday_item_id = None
             if not dry_run:
                 # ── Cerca commessa esistente su Monday.com ─────────────────
-                match = find_commessa(result)
+                match = find_commessa(result, email_subject=email_obj.subject)
 
                 if match.found and not match.ambiguous:
                     # Aggiorna commessa esistente con un nuovo update

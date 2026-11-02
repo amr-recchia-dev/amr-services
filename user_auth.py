@@ -12,9 +12,11 @@ del foglio presenze) e i permessi di accesso per le schede Monday:
 
 from __future__ import annotations
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Master fallback PIN
 AMR_MASTER_PIN = os.getenv("AMR_ACCESS_PIN", "2026")

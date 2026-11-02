@@ -11,9 +11,19 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 import requests
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    import pathlib as _pl
+    _ef = _pl.Path(__file__).parent / ".env"
+    if _ef.exists():
+        for _l in _ef.read_text(encoding="utf-8").splitlines():
+            _l = _l.strip()
+            if _l and not _l.startswith("#") and "=" in _l:
+                _k, _v = _l.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -113,28 +123,42 @@ TIPI DI EMAIL DA INSERIRE IN MONDAY.COM (is_relevant = true):
    richiesta di appuntamento, invio documenti (DDT, fatture da clienti), ecc.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CASO SPECIALE — EMAIL INOLTRATE DA CASELLE INTERNE (@amrrecchia.it):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Spesso i clienti scrivono a info@amrrecchia.it, amministrazione@amrrecchia.it o produzione@amrrecchia.it
+e i colleghi INOLTRANO ("Fwd:", "I:", "Inizio messaggio inoltrato", "---------- Forwarded message")
+l'email a ordini@amrrecchia.it.
+- NON classificare MAI come spam un'email inoltrata da @amrrecchia.it se contiene la richiesta di un cliente!
+- Estrai SEMPRE dal corpo del messaggio inoltrato i dati del CLIENTE ORIGINALE:
+  * "azienda": nome dell'azienda del cliente originale (MAI "AMR Recchia")
+  * "referente": nome della persona del cliente originale che ha scritto l'email
+  * "email_mittente": indirizzo email del cliente originale presente nel testo inoltrato ("Da:", "From:")
+  * "nome_progetto": oggetto/progetto richiesto dal cliente originale
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TIPI DA IGNORARE (is_relevant = false, tipo = "spam"):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Newsletter e comunicazioni promozionali (fornitori che pubblicizzano i loro prodotti ad AMR)
 - Email automatiche di sistema: bounce, conferme invio, notifiche server (NON del sito AMR)
 - Out-of-office e risposte automatiche di caselle email
-- Fatture, pagamenti, comunicazioni da banche/assicurazioni/utility
-- Email interne AMR (mittente @amrrecchia.it)
+- Fatture passive di fornitori, pagamenti bancari, comunicazioni da banche/assicurazioni/utility
+- Comunicazioni puramente interne tra colleghi @amrrecchia.it che NON riguardano né inoltrano richieste/ordini di clienti
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGOLA FONDAMENTALE — IN CASO DI DUBBIO:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Se l'email viene da un cliente (o potenziale tale) e riguarda prodotti/servizi AMR,
+Se l'email viene da un cliente (o potenziale tale, anche se inoltrata da @amrrecchia.it) e riguarda prodotti/servizi AMR,
 classificala come rilevante. Meglio un falso positivo che perdere un'opportunità commerciale.
 Solo le email chiaramente irrilevanti (spam, fornitori, notifiche di sistema) vanno ignorate.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ISTRUZIONI PER L'ESTRAZIONE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- "azienda": nome dell'azienda CLIENTE (non AMR Recchia). Se privato, usa nome+cognome.
+- "azienda": nome dell'azienda CLIENTE (MAI AMR Recchia). Se privato, usa nome+cognome del cliente.
 - "nome_progetto": descrizione concreta del prodotto/progetto (es. "Totem EPS 3m Fiera Milano",
   "Lettere 3D per inaugurazione", "Campionatura materiale EPS")
-- "referente": nome e cognome della persona che scrive (per notifiche sito, il cliente nel form)
+- "referente": nome e cognome della persona del cliente che scrive (per notifiche sito o inoltri, il cliente originale)
+- "email_mittente": indirizzo email del cliente (se l'email è un inoltro da @amrrecchia.it o form sito, usa l'email del cliente estratta dal corpo!)
 - "riferimento_ordine": QUALSIASI codice/numero che identifica un ordine o commessa
   (es. "ODA-234", "Vs. rif. 45", "n. commessa 1023", "PO#7789", "ordine del 12/06").
   Se non presente, usa null.
@@ -151,11 +175,9 @@ RISPONDI SEMPRE E SOLO con un JSON valido:
   "cliente_varianti": ["NomeBreve", "Ragione Sociale Completa"],
   "nome_progetto": "Descrizione concreta del prodotto/progetto",
   "referente": "Nome Cognome referente",
-  "email_mittente": "email@mittente.com",
+  "email_mittente": "email@cliente.com",
   "note": "Sintesi dettagliata del contenuto in italiano"
-- "cliente_varianti": Lista di tutti i nomi/abbreviazioni con cui il cliente si riferisce a sé stesso
-  nell'email (es. sigla, nome completo, ragione sociale, nome commerciale).
-  Se ne trovi solo uno, metti quello in lista. Se nessuno, lista vuota []."""
+}"""
 
 
 
