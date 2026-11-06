@@ -110,10 +110,19 @@ AUTH_USERS = {
         "pin": "4682",
         "name": "Maurizio Nordio",
         "email": "produzione@amrrecchia.it",
-        "department": "Produzione / Finiture",
+        "department": "Capo Produzione",
         "is_commercial": False,
         "monday_id": "71533503",
-        "label": "Produzione & Finiture"
+        "label": "Capo Produzione"
+    },
+    "3901": {
+        "pin": "3901",
+        "name": "3D Team AMR",
+        "email": "3d@amrrecchia.it",
+        "department": "Progettazione 3D",
+        "is_commercial": False,
+        "monday_id": "71533963",
+        "label": "Disegnatore 3D / CAD (Andrea Marchetto)"
     },
     "1537": {
         "pin": "1537",
@@ -161,10 +170,14 @@ BOARD_PALLET_EPS = "1986638981"
 
 BOARD_TAGLIO = "5086546323"
 BOARD_FINITURE = "5088215890"
+BOARD_NEW_COMMERCIALE = "2133436509"
+BOARD_GESTIONE_PROGETTI_NEW = "2136092569"
+BOARD_PROGETTAZIONE_NEW = "5089194104"
 
 # Schede riservate che richiedono autorizzazione commerciale/direzione
 RESTRICTED_BOARDS = {
     BOARD_COMMERCIALE: "COMMERCIALE",
+    BOARD_NEW_COMMERCIALE: "NEW COMMERCIALE",
     BOARD_AMMINISTRAZIONE: "AMMINISTRAZIONE",
     BOARD_APPUNTAMENTI: "APPUNTAMENTI"
 }
