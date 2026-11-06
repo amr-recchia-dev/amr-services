@@ -1319,6 +1319,41 @@ except Exception as _bkp_err:
     logger.error(f"❌ Impossibile avviare thread backup automatico: {_bkp_err}")
 
 
+# ── Sentinella Automatica Anomalie Timbrature & Permessi ─────────────────────
+
+@app.route("/api/sentinella/status", methods=["GET", "POST"])
+def api_sentinella_status():
+    """Restituisce lo stato della Sentinella Anomalie e la lista delle anomalie attive/notificate."""
+    if not _backup_auth_ok():
+        return jsonify({"ok": False, "error": "Accesso riservato all'amministrazione"}), 403
+    import sentinella_anomalie
+    return jsonify({"ok": True, **sentinella_anomalie.get_status()}), 200
+
+
+@app.route("/api/sentinella/run", methods=["GET", "POST"])
+def api_sentinella_run():
+    """Esegue immediatamente un controllo della Sentinella Anomalie (force=true per forzare invio email)."""
+    if not _backup_auth_ok():
+        return jsonify({"ok": False, "error": "Accesso riservato all'amministrazione"}), 403
+    import sentinella_anomalie
+    body = request.get_json(silent=True) or {} if request.is_json else {}
+    force = str(request.args.get("force") or body.get("force") or "").lower() in ("1", "true", "yes")
+    res = sentinella_anomalie.run_check(force_send=force)
+    return jsonify(res), (200 if res.get("ok") else 500)
+
+
+try:
+    import sentinella_anomalie as _sa
+    sentinella_thread = threading.Thread(
+        target=_sa.start_sentinella_loop,
+        daemon=True,
+        name="sentinella-anomalie-loop",
+    )
+    sentinella_thread.start()
+except Exception as _sa_err:
+    logger.error(f"❌ Impossibile avviare thread sentinella anomalie: {_sa_err}")
+
+
 if __name__ == "__main__":
     port = int(os.getenv("WEBHOOK_PORT", 8080))
     logger.info("=" * 55)
