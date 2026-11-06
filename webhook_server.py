@@ -1048,15 +1048,41 @@ def webhook_status_change():
 
     logger.info(f"📥 Ricevuto cambio stato Monday: Board {board_id}, Item #{item_id}, Colonna {column_id} -> '{label}'")
     
-    # 1. Se l'evento proviene da GESTIONE PROGETTI NEW (2136092569) o NEW COMMERCIALE (2133436509) -> Inoltro a schede Reparto (Taglio / Finiture / Progettazione)
-    if board_id in ("2136092569", "2133436509"):
-        logger.info(f"⚙️ Evento da Board {board_id}: avvio sincronizzazione con reparti per #{item_id}...")
-        dept_res = department_syncer.sync_project_to_departments(item_id)
-        return jsonify({"status": "processed", "type": "department_sync", "result": dept_res}), 200
+    # 1. Se l'evento proviene da NEW COMMERCIALE (2133436509) -> Se Preventivo Accettato = SI, allinea GESTIONE PROGETTI NEW e i Reparti
+    if board_id == "2133436509":
+        def _sync_from_new_comm(cid: str):
+            import onboard_project
+            try:
+                onboard_project.onboard_item(cid)
+            except Exception as err:
+                logger.error(f"❌ [NEW COMMERCIALE -> GP NEW] Errore sync item #{cid}: {err}", exc_info=True)
 
-    # 2. Se l'evento proviene da TAGLIO E FRESA (5086546323) o FINITURE (5088215890) -> Tracciamento Tempo Lavorativo
+        threading.Thread(target=_sync_from_new_comm, args=(item_id,), daemon=True, name=f"comm-sync-{item_id}").start()
+        return jsonify({"status": "accepted", "type": "commercial_to_gp_and_departments", "item_id": item_id}), 200
+
+    # 2. Se l'evento proviene da GESTIONE PROGETTI NEW (2136092569) -> Inoltro/Aggiornamento schede Reparto (Taglio / Finiture / Progettazione)
+    if board_id == "2136092569":
+        def _sync_from_gp_new(pid: str):
+            try:
+                department_syncer.sync_project_to_departments(pid)
+            except Exception as err:
+                logger.error(f"❌ [GP NEW -> REPARTI] Errore sync item #{pid}: {err}", exc_info=True)
+
+        threading.Thread(target=_sync_from_gp_new, args=(item_id,), daemon=True, name=f"gp-sync-{item_id}").start()
+        return jsonify({"status": "accepted", "type": "department_sync", "item_id": item_id}), 200
+
+    # 3. Se l'evento proviene da TAGLIO E FRESA (5086546323), FINITURE (5088215890) o PROGETTAZIONE NEW (5089194104)
+    #    -> Tracciamento Tempo Lavorativo + Ritorno avanzamento/file verso GESTIONE PROGETTI NEW
     res = step_time_tracker.handle_status_change(board_id, item_id, column_id, label)
-    return jsonify({"status": "processed", "type": "step_time_tracking", "result": res}), 200
+
+    def _sync_back_to_gp(bid: str, did: str, cid: str, lbl: str):
+        try:
+            department_syncer.sync_department_progress_to_gp_new(bid, did, cid, lbl)
+        except Exception as err:
+            logger.error(f"❌ [REPARTI -> GP NEW] Errore sync ritorno #{did}: {err}", exc_info=True)
+
+    threading.Thread(target=_sync_back_to_gp, args=(board_id, item_id, column_id, label), daemon=True, name=f"dept-back-{item_id}").start()
+    return jsonify({"status": "processed", "type": "step_time_tracking_and_gp_feedback", "result": res}), 200
 
 
 @app.route("/api/night-guardian/status", methods=["GET"])
