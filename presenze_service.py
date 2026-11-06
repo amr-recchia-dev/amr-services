@@ -315,7 +315,13 @@ def calculate_employee_report(pin: str, target_month_str: str = None) -> dict:
         ok_sessions = [s for s in sessions if s["status"] == "OK"]
         pausa_auto = False
         if d >= datetime.date(2026, 10, 1) and d.weekday() < 5 and (d.month, d.day) not in {(1,1),(1,6),(4,25),(5,1),(6,2),(8,15),(11,1),(12,8),(12,25),(12,26)}:
-            if len(ok_sessions) == 1:
+            has_open = any(s["status"] in ("IN_CORSO", "USCITA_MANCANTE") for s in sessions)
+            if len(ok_sessions) == 1 and not has_open:
+                s0 = ok_sessions[0]
+                in_m = parse_time_to_minutes(s0["in"]) if s0.get("in") else 0
+                out_m = parse_time_to_minutes(s0["out"]) if s0.get("out") else 0
+                solo_mattina_o_pomeriggio = (out_m <= 13 * 60 + 30) or (in_m >= 12 * 60)
+                is_flessibile = "moscon" in emp_name.lower()
                 has_rett = any(len(r) > 11 and "rettifica" in r[11].lower() for r in d_rows)
                 has_perm = False
                 if perm_rows and len(perm_rows) > 1:
@@ -326,7 +332,7 @@ def calculate_employee_report(pin: str, target_month_str: str = None) -> dict:
                             if ps and pe and ps <= d <= pe:
                                 has_perm = True
                                 break
-                if not ((has_perm or has_rett) and day_mins <= 330):
+                if not solo_mattina_o_pomeriggio and not ((has_perm or has_rett or is_flessibile) and day_mins <= 390):
                     day_mins = max(0.0, day_mins - 60.0)
                     pausa_auto = True
 
