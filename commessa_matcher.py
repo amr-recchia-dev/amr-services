@@ -854,28 +854,20 @@ def add_email_update(
     attachments: Optional[List[Tuple[str, bytes]]] = None,
 ) -> bool:
     """
-    Aggiunge un update/commento all'item esistente con i dettagli dell'email ricevuta.
-    Include DEDUPLICAZIONE RIGOROSA: se un commento per questa email o sintesi esiste già,
-    non viene reinserito.
-
-    Args:
-        item_id:        ID dell'item Monday.com da aggiornare
-        board_id:       ID della board di appartenenza
-        classification: ClassificationResult con i dati estratti dall'email
-        email_subject:  Oggetto originale dell'email
-
-    Returns:
-        True se l'update è stato aggiunto con successo (o già presente), False in caso di errore.
+    Aggiorna le colonne (Testo lungo / Richiesta + Disegno allegati) dell'item esistente
+    senza chiamare create_update("Email ricevuta..."), così Monday.com non invia
+    un'email ridondante di notifica a ordini@amrrecchia.it.
     """
     try:
-        # ── 1. Deduplicazione: verifica commenti già presenti su Monday.com ──
+        from monday_client import _append_note_to_column, upload_attachments_to_item
+
         check_query = """
         query ($item_id: [ID!]) {
           items(ids: $item_id) {
             name
-            updates(limit: 25) {
+            column_values(ids: ["testo_lungo_mkn1ydyz"]) {
               id
-              body
+              text
             }
           }
         }
@@ -883,63 +875,24 @@ def add_email_update(
         existing_data = _graphql(check_query, {"item_id": [item_id]})
         items_res = existing_data.get("items", [])
         item_name_found = ""
+        existing_note = ""
         if items_res:
             item_name_found = (items_res[0].get("name") or "").strip()
-            existing_updates = items_res[0].get("updates", [])
-            clean_sub = email_subject.strip().lower()
-            clean_note = (getattr(classification, "note", "") or "").strip()[:60].lower()
+            for cv in items_res[0].get("column_values", []):
+                if cv.get("id") == "testo_lungo_mkn1ydyz":
+                    existing_note = (cv.get("text") or "").strip()
 
-            for upd in existing_updates:
-                upd_body = (upd.get("body") or "").lower()
-                # Controllo oggetto email
-                if clean_sub and clean_sub in upd_body:
-                    logger.info(
-                        "⏭️ Update già presente per l'item %s: '%s' — duplicato evitato",
-                        item_id, email_subject
-                    )
-                    return True
-                # Controllo sintesi
-                if clean_note and len(clean_note) > 15 and clean_note in upd_body:
-                    logger.info(
-                        "⏭️ Update con sintesi identica già presente per l'item %s — duplicato evitato",
-                        item_id
-                    )
-                    return True
-
-        tipo_label = classification.tipo.replace("_", " ").title()
-        ref = getattr(classification, "riferimento_ordine", None)
-        ref_line = f"**Rif. Ordine**: {ref}\n" if ref else ""
-
-        note_text = (
-            f"📧 **Nuova email ricevuta** — *{email_subject}*\n\n"
-            f"**Da**: {classification.referente} ({classification.email_mittente})\n"
-            f"**Tipo**: {tipo_label}\n"
-            f"**Progetto**: {classification.nome_progetto}\n"
-            f"{ref_line}"
-            f"\n---\n"
-            f"**Sintesi**: {classification.note}"
-        )
-
-        query = """
-        mutation AddUpdate($item_id: ID!, $body: String!) {
-          create_update(item_id: $item_id, body: $body) {
-            id
-          }
-        }
-        """
-
-        _graphql(query, {"item_id": item_id, "body": note_text})
-        logger.info("✅ Update aggiunto all'item %s (board: %s)", item_id, board_id)
+        _append_note_to_column(str(board_id), str(item_id), existing_note, classification)
+        logger.info("✅ Colonna note aggiornata sull'item %s (board: %s) senza notifica email ridondante", item_id, board_id)
 
         if attachments:
             try:
-                from monday_client import upload_attachments_to_item
                 upload_attachments_to_item(str(item_id), attachments)
             except Exception as att_err:
                 logger.warning("Impossibile caricare allegati su item %s: %s", item_id, att_err)
 
         # Se l'item è su COMMERCIALE / NEW COMMERCIALE o GESTIONE PROGETTI / GESTIONE PROGETTI NEW,
-        # propaga l'update e gli allegati anche all'item gemello sull'altra scheda!
+        # propaga anche all'item gemello sull'altra scheda!
         twin_board = None
         if str(board_id) == "1865049112":
             twin_board = "2133436509"
@@ -959,7 +912,11 @@ def add_email_update(
                     board_id: $board_id
                     columns: [{ column_id: "name", column_values: [$item_name] }]
                   ) {
-                    items { id name }
+                    items {
+                      id
+                      name
+                      column_values(ids: ["testo_lungo_mkn1ydyz"]) { id text }
+                    }
                   }
                 }
                 """
@@ -967,11 +924,14 @@ def add_email_update(
                 twin_items = twin_res.get("items_page_by_column_values", {}).get("items", [])
                 if twin_items:
                     twin_id = str(twin_items[0]["id"])
-                    _graphql(query, {"item_id": twin_id, "body": note_text})
+                    twin_note = ""
+                    for cv in twin_items[0].get("column_values", []):
+                        if cv.get("id") == "testo_lungo_mkn1ydyz":
+                            twin_note = (cv.get("text") or "").strip()
+                    _append_note_to_column(twin_board, twin_id, twin_note, classification)
                     if attachments:
-                        from monday_client import upload_attachments_to_item
                         upload_attachments_to_item(twin_id, attachments)
-                    logger.info("🔗 Update propagato anche a item gemello #%s su board %s", twin_id, twin_board)
+                    logger.info("🔗 Aggiornamento propagato anche a item gemello #%s su board %s", twin_id, twin_board)
             except Exception as twin_err:
                 logger.debug("Propagazione twin update su board %s: %s", twin_board, twin_err)
 

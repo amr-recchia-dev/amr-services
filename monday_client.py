@@ -407,10 +407,10 @@ def _create_or_update_on_board(
                     it_note,
                 ):
                     logger.info(
-                        "🛡️ [ANTI-CLONE] Commessa già presente su board %s: '%s' / '%s' (id: #%s). Aggiorno senza clonare.",
+                        "🛡️ [ANTI-CLONE] Commessa già presente su board %s: '%s' / '%s' (id: #%s). Aggiorno colonne/file senza inviare commenti email duplicati.",
                         curr_b_id, it.get("name"), it_proj, it["id"]
                     )
-                    _add_update_to_item(it["id"], classification)
+                    _append_note_to_column(curr_b_id, it["id"], col_map.get("testo_lungo_mkn1ydyz", ""), classification)
                     upload_attachments_to_item(it["id"], attachments)
                     return it["id"]
     except Exception as check_err:
@@ -455,12 +455,31 @@ def _create_or_update_on_board(
             "✅ Item creato su Monday.com (board %s): '%s' (id: %s)",
             board_id, item_name_returned, item_id
         )
-        _add_update_to_item(item_id, classification)
+        # Non chiamiamo create_update("Email ricevuta...") per non far partire
+        # una mail di notifica Monday ridondante a ordini@amrrecchia.it (tutti i dati sono già nelle colonne)
         upload_attachments_to_item(item_id, attachments)
     else:
         logger.error("Creazione item fallita su board %s: risposta inattesa da Monday.com", board_id)
 
     return item_id
+
+
+def _append_note_to_column(board_id: str, item_id: str, existing_note: str, classification) -> None:
+    """Aggiorna la colonna Testo lungo / Richiesta senza usare create_update (evita notifiche email ridondanti da Monday)."""
+    if str(board_id) == "1865197409":
+        # Su GESTIONE PROGETTI (1865197409) la colonna note è mirror da COMMERCIALE
+        return
+    new_note = (classification.note or "").strip()
+    if not new_note:
+        return
+    if existing_note and new_note[:40].lower() in existing_note.lower():
+        return
+    combined = f"{existing_note}\n\n--- Aggiornamento ({classification.nome_progetto or classification.tipo}) ---\n{new_note}".strip() if existing_note else new_note
+    try:
+        q = f'mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {board_id}, item_id: {item_id}, column_values: $val) {{ id }} }}'
+        _graphql(q, {"val": json.dumps({COL_RICHIESTA: {"text": combined[:2000]}})})
+    except Exception as e:
+        logger.debug("Impossibile aggiornare colonna note su item %s: %s", item_id, e)
 
 
 def create_item(classification, attachments: Optional[List[Tuple[str, bytes]]] = None) -> Optional[str]:
