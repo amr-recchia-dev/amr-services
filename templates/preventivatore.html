@@ -48,6 +48,9 @@
           <button onclick="switchTab('tab-storico')" id="btn-tab-storico" class="tab-btn">📚 3. Storico Eureka (<span id="count-storico-badge">81</span>)</button>
           <button onclick="switchTab('tab-parametri')" id="btn-tab-parametri" class="tab-btn">⚙️ 4. Parametri</button>
         </nav>
+        <button onclick="toggleAIChatDrawer()" class="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-lg shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition">
+          <span>💬</span> Chat AI (Gary & Massimo)
+        </button>
         <a href="./logout" class="text-xs bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg font-semibold transition" title="Termina sessione sicura">🔒 Esci</a>
       </div>
     </div>
@@ -723,6 +726,74 @@
       <button onclick="clearPrintLines()" class="no-print text-red-600 underline font-semibold">Svuota righe preventivo</button>
     </div>
   </div>
+
+  <!-- ======================================================================= -->
+  <!-- PULSANTE FLOTTANTE & DRAWER CHAT AI PER GARY E MASSIMO                  -->
+  <!-- ======================================================================= -->
+  <button onclick="toggleAIChatDrawer()" id="ai-floating-btn"
+    class="no-print fixed bottom-5 right-5 z-50 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold px-4 py-3 rounded-2xl shadow-2xl shadow-amber-500/30 flex items-center gap-2.5 text-sm border border-amber-300/60 transition transform hover:scale-105">
+    <span class="text-lg">🤖</span>
+    <span>Chiedi all'AI AMR (Gary & Massimo)</span>
+  </button>
+
+  <aside id="ai-chat-drawer" class="no-print fixed top-0 right-0 h-full w-full sm:w-[440px] bg-slate-950/98 border-l border-slate-800 shadow-2xl z-50 flex flex-col hidden">
+    <!-- Drawer Header -->
+    <div class="p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center text-base shadow">AI</div>
+        <div>
+          <h3 class="text-sm font-extrabold text-white flex items-center gap-1.5">
+            Assistente AI Preventivi & Capannone
+            <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded-full">Gemini 2.5</span>
+          </h3>
+          <p class="text-[11px] text-slate-400">Conosce gli 81 preventivi Eureka, i materiali AMR e le macchine KUKA/OSAI</p>
+        </div>
+      </div>
+      <button onclick="toggleAIChatDrawer()" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold">✕ Chiudi</button>
+    </div>
+
+    <!-- Suggerimenti Rapidi per Gary & Massimo -->
+    <div class="p-3 border-b border-slate-800/80 bg-slate-900/50 space-y-1.5">
+      <div class="text-[10px] uppercase tracking-wider font-bold text-amber-400">Domande rapide per Gary & Massimo:</div>
+      <div class="flex flex-wrap gap-1.5">
+        <button onclick="sendQuickAIPrompt('Confronta questa macchina fotografica di Kira Solutions con gli altri lavori fatti per Kira Solutions e dimmi se 680€ è il prezzo giusto.')"
+          class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-700 text-left">
+          📸 Verifica prezzo Kira Solutions
+        </button>
+        <button onclick="sendQuickAIPrompt('Quanti kg di Poliurea o Fondo Poliestere Renner e quanta colla Tytan servono per produrre il pezzo attuale?')"
+          class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-700 text-left">
+          🧪 Calcola consumo Resine & Materiali
+        </button>
+        <button onclick="sendQuickAIPrompt('Scrivimi il testo dell email di risposta per il cliente con il preventivo del pezzo attuale e i tempi di consegna.')"
+          class="text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1 rounded-lg border border-slate-700 text-left">
+          ✉️ Genera bozza Email per il Cliente
+        </button>
+        <button onclick="sendQuickAIPrompt('Imposta il calcolatore per 4 sfere diametro 80cm in EPS con finitura quarzo+sabbia e colore per Vetrine Milano.')"
+          class="text-[11px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 px-2.5 py-1 rounded-lg border border-amber-500/30 text-left">
+          ⚡ Test: Configura 4 Sfere Ø80cm Quarzo
+        </button>
+      </div>
+    </div>
+
+    <!-- Messaggi Chat -->
+    <div id="ai-chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3 text-xs">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-200 space-y-1.5 leading-relaxed">
+        <div class="font-bold text-amber-400">👋 Ciao Gary, Massimo e Riccardo!</div>
+        <div>Sono collegato in tempo reale al Preventivatore, agli <b>81 preventivi storici di Gestionale Eureka</b> (inclusi i preventivi per <b>Kira Solutions</b>, <b>Bertone Design</b>, <b>Pardgroup</b>, <b>Forpress</b>, <b>Bussola & Ralph</b>) e all'inventario materiali di magazzino.</div>
+        <div class="text-slate-400">Chiedimi pure prezzi storici, consumi di Poliurea/Fondo Renner/Dega Rock, come sezionare un pezzo per i KUKA, oppure dimmi a voce/testo cosa devi preventivare e <b>ti compilo io i campi automaticamente!</b></div>
+      </div>
+    </div>
+
+    <!-- Input Messaggio -->
+    <form onsubmit="handleAIChatSubmit(event)" class="p-3 border-t border-slate-800 bg-slate-900 flex gap-2">
+      <input id="ai-chat-input" type="text" placeholder="Scrivi a Gemini AMR (es. 'Quanto avevamo fatto a Forpress?')"
+        class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white" />
+      <button type="submit" id="ai-chat-send-btn"
+        class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-4 py-2.5 rounded-xl text-xs shadow">
+        Invia ➤
+      </button>
+    </form>
+  </aside>
 
 <script>
 // ── 1. STORICO REALE 75 PREVENTIVI EUREKA EMBEDDED ──────────────────────────
@@ -1759,6 +1830,158 @@ async function publishQuoteToMonday() {
     btn.disabled = false;
     btn.innerHTML = origText;
   }
+}
+
+// ── 12. ASSISTENTE CHAT AI PER GARY & MASSIMO ───────────────────────────────
+let AI_CHAT_HISTORY = [];
+let LAST_AI_PRESET = null;
+
+function toggleAIChatDrawer() {
+  const drawer = document.getElementById('ai-chat-drawer');
+  const floatBtn = document.getElementById('ai-floating-btn');
+  const isHidden = drawer.classList.contains('hidden');
+  if (isHidden) {
+    drawer.classList.remove('hidden');
+    floatBtn.classList.add('hidden');
+    setTimeout(() => document.getElementById('ai-chat-input').focus(), 80);
+  } else {
+    drawer.classList.add('hidden');
+    floatBtn.classList.remove('hidden');
+  }
+}
+
+function formatAIMarkdown(txt) {
+  const esc = (txt || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return esc
+    .replace(/\*\*([^*]+)\*\*/g, '<b class="text-white">$1</b>')
+    .replace(/`([^`]+)`/g, '<code class="mono bg-slate-800 text-amber-300 px-1 py-0.5 rounded text-[11px]">$1</code>')
+    .replace(/\n/g, '<br/>');
+}
+
+function getCurrentQuoteStateForAI() {
+  return {
+    cliente: document.getElementById('q-cliente').value,
+    oggetto: document.getElementById('q-oggetto').value,
+    desc: document.getElementById('q-desc').value,
+    dim_x_mm: document.getElementById('q-dim-x').value,
+    dim_y_mm: document.getElementById('q-dim-y').value,
+    dim_z_mm: document.getElementById('q-dim-z').value,
+    quantita: document.getElementById('q-qty').value,
+    tecnologia: document.getElementById('q-tech').value,
+    materiale: document.getElementById('q-materiale').value,
+    finitura: document.getElementById('q-finitura').value,
+    stato_file3d: document.getElementById('q-file3d').value,
+    volume_lordo: document.getElementById('kpi-vol-box').textContent,
+    superficie_mq: document.getElementById('kpi-surf-mq').textContent,
+    blocchi_kuka: document.getElementById('kpi-kuka-blocks').textContent,
+    ore_macchina: document.getElementById('kpi-mach-hours').textContent,
+    prezzo_unitario_calcolato: document.getElementById('res-unit-price').textContent,
+    totale_lotto_calcolato: document.getElementById('res-total-lot').textContent,
+    costo_vivo_amr: document.getElementById('bd-cost-tot').textContent,
+    margine: document.getElementById('res-margin-badge').textContent,
+    descrizione_eureka: document.getElementById('res-eureka-desc').value
+  };
+}
+
+function sendQuickAIPrompt(promptText) {
+  const drawer = document.getElementById('ai-chat-drawer');
+  if (drawer.classList.contains('hidden')) toggleAIChatDrawer();
+  document.getElementById('ai-chat-input').value = promptText;
+  handleAIChatSubmit(new Event('submit'));
+}
+
+async function handleAIChatSubmit(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  const input = document.getElementById('ai-chat-input');
+  const btn = document.getElementById('ai-chat-send-btn');
+  const container = document.getElementById('ai-chat-messages');
+  const msg = (input.value || '').trim();
+  if (!msg) return;
+
+  input.value = '';
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  // Render user bubble
+  const userDiv = document.createElement('div');
+  userDiv.className = 'bg-amber-500/20 border border-amber-500/40 rounded-xl p-3 text-amber-100 ml-8 leading-relaxed';
+  userDiv.innerHTML = `<div class="text-[10px] font-bold text-amber-400 mb-0.5">Tu:</div><div>${formatAIMarkdown(msg)}</div>`;
+  container.appendChild(userDiv);
+
+  // Render thinking bubble
+  const thinkDiv = document.createElement('div');
+  thinkDiv.className = 'bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-400 mr-6 animate-pulse';
+  thinkDiv.textContent = '🤖 Gemini AMR sta consultando lo storico preventivi Eureka e i parametri macchina...';
+  container.appendChild(thinkDiv);
+  container.scrollTop = container.scrollHeight;
+
+  try {
+    const res = await fetch('./api/preventivatore/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: msg,
+        history: AI_CHAT_HISTORY,
+        quote_state: getCurrentQuoteStateForAI()
+      })
+    });
+    const data = await res.json();
+    thinkDiv.remove();
+    if (!data.ok) throw new Error(data.error || 'Errore risposta AI');
+
+    AI_CHAT_HISTORY.push({ role: 'user', text: msg });
+    AI_CHAT_HISTORY.push({ role: 'model', text: data.reply });
+
+    const aiDiv = document.createElement('div');
+    aiDiv.className = 'bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-slate-200 mr-4 space-y-2 leading-relaxed';
+    let html = `<div class="text-[10px] font-bold text-emerald-400">🤖 Assistente AI AMR:</div><div>${formatAIMarkdown(data.reply)}</div>`;
+
+    if (data.apply_to_calculator) {
+      LAST_AI_PRESET = data.apply_to_calculator;
+      html += `
+        <div class="pt-2 border-t border-slate-800">
+          <button onclick="applyAISuggestedPreset()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-2 px-3 rounded-lg text-xs shadow transition">
+            ⚡ Applica subito questi parametri al Preventivatore
+          </button>
+        </div>
+      `;
+    }
+    aiDiv.innerHTML = html;
+    container.appendChild(aiDiv);
+  } catch (err) {
+    thinkDiv.remove();
+    const errDiv = document.createElement('div');
+    errDiv.className = 'bg-rose-950/70 border border-rose-500/40 rounded-xl p-3 text-rose-200 mr-4';
+    errDiv.textContent = '❌ Errore Chat AI: ' + err.message;
+    container.appendChild(errDiv);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Invia ➤';
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function applyAISuggestedPreset() {
+  if (!LAST_AI_PRESET) return;
+  const p = LAST_AI_PRESET;
+  if (p.cliente) document.getElementById('q-cliente').value = p.cliente;
+  if (p.oggetto) document.getElementById('q-oggetto').value = p.oggetto;
+  if (p.desc) document.getElementById('q-desc').value = p.desc;
+  if (p.dim_x) document.getElementById('q-dim-x').value = p.dim_x;
+  if (p.dim_y) document.getElementById('q-dim-y').value = p.dim_y;
+  if (p.dim_z) document.getElementById('q-dim-z').value = p.dim_z;
+  if (p.qty) document.getElementById('q-qty').value = p.qty;
+  if (p.tech) document.getElementById('q-tech').value = p.tech;
+  if (p.materiale) document.getElementById('q-materiale').value = p.materiale;
+  if (p.finitura) document.getElementById('q-finitura').value = p.finitura;
+  if (p.file3d) document.getElementById('q-file3d').value = p.file3d;
+  if (typeof p.ferro === 'boolean') document.getElementById('q-ferro').checked = p.ferro;
+  if (typeof p.cassa_osb === 'boolean') document.getElementById('q-cassa-osb').checked = p.cassa_osb;
+  switchTab('tab-preventivo');
+  recalcQuote();
 }
 
 // Init

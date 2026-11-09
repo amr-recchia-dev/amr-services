@@ -515,3 +515,165 @@ def publish_quote_to_monday(payload: Dict[str, Any], author_email: str = "") -> 
         "update_id": update_id,
         "monday_url": f"https://amrrecchia.monday.com/boards/{BOARD_COMMERCIALE_NEW}/pulses/{item_id}",
     }
+
+
+# ---------------------------------------------------------------------------
+# 5. ASSISTENTE CHAT AI PER GARY & MASSIMO (GEMINI 2.5 FLASH + STORICO AMR)
+# ---------------------------------------------------------------------------
+def _get_gemini_key() -> str:
+    key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not key:
+        env_path = os.path.join(BASE_DIR, ".env")
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("GEMINI_API_KEY="):
+                        key = line.split("=", 1)[1].strip().strip('"').strip("'")
+    return key
+
+
+def ask_amr_ai_assistant(
+    user_message: str,
+    chat_history: List[Dict[str, str]] = None,
+    current_quote_state: Dict[str, Any] = None,
+    author_user: Dict[str, str] = None,
+) -> Dict[str, Any]:
+    """
+    Interroga Gemini 2.5 Flash arricchito con:
+    - Lo stato attuale del preventivatore (pezzo in lavorazione, dimensioni, costi, margini)
+    - I preventivi storici reali Eureka (amr_storico_preventivi.json) più pertinenti
+    - Le regole tecniche e di prezzatura AMR (finiture, consumi resine/poliurea, KUKA, OSAI, Rhino 8)
+    Restituisce la risposta testuale formattata e un eventuale oggetto `apply_to_calculator`
+    se l'utente ha chiesto di configurare/calcolare un pezzo specifico.
+    """
+    api_key = _get_gemini_key()
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY non configurata sul server.")
+
+    state = current_quote_state or {}
+    search_q = f"{user_message} {state.get('cliente', '')} {state.get('oggetto', '')} {state.get('desc', '')}".strip()
+    relevant_quotes = search_similar_historical_quotes(query=search_q, limit=18)
+    if len(relevant_quotes) < 10:
+        all_q = load_historical_quotes()
+        for q in all_q[:12]:
+            if q not in relevant_quotes:
+                relevant_quotes.append(q)
+
+    quotes_context_lines = []
+    for q in relevant_quotes[:18]:
+        nr = q.get("nr_documento") or "-"
+        dt = q.get("data") or ""
+        cl = q.get("cliente") or ""
+        og = q.get("oggetto") or ""
+        righe_str = " | ".join(
+            f"{r.get('quantita', 1)}x {r.get('descrizione', '')} -> PU €{r.get('prezzo_unitario', 0)} (Tot €{r.get('importo', 0)})"
+            for r in (q.get("righe") or [])[:4]
+        )
+        quotes_context_lines.append(f"- Prev #{nr} ({dt}) Cliente: {cl} | Oggetto: {og} | Righe: {righe_str}")
+
+    quotes_context = "\n".join(quotes_context_lines)
+    user_name = (author_user or {}).get("name", "Gary / Massimo")
+
+    system_prompt = f"""Sei l'Assistente AI Ufficiale di Produzione e Preventivazione di **AMR Recchia S.r.l.** (Via Cavasotta 20/A, Pederobba TV).
+Stai parlando direttamente con **{user_name}** (Gary Innocente, Responsabile Ordini e Produzione, oppure Massimo Recchia, Direzione Commerciale, o Riccardo Gazzola).
+Rispondi sempre in italiano in modo pratico, veloce, preciso, da vero esperto tecnico di capannone e preventivazione AMR.
+
+### CONOSCENZA AZIENDALE AMR RECCHIA S.R.L.
+1. **Macchine in Capannone**:
+   - **Pantografo CNC OSAI** (`192.168.0.2`, programmi `.txt` G-code ISO) + **Taglio Filo Caldo 2D** per sagome, scritte, lastre e sgrossature geometriche.
+   - **2 Robot Antropomorfi KUKA 7 Assi** (`KUKA 1 KR 16F` e `KUKA 2 KR 16` con controller KRC2/KCP2 e tavola rotante `E1`), programmati con **Rhino 8** + **Roboticom ARPP v3.27.59** (file `.SRC` con `$VEL.CP` e `LIN {{E6POS}}`).
+   - **Volume massimo singolo blocco KUKA**: circa `1600 × 1200 × 1400 mm`. Se il pezzo è più grande, va sezionato in Rhino 8 in più blocchi, fresato e incollato con schiuma poliuretanica **Tytan Stiro 753**.
+2. **Materiali e Consumabili Reali di Magazzino AMR**:
+   - **Polistirolo EPS**: `EPS K13 / 100` (~55 €/m³ costo acquisto, per scenografie/grandi volumi), `EPS 150 / K25` (~78 €/m³, ottimo per fresature pulite anche grezze), `EPS 200 / K30 Alta Densità` (~110 €/m³, per sedute/tavoli), `XPS Stirodur` (~145 €/m³).
+   - **Resine e Fondi**:
+     - `Poliurea` (kit A+B da 47 kg, resa ~25 m² = **1,88 kg/m²**).
+     - `Fondo Poliestere Renner` (latte da 25 kg + catalizzatore, per finiture lisce laccate).
+     - `DEGA ROCK 25 (A+B)` e `DEGA ROCK 50 (A+B)` di Gobbetto + rete cappotto (per finitura cemento/materica ignifuga).
+     - `Aguaplast Bianco/Grigio` + `Fondo AUL Acqua` (per finitura scenografica).
+     - `Quarzo Bianco/Rosso` + `Sabbia 0.6` (per finitura quarzo+sabbia).
+3. **Listino Storico Reale AMR (Gestionale Eureka `Docp700r`)**:
+   - **Solo EPS Grezzo Fresato e Carteggiato (senza verniciatura)**: ~650–700 €/m³ su volumi intorno a 1 m³ (es. *Forpress* Prev. #501 `1394×993×734mm = 1,01 m³ -> € 700`; *Kira Solutions* Sedia K25 Prev. #295 `-> € 690`; *Kira Solutions* Librone `2600×1400mm -> € 660`; *Kira Solutions* Macchina Fotografica Canon `1500×600×1000mm -> € 680` fresata e carteggiata oppure `€ 550` solo fresata grezza).
+   - **Maggiorazioni Finiture Superficiali (per m² di superficie esterna)**:
+     - `grezzo`: 0 €/m² extra (solo EPS fresato e carteggiato)
+     - `grezzo_solo_fresa`: -18% rispetto a fresato e carteggiato
+     - `scenografica_colore`: ~115 €/m²
+     - `quarzo_sabbia`: ~135 €/m²
+     - `antiurto_poliurea_colore`: ~240 €/m² (esattamente 2,0x la scenografica)
+     - `ignifuga_cemento_degarock`: ~380 €/m²
+     - `liscia_laccata_ral`: ~420 €/m² (3,1x rispetto a quarzo+sabbia)
+     - `metallizzata_bronzo_oro`: ~580 €/m²
+     - `cromata_specchio`: ~840 €/m² (2,0x la metallizzata)
+   - **Sconti Quantità AMR**: 1 pz = 100%, 2–4 pz = -18%, 5–9 pz = -28%, 10+ pz = -38%.
+
+### STATO ATTUALE DEL PREVENTIVATORE SULLO SCHERMO DI {user_name.upper()}:
+{json.dumps(state, ensure_ascii=False, indent=2)}
+
+### PREVENTIVI STORICI EUREKA PIÙ PERTINENTI:
+{quotes_context}
+
+### ISTRUZIONE SPECIALE PER AUTO-COMPILAZIONE CALCOLATORE:
+Se l'utente ti chiede di impostare, simulare o calcolare un preventivo per un nuovo pezzo (o modificare dimensioni/quantità/finitura), rispondi spiegando chiaramente il calcolo e **in fondo alla risposta** aggiungi un blocco JSON racchiuso tra `<<<APPLY_JSON` e `APPLY_JSON>>>` con questa struttura esatta (solo i campi da impostare):
+<<<APPLY_JSON
+{{
+  "cliente": "Nome Cliente",
+  "oggetto": "Oggetto commessa",
+  "desc": "Descrizione articolo",
+  "dim_x": 1500,
+  "dim_y": 600,
+  "dim_z": 1000,
+  "qty": 1,
+  "tech": "fresa3d_kuka | fresa3d_stratificato | taglio2d_filo | stampa3d",
+  "materiale": "eps_150 | eps_k13_100 | eps_200_hd | xps_stirodur | pla_stampa3d",
+  "finitura": "grezzo | grezzo_solo_fresa | scenografica_colore | quarzo_sabbia | antiurto_poliurea_colore | ignifuga_cemento_degarock | liscia_laccata_ral | metallizzata_bronzo_oro | cromata_specchio",
+  "file3d": "file_ok | 3d_geometrico_veloce | sistemazione_mesh | creazione_3d_semplice | creazione_3d_scultura",
+  "ferro": false,
+  "cassa_osb": false
+}}
+APPLY_JSON>>>
+Non includere il blocco `<<<APPLY_JSON ... APPLY_JSON>>>` se l'utente fa solo una domanda informativa o chiede una bozza email senza voler cambiare i parametri del calcolatore.
+"""
+
+    contents = []
+    for msg in (chat_history or [])[-8:]:
+        role = "model" if msg.get("role") in ("assistant", "model") else "user"
+        txt = (msg.get("text") or "").strip()
+        if txt:
+            contents.append({"role": role, "parts": [{"text": txt}]})
+    contents.append({"role": "user", "parts": [{"text": user_message}]})
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    payload = {
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": contents,
+        "generationConfig": {"temperature": 0.25, "maxOutputTokens": 1400},
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=35) as resp:
+        raw = json.loads(resp.read().decode("utf-8"))
+
+    reply_text = ""
+    try:
+        reply_text = raw["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except Exception:
+        reply_text = "Non sono riuscito a elaborare la risposta. Riprova."
+
+    apply_data = None
+    m = re.search(r"<<<APPLY_JSON\s*(\{.*?\})\s*APPLY_JSON>>>", reply_text, flags=re.DOTALL)
+    if m:
+        try:
+            apply_data = json.loads(m.group(1))
+        except Exception:
+            apply_data = None
+        reply_text = re.sub(r"<<<APPLY_JSON.*?APPLY_JSON>>>", "", reply_text, flags=re.DOTALL).strip()
+
+    return {
+        "ok": True,
+        "reply": reply_text,
+        "apply_to_calculator": apply_data,
+    }
+

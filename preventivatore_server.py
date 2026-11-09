@@ -201,6 +201,28 @@ class PreventivatoreHandler(BaseHTTPRequestHandler):
             cookie_hdr = f"amr_prev_session={tok}; Max-Age=43200; Path=/; HttpOnly; SameSite=Lax; Secure"
             return self._redirect("./", [("Set-Cookie", cookie_hdr)])
 
+        if p == "/api/preventivatore/chat":
+            user = self._get_auth_user()
+            if not user:
+                return self._send_json(401, {"ok": False, "error": "Sessione non autorizzata"})
+            try:
+                body = json.loads(raw_body.decode("utf-8"))
+                msg = (body.get("message") or "").strip()
+                if not msg:
+                    return self._send_json(400, {"ok": False, "error": "Messaggio vuoto"})
+                history = body.get("history") or []
+                quote_state = body.get("quote_state") or {}
+                res = amr_preventivatore_engine.ask_amr_ai_assistant(
+                    user_message=msg,
+                    chat_history=history,
+                    current_quote_state=quote_state,
+                    author_user=user,
+                )
+                return self._send_json(200, res)
+            except Exception as e:
+                logger.error("Errore Chat AI Preventivatore: %s", e, exc_info=True)
+                return self._send_json(500, {"ok": False, "error": str(e)})
+
         if p == "/api/preventivatore/monday/publish":
             user = self._get_auth_user()
             if not user:

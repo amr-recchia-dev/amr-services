@@ -1461,6 +1461,30 @@ def api_preventivatore_monday_items():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@app.route("/api/preventivatore/chat", methods=["POST"])
+def api_preventivatore_chat():
+    """Assistente Chat AI per Gary e Massimo (Gemini 2.5 Flash con storico preventivi Eureka e magazzino AMR)."""
+    user = _get_preventivatore_user()
+    if not user:
+        return jsonify({"ok": False, "error": "Sessione scaduta o non autorizzata"}), 401
+    import amr_preventivatore_engine
+    body = request.get_json(silent=True) or {}
+    msg = (body.get("message") or "").strip()
+    if not msg:
+        return jsonify({"ok": False, "error": "Messaggio vuoto"}), 400
+    try:
+        res = amr_preventivatore_engine.ask_amr_ai_assistant(
+            user_message=msg,
+            chat_history=body.get("history") or [],
+            current_quote_state=body.get("quote_state") or {},
+            author_user=user,
+        )
+        return jsonify(res), 200
+    except Exception as e:
+        logger.error(f"❌ Errore Chat AI Preventivatore: {e}", exc_info=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/api/preventivatore/monday/publish", methods=["POST"])
 def api_preventivatore_monday_publish():
     """Pubblica o aggiorna un preventivo direttamente in NEW COMMERCIALE (2133436509) su Monday.com."""
