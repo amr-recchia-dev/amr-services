@@ -176,23 +176,217 @@ def _build_column_values_direct(classification) -> Tuple[Dict, str]:
 
 MONDAY_BOARD_COMMERCIALE = os.getenv("MONDAY_BOARD_COMMERCIALE", "1865049112")
 
+import io as _io
+import re as _re
+import difflib as _difflib
 
-def upload_attachments_to_item(item_id: str, attachments: Optional[List[Tuple[str, bytes]]], col_id: str = "file_mkn13rg5") -> None:
-    """Carica gli allegati dell'email (PDF, DWG, DXF, ecc.) nella colonna file dell'item Monday."""
+
+def classify_attachment_type(filename: str, file_bytes: bytes = b"") -> str:
+    """
+    Classifica automaticamente un allegato prima del caricamento su Monday in:
+      - 'disegno'           : CAD (.dwg, .dxf, .step, .stl, .obj, .3dm) o PDF di tavole/disegni quotati
+      - 'ordine_preventivo' : Conferme d'ordine, ordini di acquisto (es. OA0001038.pdf), preventivi, offerte
+      - 'dati_fiscali'      : Visure camerali, moduli dati fiscali / SDI / PEC
+      - 'foto'              : Immagini / foto di riferimento (.jpg, .png, .webp)
+    """
+    fn = (filename or "").strip()
+    fn_low = fn.lower()
+    ext = ("." + fn_low.rsplit(".", 1)[-1]) if "." in fn_low else ""
+
+    # 1. Estensioni tecniche / CAD certe -> sempre Disegno
+    if ext in (".dwg", ".dxf", ".stp", ".step", ".iges", ".igs", ".stl", ".obj", ".3dm", ".ai", ".eps", ".cdr"):
+        return "disegno"
+
+    # 2. Fogli di calcolo o documenti Word -> sempre Ordine/Preventivo
+    if ext in (".xlsx", ".xls", ".csv", ".doc", ".docx"):
+        return "ordine_preventivo"
+
+    # 3. Controllo pattern espliciti sul nome del file
+    if any(k in fn_low for k in ("visura", "dati_fiscali", "datifiscali", "dati fiscali", "fatturazione", "codice_sdi")):
+        return "dati_fiscali"
+
+    if (
+        any(k in fn_low for k in (
+            "preventivo", "offerta", "quotazione", "conferma", "ordine",
+            "ord.cliente", "n.ord", "oda", "odv", "ddt", "fattura", "proforma", "acconto",
+        ))
+        or _re.search(r"(?:^|[^a-z])(oa|po|ord|prev|off|oc|oda|odv)[\s_.-]*0*\d{2,8}\b", fn_low)
+    ):
+        return "ordine_preventivo"
+
+    if any(k in fn_low for k in ("disegno", "tavola", "sezione", "prospetto", "pianta", "quotat", "esecutivo", "cad", "render", "layout", "3d", "sagom", "fresat", "fontana", "logo", "scritta")):
+        return "disegno"
+
+    # Immagini senza keyword d'ordine nel nome -> Foto
+    if ext in (".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".bmp", ".tif", ".tiff"):
+        return "foto"
+
+    # 4. Scansione interna del testo per i file PDF
+    if ext == ".pdf" and file_bytes:
+        pdf_text = ""
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(_io.BytesIO(file_bytes))
+            pages_txt = []
+            for pg in reader.pages[:4]:
+                t = pg.extract_text() or ""
+                if t.strip():
+                    pages_txt.append(t.strip())
+            pdf_text = "\n".join(pages_txt)
+        except Exception as e:
+            logger.debug("Impossibile estrarre testo da PDF '%s' per classificazione: %s", filename, e)
+
+        t_low = pdf_text.lower()
+        if t_low:
+            fiscal_kw = (
+                "visura camerale", "camera di commercio", "codice destinatario",
+                "codice univoco", "dati per la fatturazione", "dati fiscali", "numero rea",
+            )
+            order_strong_kw = (
+                "conferma d'ordine", "conferma ordine", "ordine di acquisto", "ordine d'acquisto",
+                "ordine fornitore", "purchase order", "preventivo", "nostra offerta",
+                "offerta economica", "condizioni di pagamento", "modalità di pagamento",
+                "banca d'appoggio", "iban", "imponibile", "totale ordine", "totale documento",
+                "aliquota iva", "prezzo unitario", "scadenza pagamento", "causale del trasporto",
+            )
+            drawing_kw = (
+                "scala 1:", "scala:", "sezione", "prospetto", "pianta", "vista frontale",
+                "vista laterale", "vista dall'alto", "quotatura", "tolleranza",
+                "quote in mm", "quote in cm", "tavola n", "disegnato da",
+            )
+
+            fisc_hits = sum(1 for k in fiscal_kw if k in t_low)
+            ord_hits = sum(1 for k in order_strong_kw if k in t_low)
+            drw_hits = sum(1 for k in drawing_kw if k in t_low)
+
+            if ord_hits >= 1:
+                return "ordine_preventivo"
+            if fisc_hits >= 2 and ord_hits == 0:
+                return "dati_fiscali"
+            if drw_hits >= 1 and ord_hits == 0:
+                return "disegno"
+
+            # Se il PDF ha pochissimo testo (< 220 caratteri, tipico di un disegno CAD con quote/cartiglio)
+            # e non contiene termini commerciali/valutari:
+            commercial_soft = ("spett.le", "gentile", "p.iva", "partita iva", "cod. fisc", "totale", "euro", "€", "prezzo", "importo", "pagamento", "fattura", "consegna")
+            soft_hits = sum(1 for k in commercial_soft if k in t_low)
+            if soft_hits >= 2:
+                return "ordine_preventivo"
+            if len(t_low.strip()) <= 250 and soft_hits == 0:
+                return "disegno"
+
+        # 5. Fallback AI (Gemini Vision) per PDF scannerizzati privi di testo estraibile
+        if len(t_low.strip()) < 15 and len(file_bytes) < 8 * 1024 * 1024:
+            try:
+                api_key = os.getenv("GEMINI_API_KEY", "").strip()
+                if api_key:
+                    from google import genai
+                    from google.genai import types
+                    client = genai.Client(api_key=api_key)
+                    resp = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=[
+                            types.Part.from_bytes(data=file_bytes, mime_type="application/pdf"),
+                            (
+                                "Classifica questo documento PDF in UNA sola di queste categorie:\n"
+                                "- ORDINE_PREVENTIVO (se è un ordine di acquisto, conferma d'ordine, preventivo, offerta, fattura, DDT o tabella prezzi/articoli)\n"
+                                "- DATI_FISCALI (se è una visura camerale o modulo dati fiscali/SDI)\n"
+                                "- DISEGNO (se è un disegno tecnico, tavola quotata, schizzo, pianta, render o sagoma)\n"
+                                "Rispondi solo con la parola esatta."
+                            ),
+                        ],
+                    )
+                    ans = (resp.text or "").strip().upper()
+                    if "ORDINE" in ans or "PREVENTIVO" in ans:
+                        return "ordine_preventivo"
+                    if "FISCAL" in ans:
+                        return "dati_fiscali"
+                    if "DISEGNO" in ans:
+                        return "disegno"
+            except Exception as g_err:
+                logger.debug("Fallback Gemini classificazione PDF '%s' non riuscito: %s", filename, g_err)
+
+    return "disegno"
+
+
+def resolve_file_column_for_board(board_id: Optional[str], filename: str, file_bytes: bytes = b"") -> Tuple[str, str]:
+    """
+    Restituisce (column_id, categoria) per la board Monday specificata.
+    """
+    cat = classify_attachment_type(filename, file_bytes)
+    b = str(board_id or MONDAY_BOARD_ID)
+
+    # COMMERCIALE (1865049112) e NEW COMMERCIALE (2133436509)
+    if b in ("1865049112", "2133436509"):
+        if cat == "ordine_preventivo":
+            return "file_mknpery4", cat  # Doc Prev.
+        if cat == "dati_fiscali":
+            return "file_mkt3h3j7", cat  # Dati Fiscali doc.
+        return "file_mkn13rg5", cat      # Disegno
+
+    # GESTIONE PROGETTI NEW (2136092569)
+    if b == "2136092569":
+        if cat in ("ordine_preventivo", "dati_fiscali"):
+            return "file_mknpery4", cat  # Doc Prev.
+        return "file_mkn13rg5", cat      # Disegno
+
+    # GESTIONE PROGETTI (1865197409)
+    if b == "1865197409":
+        return "file_mknpcqbv", cat      # Doc. Ordine interno
+
+    # TAGLIO E FRESA (5086546323) e FINITURE (5088215890)
+    if b in ("5086546323", "5088215890"):
+        if cat in ("ordine_preventivo", "dati_fiscali"):
+            return "file_mkvqs303", cat  # Doc. Ordine Interno
+        if cat == "foto":
+            return "file_mkrm23m5", cat  # Foto
+        return "file_mkwqf7mk", cat      # Disegno
+
+    # PROGETTAZIONE NEW (5089194104)
+    if b == "5089194104":
+        return "file_mm7nd89s", cat      # Doc. Ordine / Disegno
+
+    # AMMINISTRAZIONE NEW (5107455153)
+    if b == "5107455153":
+        if cat == "dati_fiscali":
+            return "file_mm8yh8m1", cat  # Dati Fiscali Doc.
+        return "file_mm8yb2dj", cat      # Doc Prev.
+
+    # Default
+    if cat == "ordine_preventivo":
+        return "file_mknpery4", cat
+    return "file_mkn13rg5", cat
+
+
+def upload_attachments_to_item(
+    item_id: str,
+    attachments: Optional[List[Tuple[str, bytes]]],
+    col_id: Optional[str] = None,
+    board_id: Optional[str] = None,
+) -> None:
+    """
+    Scansiona/classifica ciascun allegato dell'email (Ordine/Preventivo vs Disegno vs Dati Fiscali)
+    e lo carica nella colonna corretta dell'item Monday.
+    """
     if not item_id or not attachments:
         return
+    resolved_board_id = str(board_id or "")
     try:
         q_assets = """
         query ($item_id: [ID!]) {
           items(ids: $item_id) {
+            board { id }
             assets { name }
           }
         }
         """
         res_a = _graphql(q_assets, {"item_id": [str(item_id)]})
+        it_obj = (res_a.get("items") or [{}])[0]
+        if not resolved_board_id:
+            resolved_board_id = str((it_obj.get("board") or {}).get("id") or "")
         existing_names = {
             (a.get("name") or "").strip().lower()
-            for a in (res_a.get("items") or [{}])[0].get("assets", [])
+            for a in it_obj.get("assets", [])
         }
     except Exception:
         existing_names = set()
@@ -201,7 +395,12 @@ def upload_attachments_to_item(item_id: str, attachments: Optional[List[Tuple[st
         if not fname or not fbytes or fname.strip().lower() in existing_names:
             continue
         try:
-            q_file = f'mutation ($file: File!) {{ add_file_to_column (item_id: {item_id}, column_id: "{col_id}", file: $file) {{ id }} }}'
+            if col_id:
+                target_col, cat = col_id, "forced"
+            else:
+                target_col, cat = resolve_file_column_for_board(resolved_board_id, fname, fbytes)
+
+            q_file = f'mutation ($file: File!) {{ add_file_to_column (item_id: {item_id}, column_id: "{target_col}", file: $file) {{ id }} }}'
             r = requests.post(
                 "https://api.monday.com/v2/file",
                 headers={"Authorization": MONDAY_API_TOKEN, "API-Version": "2024-10"},
@@ -210,16 +409,15 @@ def upload_attachments_to_item(item_id: str, attachments: Optional[List[Tuple[st
                 timeout=60,
             )
             if r.status_code == 200 and "errors" not in r.text:
-                logger.info("📎 Allegato '%s' caricato su item #%s (colonna %s)", fname, item_id, col_id)
+                logger.info(
+                    "📎 Allegato '%s' [tipo=%s] caricato su item #%s (board %s, colonna %s)",
+                    fname, cat, item_id, resolved_board_id, target_col
+                )
                 existing_names.add(fname.strip().lower())
             else:
-                logger.warning("Upload allegato '%s' su item #%s: %s", fname, item_id, r.text[:160])
+                logger.warning("Upload allegato '%s' su item #%s (col %s): %s", fname, item_id, target_col, r.text[:160])
         except Exception as e:
             logger.warning("Errore upload allegato '%s' su item #%s: %s", fname, item_id, e)
-
-
-import re as _re
-import difflib as _difflib
 
 
 def normalize_client_name(name: str) -> str:
@@ -411,7 +609,7 @@ def _create_or_update_on_board(
                         curr_b_id, it.get("name"), it_proj, it["id"]
                     )
                     _append_note_to_column(curr_b_id, it["id"], col_map.get("testo_lungo_mkn1ydyz", ""), classification)
-                    upload_attachments_to_item(it["id"], attachments)
+                    upload_attachments_to_item(it["id"], attachments, board_id=curr_b_id)
                     return it["id"]
     except Exception as check_err:
         logger.warning("Controllo preliminare anti-clone su board %s fallito: %s", board_id, check_err)
@@ -457,7 +655,7 @@ def _create_or_update_on_board(
         )
         # Non chiamiamo create_update("Email ricevuta...") per non far partire
         # una mail di notifica Monday ridondante a ordini@amrrecchia.it (tutti i dati sono già nelle colonne)
-        upload_attachments_to_item(item_id, attachments)
+        upload_attachments_to_item(item_id, attachments, board_id=str(board_id))
     else:
         logger.error("Creazione item fallita su board %s: risposta inattesa da Monday.com", board_id)
 

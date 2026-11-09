@@ -887,7 +887,7 @@ def add_email_update(
 
         if attachments:
             try:
-                upload_attachments_to_item(str(item_id), attachments)
+                upload_attachments_to_item(str(item_id), attachments, board_id=str(board_id))
             except Exception as att_err:
                 logger.warning("Impossibile caricare allegati su item %s: %s", item_id, att_err)
 
@@ -930,7 +930,7 @@ def add_email_update(
                             twin_note = (cv.get("text") or "").strip()
                     _append_note_to_column(twin_board, twin_id, twin_note, classification)
                     if attachments:
-                        upload_attachments_to_item(twin_id, attachments)
+                        upload_attachments_to_item(twin_id, attachments, board_id=twin_board)
                     logger.info("🔗 Aggiornamento propagato anche a item gemello #%s su board %s", twin_id, twin_board)
             except Exception as twin_err:
                 logger.debug("Propagazione twin update su board %s: %s", twin_board, twin_err)

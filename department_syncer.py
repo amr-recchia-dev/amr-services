@@ -171,7 +171,10 @@ def _sync_missing_assets_and_updates(source_assets: list, source_updates: list, 
         if p_url:
             try:
                 fb = requests.get(p_url, timeout=30).content
-                col_target = file_col_resolver(a_name)
+                try:
+                    col_target = file_col_resolver(a_name, fb)
+                except TypeError:
+                    col_target = file_col_resolver(a_name)
                 if upload_file_curl(int(target_item_id), col_target, a_name, fb):
                     existing_asset_names.add(a_name.strip().lower())
                     existing_asset_names.add(clean_cmp)
@@ -353,12 +356,13 @@ def _sync_project_to_departments_locked(item_id: str) -> dict:
             results["taglio_fresa"] = f"Updated #{target_t_id}"
 
         if target_t_id:
+            from monday_client import resolve_file_column_for_board
             _sync_missing_assets_and_updates(
                 assets,
                 updates,
                 str(target_t_id),
                 existing_t,
-                lambda fname: "file_mkwqf7mk" if any(ext in fname.lower() for ext in [".dwg", ".pdf", ".dxf", ".obj", ".stl", ".3dm", ".stp", ".step"]) else "file_mkvqs303",
+                lambda fname, fbytes=b"": resolve_file_column_for_board(BOARD_TAGLIO_FRESA, fname, fbytes)[0],
             )
 
     # ─────────────────────────────────────────────────────────────
@@ -417,12 +421,13 @@ def _sync_project_to_departments_locked(item_id: str) -> dict:
             results["finiture"] = f"Updated #{target_f_id}"
 
         if target_f_id:
+            from monday_client import resolve_file_column_for_board
             _sync_missing_assets_and_updates(
                 assets,
                 updates,
                 str(target_f_id),
                 existing_f,
-                lambda fname: "file_mkwqf7mk" if any(ext in fname.lower() for ext in [".dwg", ".pdf", ".dxf", ".obj", ".stl", ".3dm", ".stp", ".step"]) else "file_mkrm23m5",
+                lambda fname, fbytes=b"": resolve_file_column_for_board(BOARD_FINITURE, fname, fbytes)[0],
             )
 
     # ─────────────────────────────────────────────────────────────

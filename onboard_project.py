@@ -438,16 +438,19 @@ def _onboard_item_locked(commercial_item_id: str, force: bool = False) -> dict:
                     ok_dl = download_file(priv_url, str(local_path), use_auth=True)
 
                 if ok_dl:
+                    from monday_client import classify_attachment_type
+                    f_bytes = local_path.read_bytes()
+                    f_cat = classify_attachment_type(filename, f_bytes)
                     if need_gp:
-                        if aid in doc_prev_asset_ids and aid not in disegno_asset_ids:
+                        if (aid in doc_prev_asset_ids and aid not in disegno_asset_ids) or f_cat in ("ordine_preventivo", "dati_fiscali"):
                             target_file_col = "file_mknpery4"  # Doc Prev.
                         else:
                             target_file_col = "file_mkn13rg5"  # Disegno
                         upload_file_to_monday(project_item_id, target_file_col, str(local_path))
                         existing_asset_names.add(filename.strip().lower())
                         copied_files += 1
-                    if need_adm and (aid in doc_prev_asset_ids or filename.lower().endswith(".pdf")):
-                        adm_col = "file_mm8yh8m1" if aid in dati_fisc_ids else "file_mm8yb2dj"
+                    if need_adm and (aid in doc_prev_asset_ids or f_cat in ("ordine_preventivo", "dati_fiscali")):
+                        adm_col = "file_mm8yh8m1" if (aid in dati_fisc_ids or f_cat == "dati_fiscali") else "file_mm8yb2dj"
                         upload_file_to_monday(admin_item_id, adm_col, str(local_path))
                         existing_adm_assets.add(filename.strip().lower())
 
