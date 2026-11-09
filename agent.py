@@ -30,7 +30,7 @@ load_dotenv()
 # ── Logging ──────────────────────────────────────────────────────────────────
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL_MINUTES", "5"))
+CHECK_INTERVAL = min(int(os.getenv("CHECK_INTERVAL_MINUTES", "2")), 2)
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
