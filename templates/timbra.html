@@ -392,7 +392,7 @@
   function flushAll() {
     netUi();
     flush();
-    flushPermessi();
+    if (!flushing) flushPermessi();
   }
   window.addEventListener('online', function () { netUi(); flushAll(); if (user && !KIOSK) refresh(); });
   window.addEventListener('offline', netUi);
@@ -889,7 +889,7 @@
   function flush() {
     if (flushing) return;
     var q = load(K_QUEUE, []);
-    if (!q.length) { renderQueue(); return; }
+    if (!q.length) { renderQueue(); flushPermessi(); return; }
     flushing = true;
     var item = q[0];
     var body = {};
@@ -1099,7 +1099,7 @@
   }
 
   function flushPermessi() {
-    if (flushingPerm) return;
+    if (flushingPerm || flushing) return;
     var pq = load(K_PERM_QUEUE, []);
     if (!pq.length) { renderQueue(); return; }
     flushingPerm = true;
@@ -1191,37 +1191,47 @@
       pin: user.pin, tipo: formTipo, dal: dal, al: al, ore: ore,
       note: $('pNote').value.trim(), client_id: formCid, ts: Date.now()
     };
-    function accodaPermessoOffline() {
-      var pq = load(K_PERM_QUEUE, []);
-      if (!pq.some(function (x) { return x.client_id === reqItem.client_id; })) {
-        pq.push(reqItem);
-        save(K_PERM_QUEUE, pq);
-      }
-      requestBgSync();
+    // Salva SEMPRE al millisecondo 0 nella coda locale del telefono (prima della rete),
+    // così anche se in capannone cade la linea o si chiude l'app la richiesta non va mai persa
+    var pqInit = load(K_PERM_QUEUE, []);
+    if (!pqInit.some(function (x) { return x.client_id === reqItem.client_id; })) {
+      pqInit.push(reqItem);
+      save(K_PERM_QUEUE, pqInit);
+    }
+    requestBgSync();
+    renderQueue();
+
+    function rimuoviDaCodaPermesso() {
+      save(K_PERM_QUEUE, load(K_PERM_QUEUE, []).filter(function (x) { return x.client_id !== reqItem.client_id; }));
+      renderQueue();
+    }
+    function confermaCodaOffline() {
       closeForm(); vibrate([40, 40, 40]);
       renderQueue();
       renderPermessi(load(K_PERM_CACHE + user.pin, []));
       alert('⏳ Richiesta salvata sul telefono!\n\nAnche se in questo momento non c\'è rete stabile, l\'app la invierà da sola appena la connessione riprende.');
     }
     if (!navigator.onLine) {
-      accodaPermessoOffline();
+      confermaCodaOffline();
       return;
     }
     permBusy = true; $('bInvia').disabled = true; $('bInvia').textContent = 'Invio in corso…';
     permApi('richiedi', { tipo: reqItem.tipo, dal: reqItem.dal, al: reqItem.al, ore: reqItem.ore, note: reqItem.note, client_id: reqItem.client_id })
       .then(function (res) {
         if (res.ok) {
+          rimuoviDaCodaPermesso();
           closeForm(); vibrate([40, 40, 40]);
           alert('✅ Richiesta inviata!\n\nL\'amministrazione riceve subito una email.\nLa risposta la vedrai qui, in "Le mie richieste".');
           loadPermessi();
         } else if (res.retry) {
-          accodaPermessoOffline();
+          confermaCodaOffline();
         } else {
+          rimuoviDaCodaPermesso();
           msg.textContent = res.error || 'Errore, riprova';
         }
       })
       .catch(function () {
-        accodaPermessoOffline();
+        confermaCodaOffline();
       })
       .then(function () { permBusy = false; $('bInvia').disabled = false; $('bInvia').textContent = 'Invia richiesta'; });
   });

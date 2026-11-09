@@ -547,6 +547,8 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <select id="audit-mese" onchange="eseguiAudit()" style="width:auto;padding:6px 10px;font-size:13px;font-weight:600;border-radius:6px;">
+          <option value="2026-12">Dicembre 2026</option>
+          <option value="2026-11" selected>Novembre 2026</option>
           <option value="2026-10">Ottobre 2026</option>
           <option value="2026-09">Settembre 2026</option>
         </select>
@@ -1050,6 +1052,19 @@ function setDefaultDate() {
   var today = new Date();
   var iso = formatDateInput(today);
   document.getElementById('data-input').value = iso;
+  var curYm = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  var selMese = document.getElementById('audit-mese');
+  if (selMese) {
+    var mesiNomi = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+    var exists = Array.prototype.some.call(selMese.options, function(o) { return o.value === curYm; });
+    if (!exists) {
+      var opt = document.createElement('option');
+      opt.value = curYm;
+      opt.textContent = mesiNomi[today.getMonth()] + ' ' + today.getFullYear();
+      selMese.insertBefore(opt, selMese.firstChild);
+    }
+    selMese.value = curYm;
+  }
   var pIn = document.getElementById('perm-data-input');
   var pFine = document.getElementById('perm-data-fine-input');
   if (pIn) {
@@ -1180,6 +1195,9 @@ function renderAnomalieAudit(res) {
     html += '<span>' + (a.gravita === 'alta' ? '🔴 ' : '🟡 ') + '<strong>' + a.dipendente + '</strong> (' + (a.data || '') + '): ' + a.messaggio + '</span>';
     html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
     if (a.iso) {
+      if (a.tipo === 'Timbratura doppia/spaiata') {
+        html += '<button type="button" class="btn-sm" style="background:#dc2626;color:#fff;" onclick="eliminaSessioniExtraGiorno(\'' + safeNome + '\', \'' + a.iso + '\')">🗑️ Elimina doppie</button>';
+      }
       html += '<button type="button" class="btn-sm save" onclick="chiediRapido(\'Metti uscita alle 17:00 a ' + safeNome + ' il ' + (a.data || a.iso) + '\')">⚡ Metti Uscita 17:00</button>';
       html += '<button type="button" class="btn-sm" style="background:#dc2626;color:#fff;" onclick="chiediRapido(\'Segna 8 ore di malattia a ' + safeNome + ' il ' + (a.data || a.iso) + '\')">🤒 8h Malattia</button>';
       html += '<button type="button" class="btn-sm" style="background:#0f766e;color:#fff;" onclick="chiediRapido(\'Segna 8 ore di ferie a ' + safeNome + ' il ' + (a.data || a.iso) + '\')">🌴 8h Ferie</button>';

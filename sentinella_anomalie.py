@@ -62,11 +62,15 @@ AMR_TIMBRA_URL = os.getenv(
 )
 AMR_TIMBRA_KEY = os.getenv("AMR_TIMBRA_KEY", "amr-tb-9X4qK7mW2zR8vN5c")
 
-# Anomalie già comunicate manualmente il 06/11/2026 alle 13:53 (così non mandiamo doppioni)
+# Anomalie già comunicate (così non mandiamo doppioni ai riavvii del server)
 INITIAL_NOTIFIED_IDS = {
     "missing_punch|2026-11-04|Mohammed Draij": "2026-11-06T13:53:44+01:00",
     "missing_punch|2026-11-05|Giovanni Fregona": "2026-11-06T13:53:44+01:00",
     "dup_permesso|2026-11-04|Giovanni Fregona": "2026-11-06T13:53:44+01:00",
+    "missing_in|2026-11-06|Giovanni Fregona": "2026-11-09T08:05:19+01:00",
+    "pending_perm|2026-11-10|Jamal Sriti|r46": "2026-11-06T17:16:08+01:00",
+    "pending_perm|2026-11-11|Andrea Moscon|r44": "2026-11-06T15:11:36+01:00",
+    "pending_perm|2026-11-11|Mauro Piccolotto|r47": "2026-11-06T17:38:08+01:00",
 }
 
 _LAST_STATUS = {
@@ -125,21 +129,27 @@ def _fetch_notified_ids_from_imap() -> dict:
     try:
         with imaplib.IMAP4_SSL(host, port, timeout=15) as m:
             m.login(user, pw)
-            m.select("INBOX", readonly=True)
             since_str = (datetime.date.today() - datetime.timedelta(days=14)).strftime("%d-%b-%Y")
-            typ, data = m.search(None, f'(SINCE {since_str} SUBJECT "Sentinella Presenze AMR")')
-            if typ == "OK" and data and data[0]:
-                msg_ids = data[0].split()[-25:]
-                for mid in msg_ids:
-                    t2, raw = m.fetch(mid, "(BODY.PEEK[])")
-                    if t2 == "OK" and raw and raw[0] and len(raw[0]) > 1:
-                        text = raw[0][1].decode("utf-8", errors="ignore")
-                        matches = re.findall(r"AMR_SENTINELLA_IDS:([A-Za-z0-9_|\-,.:+ ]+?)-->", text)
-                        for m_str in matches:
-                            for item in m_str.split(";"):
-                                item = item.strip()
-                                if item:
-                                    found[item] = "imap-recovered"
+            for folder in ("INBOX", '"INBOX.permessi e avvisi"', '"INBOX.Sent"'):
+                try:
+                    t_sel, _ = m.select(folder, readonly=True)
+                    if t_sel != "OK":
+                        continue
+                    typ, data = m.search(None, f'(SINCE {since_str} SUBJECT "Sentinella Presenze AMR")')
+                    if typ == "OK" and data and data[0]:
+                        msg_ids = data[0].split()[-25:]
+                        for mid in msg_ids:
+                            t2, raw = m.fetch(mid, "(BODY.PEEK[])")
+                            if t2 == "OK" and raw and raw[0] and len(raw[0]) > 1:
+                                text = raw[0][1].decode("utf-8", errors="ignore")
+                                matches = re.findall(r"AMR_SENTINELLA_IDS:([A-Za-z0-9_|\-,.:+ ]+?)-->", text)
+                                for m_str in matches:
+                                    for item in m_str.split(";"):
+                                        item = item.strip()
+                                        if item:
+                                            found[item] = "imap-recovered"
+                except Exception:
+                    pass
             m.logout()
     except Exception as e:
         logger.debug(f"[SENTINELLA] Controllo IMAP marker non disponibile: {e}")
@@ -292,8 +302,9 @@ def collect_anomalies(now: datetime.datetime = None) -> list[dict]:
             except Exception:
                 ore_val = 8.0
 
-            # Segnala richieste ancora "In attesa" nel mese corrente
-            if p_stato.lower() == "in attesa" and p_start.year == today.year and p_start.month == today.month:
+            # Segnala richieste ancora "In attesa" SOLO se la data richiesta è già passata (p_start < today),
+            # poiché per le richieste future viene già inviata l'email dedicata di "Nuova richiesta"!
+            if p_stato.lower() == "in attesa" and p_start.year == today.year and p_start.month == today.month and p_start < today:
                 d_iso = p_start.isoformat()
                 d_it = p_start.strftime("%d/%m/%Y")
                 aid = f"pending_perm|{d_iso}|{p_name}|r{idx}"
@@ -408,9 +419,10 @@ def _send_sentinella_email(new_anomalies: list[dict], all_anomalies: list[dict],
 
     if n_new == 1:
         a0 = new_anomalies[0]
-        subject = f"[Sentinella Presenze AMR] ⚠️ Nuova anomalia: {a0['dipendente']} ({a0['data']}) – {a0['categoria']}"
+        subject = f"[Sentinella Presenze AMR] ⚠️ Anomalia giornata {a0['data']}: {a0['dipendente']} – {a0['categoria']}"
     else:
-        subject = f"[Sentinella Presenze AMR] ⚠️ {n_new} nuove anomalie timbrature/permessi da verificare ({now.strftime('%d/%m/%Y')})"
+        dates_str = ", ".join(sorted({a["data"] for a in new_anomalies}))
+        subject = f"[Sentinella Presenze AMR] ⚠️ {n_new} anomalie da verificare (giornate: {dates_str})"
 
     all_ids_marker = ";".join(a["id"] for a in all_anomalies)
 

@@ -220,25 +220,59 @@ def calculate_employee_report(pin: str, target_month_str: str = None) -> dict:
                     "luogo": luogo
                 })
             elif in_str:
+                nota_str = r[11].strip() if len(r) > 11 else ""
                 unpaired_in.append({
                     "time": in_str,
                     "mins": parse_time_to_minutes(in_str) or 0,
                     "tipo": tipo or "Sede",
                     "gps": gps,
-                    "luogo": luogo
+                    "luogo": luogo,
+                    "nota": nota_str,
                 })
             elif out_str:
+                nota_str = r[11].strip() if len(r) > 11 else ""
                 unpaired_out.append({
                     "time": out_str,
                     "mins": parse_time_to_minutes(out_str) or 0,
                     "tipo": tipo or "Sede",
                     "gps": gps,
-                    "luogo": luogo
+                    "luogo": luogo,
+                    "nota": nota_str,
                 })
 
         # Ordina cronologicamente
         unpaired_in.sort(key=lambda x: x["mins"])
         unpaired_out.sort(key=lambda x: x["mins"])
+
+        # Deduplica eventuali doppie uscite o doppie entrate ravvicinate (<= 60 min) quando sono in eccesso
+        # (es. Uscita 17:00 'Inserita da Admin' + Uscita 17:09 inviata in ritardo dal telefono)
+        while len(unpaired_out) > len(unpaired_in) and len(unpaired_out) >= 2:
+            merged = False
+            for idx_o in range(len(unpaired_out) - 1):
+                o1, o2 = unpaired_out[idx_o], unpaired_out[idx_o + 1]
+                if abs(o2["mins"] - o1["mins"]) <= 60:
+                    if "inserita da admin" in o1.get("nota", "").lower() and "inserita da admin" not in o2.get("nota", "").lower():
+                        unpaired_out.pop(idx_o)
+                    else:
+                        unpaired_out.pop(idx_o)  # mantiene l'uscita più recente della stessa fascia
+                    merged = True
+                    break
+            if not merged:
+                break
+
+        while len(unpaired_in) > len(unpaired_out) and len(unpaired_in) >= 2:
+            merged = False
+            for idx_i in range(len(unpaired_in) - 1):
+                i1, i2 = unpaired_in[idx_i], unpaired_in[idx_i + 1]
+                if abs(i2["mins"] - i1["mins"]) <= 60 and ("inserita da admin" in i1.get("nota", "").lower() or "inserita da admin" in i2.get("nota", "").lower() or abs(i2["mins"] - i1["mins"]) <= 15):
+                    if "inserita da admin" in i1.get("nota", "").lower() and "inserita da admin" not in i2.get("nota", "").lower():
+                        unpaired_in.pop(idx_i)
+                    else:
+                        unpaired_in.pop(idx_i + 1)  # mantiene il primo ingresso reale della fascia
+                    merged = True
+                    break
+            if not merged:
+                break
 
         in_idx = 0
         out_idx = 0
