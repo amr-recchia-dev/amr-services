@@ -254,7 +254,7 @@ def _extract_order_numbers(text: str) -> set:
     """Estrae numeri d'ordine/documento significativi ignorando date e dimensioni (es. 60x60)."""
     if not text:
         return set()
-    s = text.lower()
+    s = text.lower().replace("_", " ")
     # Rimuovi date (02/11/2026, 09-11-2026, 26.10.26)
     s = _re.sub(r"\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b", " ", s)
     # Rimuovi dimensioni (es. 60x60, 1000x500x10)
@@ -264,7 +264,7 @@ def _extract_order_numbers(text: str) -> set:
 
     nums = set()
     for m in _re.finditer(
-        r"\b(?:ordine|ord|conferma|prev|preventivo|off|offerta|ddt|rif|oda|odv|prf)[^\d]{0,12}(\d{2,7})\b",
+        r"\b(?:ordine|ord|cliente|conferma|prev|preventivo|off|offerta|ddt|rif|oda|odv|prf)[^\d]{0,12}(\d{2,7})\b",
         s,
     ):
         nums.add(m.group(1).lstrip("0") or "0")
@@ -334,57 +334,85 @@ def _create_or_update_on_board(
     classification,
     attachments: Optional[List[Tuple[str, bytes]]] = None,
 ) -> Optional[str]:
-    """Crea o aggiorna (anti-clone) un item su una specifica board Monday (COMMERCIALE o NEW COMMERCIALE)."""
+    """
+    Crea o aggiorna (anti-clone) un item su una specifica board Monday (COMMERCIALE o NEW COMMERCIALE).
+    Controlla anche la rispettiva board GESTIONE PROGETTI (1865197409) / GESTIONE PROGETTI NEW (2136092569)
+    per evitare di ricreare commesse già passate in produzione.
+    """
+    import urllib.parse as _urlparse
+
     try:
+        gp_board_id = "1865197409" if str(board_id) == "1865049112" else "2136092569"
         check_q = """
-        query ($board_id: [ID!]) {
-          boards(ids: $board_id) {
+        query ($board_ids: [ID!]) {
+          boards(ids: $board_ids) {
+            id
             items_page(limit: 250) {
               items {
                 id
                 name
-                column_values(ids: ["testo_mkn1sqb4", "email_mkn1v37b", "testo_lungo_mkn1ydyz"]) {
+                column_values(ids: ["testo_mkn1sqb4", "email_mkn1v37b", "testo_lungo_mkn1ydyz", "lookup_mknz7srg", "lookup_mknzf7p1", "testo_mkmnxqsk", "file_mknpcqbv", "text_mm51yk45"]) {
                   id
                   text
+                  ... on MirrorValue { display_value }
                 }
               }
             }
           }
         }
         """
-        existing = _graphql(check_q, {"board_id": [str(board_id)]})
-        recent_items = (existing.get("boards") or [{}])[0].get("items_page", {}).get("items", [])
+        existing = _graphql(check_q, {"board_ids": [str(board_id), gp_board_id]})
+        boards_data = existing.get("boards") or []
 
         norm_target_client = normalize_client_name(item_name)
         sender_email = (classification.email_mittente or "").strip().lower()
         is_internal_sender = sender_email in ("ordini@amrrecchia.it", "info@amrrecchia.it", "")
 
-        for it in recent_items:
-            it_name_norm = normalize_client_name(it.get("name", ""))
-            col_map = {c["id"]: (c.get("text") or "").strip() for c in it.get("column_values", [])}
-            it_proj = col_map.get("testo_mkn1sqb4", "")
-            it_email = col_map.get("email_mkn1v37b", "").lower()
-            it_note = col_map.get("testo_lungo_mkn1ydyz", "")
-
-            same_client = False
-            if norm_target_client and it_name_norm:
-                if norm_target_client == it_name_norm:
-                    same_client = True
-                elif _difflib.SequenceMatcher(None, norm_target_client, it_name_norm).ratio() >= 0.84:
-                    same_client = True
-            if not same_client and not is_internal_sender and it_email and it_email == sender_email:
-                same_client = True
-
-            if same_client and is_same_commessa_project(
-                classification.nome_progetto, it_proj, classification.note, it_note
-            ):
-                logger.info(
-                    "🛡️ [ANTI-CLONE] Commessa già presente su board %s: '%s' / '%s' (id: #%s). Aggiorno senza clonare.",
-                    board_id, it.get("name"), it_proj, it["id"]
+        for b_obj in boards_data:
+            curr_b_id = str(b_obj.get("id", board_id))
+            for it in b_obj.get("items_page", {}).get("items", []):
+                it_name_norm = normalize_client_name(it.get("name", ""))
+                col_map = {
+                    c["id"]: (c.get("text") or c.get("display_value") or "").strip()
+                    for c in it.get("column_values", [])
+                }
+                it_proj = " ".join(
+                    v for v in [
+                        col_map.get("testo_mkn1sqb4"),
+                        col_map.get("lookup_mknz7srg"),
+                        col_map.get("testo_mkmnxqsk"),
+                        col_map.get("text_mm51yk45"),
+                    ] if v
                 )
-                _add_update_to_item(it["id"], classification)
-                upload_attachments_to_item(it["id"], attachments)
-                return it["id"]
+                it_email = col_map.get("email_mkn1v37b", "").lower()
+                it_note = col_map.get("testo_lungo_mkn1ydyz") or col_map.get("lookup_mknzf7p1") or ""
+                if col_map.get("file_mknpcqbv"):
+                    fname_dec = _urlparse.unquote(col_map["file_mknpcqbv"].split("/")[-1])
+                    it_proj = f"{it_proj} {fname_dec}".strip()
+                    it_note = f"{it_note} {fname_dec}".strip()
+
+                same_client = False
+                if norm_target_client and it_name_norm:
+                    if norm_target_client == it_name_norm or it_name_norm.startswith(norm_target_client + " "):
+                        same_client = True
+                    elif _difflib.SequenceMatcher(None, norm_target_client, it_name_norm).ratio() >= 0.84:
+                        same_client = True
+                if not same_client and not is_internal_sender and it_email and it_email == sender_email:
+                    same_client = True
+
+                if same_client and is_same_commessa_project(
+                    classification.nome_progetto,
+                    f"{it_proj} {it.get('name', '')}".strip(),
+                    classification.note,
+                    it_note,
+                ):
+                    logger.info(
+                        "🛡️ [ANTI-CLONE] Commessa già presente su board %s: '%s' / '%s' (id: #%s). Aggiorno senza clonare.",
+                        curr_b_id, it.get("name"), it_proj, it["id"]
+                    )
+                    _add_update_to_item(it["id"], classification)
+                    upload_attachments_to_item(it["id"], attachments)
+                    return it["id"]
     except Exception as check_err:
         logger.warning("Controllo preliminare anti-clone su board %s fallito: %s", board_id, check_err)
 

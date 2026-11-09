@@ -37,7 +37,9 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN", "")
+BOARD_COMMERCIALE_OLD = "1865049112"
 BOARD_COMMERCIALE = os.getenv("MONDAY_BOARD_ID", "2133436509")
+BOARD_GESTIONE_PROGETTI_OLD = "1865197409"
 BOARD_PROGETTI = "2136092569"
 
 # Soglia minima per il fuzzy match sul nome cliente (0–1)
@@ -52,7 +54,8 @@ COL_NUM_COMMESSA_PROGETTI: Optional[str] = "text_mm51yk45"
 # Cache per gli ID colonna N° Commessa (evita query ripetute)
 _col_cache: Dict[str, Optional[str]] = {
     f"num_commessa_{BOARD_COMMERCIALE}": "text_mm51yvbk",
-    f"num_commessa_{BOARD_PROGETTI}": "text_mm51yk45"
+    f"num_commessa_{BOARD_PROGETTI}": "text_mm51yk45",
+    f"num_commessa_{BOARD_GESTIONE_PROGETTI_OLD}": "testo_mkmnxqsk",
 }
 
 
@@ -214,26 +217,51 @@ def _expand_variants_from_kb(search_names: List[str]) -> List[str]:
     return combined
 
 
+import time as _time
+
+_items_cache: Dict[str, Tuple[float, List[Dict]]] = {}
+_columns_cache: Dict[str, Tuple[float, List[Dict]]] = {}
+_CACHE_TTL_SEC = 60.0
+
+_MATCHER_COL_IDS = [
+    "testo_mkn1sqb4",
+    "email_mkn1v37b",
+    "testo_lungo_mkn1ydyz",
+    "lookup_mknz7srg",
+    "lookup_mknzf7p1",
+    "testo_mkmnxqsk",
+    "file_mknpcqbv",
+    "text_mm51yvbk",
+    "text_mm51yk45",
+]
+
+
 def _get_all_items(board_id: str) -> List[Dict]:
     """
-    Recupera tutti gli item di una board Monday.com (nome + id + colonne).
-    Usa la paginazione cursor-based per board con molti item.
+    Recupera tutti gli item di una board Monday.com (nome + id + colonne rilevanti).
+    Usa una cache in-memory di 60s per evitare chiamate API ripetute nello stesso ciclo.
     """
+    now = _time.time()
+    cached = _items_cache.get(str(board_id))
+    if cached and (now - cached[0]) < _CACHE_TTL_SEC:
+        return cached[1]
+
     items = []
     cursor = None
 
     query_first = """
-    query ($board_id: [ID!], $limit: Int!) {
+    query ($board_id: [ID!], $limit: Int!, $col_ids: [String!]) {
       boards(ids: $board_id) {
         items_page(limit: $limit) {
           cursor
           items {
             id
             name
-            column_values {
+            column_values(ids: $col_ids) {
               id
               text
               value
+              ... on MirrorValue { display_value }
             }
           }
         }
@@ -242,16 +270,17 @@ def _get_all_items(board_id: str) -> List[Dict]:
     """
 
     query_next = """
-    query ($cursor: String!, $limit: Int!) {
+    query ($cursor: String!, $limit: Int!, $col_ids: [String!]) {
       next_items_page(limit: $limit, cursor: $cursor) {
         cursor
         items {
           id
           name
-          column_values {
+          column_values(ids: $col_ids) {
             id
             text
             value
+            ... on MirrorValue { display_value }
           }
         }
       }
@@ -260,7 +289,7 @@ def _get_all_items(board_id: str) -> List[Dict]:
 
     # Prima pagina
     try:
-        data = _graphql(query_first, {"board_id": [board_id], "limit": 200})
+        data = _graphql(query_first, {"board_id": [board_id], "limit": 200, "col_ids": _MATCHER_COL_IDS})
         page = data.get("boards", [{}])[0].get("items_page", {})
         items.extend(page.get("items", []))
         cursor = page.get("cursor")
@@ -271,7 +300,7 @@ def _get_all_items(board_id: str) -> List[Dict]:
     # Pagine successive
     while cursor:
         try:
-            data = _graphql(query_next, {"cursor": cursor, "limit": 200})
+            data = _graphql(query_next, {"cursor": cursor, "limit": 200, "col_ids": _MATCHER_COL_IDS})
             page = data.get("next_items_page", {})
             batch = page.get("items", [])
             if not batch:
@@ -282,12 +311,18 @@ def _get_all_items(board_id: str) -> List[Dict]:
             logger.error("Errore paginazione item board %s: %s", board_id, e)
             break
 
+    _items_cache[str(board_id)] = (_time.time(), items)
     logger.debug("Board %s: %d item recuperati", board_id, len(items))
     return items
 
 
 def _get_columns_for_board(board_id: str) -> List[Dict]:
-    """Recupera le colonne di una board."""
+    """Recupera le colonne di una board (con cache)."""
+    now = _time.time()
+    cached = _columns_cache.get(str(board_id))
+    if cached and (now - cached[0]) < 600.0:
+        return cached[1]
+
     query = """
     query ($board_id: [ID!]) {
       boards(ids: $board_id) {
@@ -304,7 +339,9 @@ def _get_columns_for_board(board_id: str) -> List[Dict]:
         boards = data.get("boards", [])
         if not boards:
             return []
-        return boards[0].get("columns", [])
+        cols = boards[0].get("columns", [])
+        _columns_cache[str(board_id)] = (now, cols)
+        return cols
     except Exception as e:
         logger.error("Errore recupero colonne board %s: %s", board_id, e)
         return []
@@ -440,6 +477,7 @@ def _search_by_order_ref(ref: str) -> MatchResult:
     board_col_map = {
         BOARD_COMMERCIALE: _find_num_commessa_col_id(BOARD_COMMERCIALE),
         BOARD_PROGETTI:    _find_num_commessa_col_id(BOARD_PROGETTI),
+        BOARD_GESTIONE_PROGETTI_OLD: _find_num_commessa_col_id(BOARD_GESTIONE_PROGETTI_OLD),
     }
 
     # ── Strategia 1: ricerca precisa per colonna N° Commessa ──────────────────
@@ -466,34 +504,33 @@ def _search_by_order_ref(ref: str) -> MatchResult:
                     candidates=[{"id": item["id"], "name": item["name"], "board_id": board_id}]
                 )
 
-    # ── Strategia 2: full-scan fallback ───────────────────────────────────────
+    # ── Strategia 2: full-scan fallback su tutte le board (inclusa GESTIONE PROGETTI 1865197409) ──
     logger.debug("Nessun match preciso per '%s', avvio full-scan fallback", ref)
-    for board_id in [BOARD_COMMERCIALE, BOARD_PROGETTI]:
+    for board_id in dict.fromkeys([BOARD_COMMERCIALE_OLD, BOARD_COMMERCIALE, BOARD_GESTIONE_PROGETTI_OLD, BOARD_PROGETTI]):
         order_col_ids = _find_order_column_ids(board_id)
         items = _get_all_items(board_id)
 
         for item in items:
-            # Controlla le colonne ordine specifiche
+            # Controlla le colonne ordine specifiche e file ordine interno
             for col_val in item.get("column_values", []):
-                if order_col_ids and col_val["id"] not in order_col_ids:
-                    continue
-                col_text = (col_val.get("text") or "").strip()
+                col_text = (col_val.get("text") or col_val.get("display_value") or "").strip()
                 if not col_text:
                     continue
-                if _normalize_ref(col_text) == ref_norm:
-                    logger.info(
-                        "✅ Match per numero ordine '%s' → item '%s' (id: %s) su board %s [full-scan]",
-                        ref, item["name"], item["id"], board_id
-                    )
-                    return MatchResult(
-                        found=True,
-                        item_id=item["id"],
-                        item_name=item["name"],
-                        board_id=board_id,
-                        confidence=1.0,
-                        ambiguous=False,
-                        candidates=[{"id": item["id"], "name": item["name"], "board_id": board_id}]
-                    )
+                if col_val["id"] == "file_mknpcqbv" or (not order_col_ids or col_val["id"] in order_col_ids):
+                    if _normalize_ref(col_text) == ref_norm or (len(ref_norm) >= 4 and ref_norm in _normalize_ref(col_text)):
+                        logger.info(
+                            "✅ Match per numero ordine '%s' → item '%s' (id: %s) su board %s [full-scan]",
+                            ref, item["name"], item["id"], board_id
+                        )
+                        return MatchResult(
+                            found=True,
+                            item_id=item["id"],
+                            item_name=item["name"],
+                            board_id=board_id,
+                            confidence=1.0,
+                            ambiguous=False,
+                            candidates=[{"id": item["id"], "name": item["name"], "board_id": board_id}]
+                        )
 
             # Fallback: controlla anche il nome dell'item stesso (contiene il numero)
             if ref_norm in _normalize_ref(item.get("name", "")):
@@ -562,12 +599,14 @@ def _search_by_client_name(
     note: str = "",
 ) -> MatchResult:
     """
-    Cerca per nome cliente (o email mittente) + corrispondenza progetto su tutte le board commerciali/progetti.
+    Cerca per nome cliente (o email mittente) + corrispondenza progetto su tutte le board commerciali/progetti
+    (COMMERCIALE 1865049112, NEW COMMERCIALE 2133436509, GESTIONE PROGETTI 1865197409 e GESTIONE PROGETTI NEW 2136092569).
     Include normalizzazione nomi manuali (es. 'ipe 26.10.26' -> 'ipe') e verifica anti-clone su numero ordine e progetto.
     """
     if not client_name and not email_mittente:
         return MatchResult(found=False)
 
+    import urllib.parse as _urlparse
     from monday_client import normalize_client_name, is_same_commessa_project
 
     # Prepara tutte le varianti da confrontare
@@ -595,7 +634,12 @@ def _search_by_client_name(
 
     candidates = []
 
-    boards_to_check = list(dict.fromkeys(["1865049112", BOARD_COMMERCIALE, BOARD_PROGETTI]))
+    boards_to_check = list(dict.fromkeys([
+        BOARD_COMMERCIALE_OLD,
+        BOARD_COMMERCIALE,
+        BOARD_GESTIONE_PROGETTI_OLD,
+        BOARD_PROGETTI,
+    ]))
     for board_id in boards_to_check:
         items = _get_all_items(board_id)
         for item in items:
@@ -608,19 +652,28 @@ def _search_by_client_name(
                 [_fuzzy_score(sn, item_name) for sn in search_names]
                 + ([_fuzzy_score(nsn, norm_item) for nsn in norm_search_names if norm_item] if norm_search_names else [0.0])
             )
+            # In GESTIONE PROGETTI il nome dell'item spesso contiene "cliente + progetto" (es. "mogg culla poltrona", "BERTONE TAVOLI")
+            for nsn in norm_search_names:
+                if len(nsn) >= 3 and norm_item and (norm_item.startswith(nsn + " ") or nsn == norm_item):
+                    best_score = max(best_score, 0.90)
 
             proj_col = ""
             item_email = ""
             item_note = ""
             for cv in item.get("column_values", []):
                 cid = cv.get("id")
-                val_txt = (cv.get("text") or "").strip()
-                if cid in ("testo_mkn1sqb4", "text_mm51yk45", "lookup_mknz7srg") and val_txt:
+                val_txt = (cv.get("text") or cv.get("display_value") or "").strip()
+                if cid in ("testo_mkn1sqb4", "text_mm51yk45", "lookup_mknz7srg", "testo_mkmnxqsk") and val_txt:
                     proj_col = (proj_col + " " + val_txt).strip()
+                elif cid == "file_mknpcqbv" and val_txt:
+                    # Estrai il nome del PDF "Doc. Ordine interno" in GESTIONE PROGETTI (contiene N.ord.cliente)
+                    fname_dec = _urlparse.unquote(val_txt.split("/")[-1])
+                    proj_col = (proj_col + " " + fname_dec).strip()
+                    item_note = (item_note + " " + fname_dec).strip()
                 elif cid == "email_mkn1v37b" and val_txt:
                     item_email = val_txt.lower()
-                elif cid == "testo_lungo_mkn1ydyz" and val_txt:
-                    item_note = val_txt
+                elif cid in ("testo_lungo_mkn1ydyz", "lookup_mknzf7p1") and val_txt:
+                    item_note = (item_note + " " + val_txt).strip()
 
             if not is_internal_sender and sender_clean and item_email and item_email == sender_clean:
                 best_score = max(best_score, 0.95)
@@ -885,13 +938,17 @@ def add_email_update(
             except Exception as att_err:
                 logger.warning("Impossibile caricare allegati su item %s: %s", item_id, att_err)
 
-        # Se l'item è su COMMERCIALE (1865049112) o NEW COMMERCIALE (2133436509),
-        # propaga l'update e gli allegati anche all'item gemello sull'altra scheda commerciale!
+        # Se l'item è su COMMERCIALE / NEW COMMERCIALE o GESTIONE PROGETTI / GESTIONE PROGETTI NEW,
+        # propaga l'update e gli allegati anche all'item gemello sull'altra scheda!
         twin_board = None
         if str(board_id) == "1865049112":
             twin_board = "2133436509"
         elif str(board_id) == "2133436509":
             twin_board = "1865049112"
+        elif str(board_id) == "1865197409":
+            twin_board = "2136092569"
+        elif str(board_id) == "2136092569":
+            twin_board = "1865197409"
 
         if twin_board and item_name_found:
             try:
