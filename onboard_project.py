@@ -16,12 +16,16 @@ from __future__ import annotations
 import os
 import json
 import time
+import threading
 import logging
 import requests
 import tempfile
 import mimetypes
 from pathlib import Path
 from dotenv import load_dotenv
+
+_onboard_lock = threading.Lock()
+_recent_onboard_ts: dict[str, float] = {}
 
 script_dir = Path(__file__).resolve().parent
 load_dotenv(dotenv_path=script_dir / ".env")
@@ -40,7 +44,8 @@ MONDAY_HEADERS = {
 
 BOARD_COMMERCIALE_NEW = "2133436509"
 BOARD_PROGETTI_NEW = "2136092569"
-FORBIDDEN_BOARDS = {"1865049112", "1865197409", "1865050352", "1988908927"}
+BOARD_AMMINISTRAZIONE_NEW = "5107455153"
+FORBIDDEN_BOARDS = {"1865049112", "1865197409", "1865050352", "1988908927", "1865824381"}
 
 
 def _query(query: str, variables: dict = None) -> dict:
@@ -106,11 +111,11 @@ def download_file(url: str, dest_path: str, use_auth: bool = False) -> bool:
     return False
 
 
-def _find_existing_project_in_gp_new(commessa_code: str, item_name: str, commercial_item_id: str) -> dict | None:
-    """Cerca se il progetto esiste già in GESTIONE PROGETTI NEW per N° Commessa o per nome."""
+def _find_existing_project_in_gp_new(commessa_code: str, item_name: str, commercial_item_id: str, board_id: str = BOARD_PROGETTI_NEW, comm_col_id: str = "text_mm51yk45") -> dict | None:
+    """Cerca se il progetto esiste già nella board target (GESTIONE PROGETTI NEW o AMMINISTRAZIONE NEW) per N° Commessa o per nome."""
     q = f"""
     query {{
-      boards(ids: ["{BOARD_PROGETTI_NEW}"]) {{
+      boards(ids: ["{board_id}"]) {{
         items_page(limit: 500) {{
           items {{
             id
@@ -130,7 +135,7 @@ def _find_existing_project_in_gp_new(commessa_code: str, item_name: str, commerc
 
     for it in items:
         cols = {c["id"]: (c.get("text") or "").strip() for c in it.get("column_values", [])}
-        existing_comm = cols.get("text_mm51yk45", "")
+        existing_comm = cols.get(comm_col_id, "")
         if commessa_code and existing_comm == commessa_code:
             return it
         if existing_comm == fallback_comm:
@@ -162,8 +167,20 @@ def _extract_asset_ids_from_col(col_obj: dict) -> set[str]:
 def onboard_item(commercial_item_id: str, force: bool = False) -> dict:
     """
     Trasferisce o aggiorna un item da NEW COMMERCIALE (2133436509) a GESTIONE PROGETTI NEW (2136092569)
-    e avvia subito la sincronizzazione verso i reparti (TAGLIO E FRESA, FINITURE, PROGETTAZIONE NEW).
+    e avvia subito la sincronizzazione verso i reparti (TAGLIO E FRESA, FINITURE, PROGETTAZIONE NEW, AMMINISTRAZIONE NEW).
+    Protetto da lock e debounce contro raffiche di webhook simultanei.
     """
+    with _onboard_lock:
+        now = time.time()
+        last_ts = _recent_onboard_ts.get(str(commercial_item_id), 0.0)
+        if not force and (now - last_ts) < 4.0:
+            logger.info("⏭️ [DEBOUNCE] Onboarding per item #%s già eseguito %.1fs fa, ignoro evento duplicato.", commercial_item_id, now - last_ts)
+            return {"ok": True, "debounced": True, "commercial_item_id": str(commercial_item_id)}
+        _recent_onboard_ts[str(commercial_item_id)] = now
+        return _onboard_item_locked(commercial_item_id, force=force)
+
+
+def _onboard_item_locked(commercial_item_id: str, force: bool = False) -> dict:
     logger.info("🚀 Avvio sincronizzazione NEW COMMERCIALE -> GESTIONE PROGETTI NEW per item #%s", commercial_item_id)
 
     q_get = """
@@ -245,6 +262,8 @@ def onboard_item(commercial_item_id: str, force: bool = False) -> dict:
     finitura = (col_values.get("color_mknsghqz", {}).get("text") or "").strip()
     lav_esterna = (col_values.get("color_mky76qyw", {}).get("text") or "").strip()
     pagamento = (col_values.get("color_mknrnt50", {}).get("text") or "").strip()
+    dati_fiscali = (col_values.get("text_mkp5k1vg", {}).get("text") or "").strip()
+    budget_val = (col_values.get("numeri_mkn1w8z2", {}).get("text") or "").strip()
     fornitori_text = (col_values.get("dropdown_mknxwdw3", {}).get("text") or "").strip()
 
     operatore_val_raw = col_values.get("multiple_person_mknmf28d", {}).get("value")
@@ -334,9 +353,67 @@ def onboard_item(commercial_item_id: str, force: bool = False) -> dict:
     _query(q_update, {"column_values": json.dumps(op_values)})
     logger.info("📋 Tutte le colonne (contatti, date, priorità, reparti Taglio/Fresa/Finitura/Disegno) copiate su GESTIONE PROGETTI NEW #%s.", project_item_id)
 
+    # 3b. Sincronizza anche su AMMINISTRAZIONE NEW (5107455153)
+    admin_item_id = None
+    try:
+        existing_adm = _find_existing_project_in_gp_new(
+            num_commessa, c_item["name"], str(commercial_item_id),
+            board_id=BOARD_AMMINISTRAZIONE_NEW, comm_col_id="text_mm8y3t4q"
+        )
+        adm_values = {
+            "text_mm8y3t4q": num_commessa,
+            "text_mm8y9vxm": nome_progetto,
+        }
+        if referente:
+            adm_values["text_mm8ynnhj"] = referente
+        if email:
+            adm_values["email_mm8yvmcy"] = {"email": email, "text": email}
+        if telefono:
+            clean_tel = "".join(ch for ch in telefono if ch.isdigit() or ch == "+")
+            if clean_tel:
+                adm_values["phone_mm8yt1b9"] = {"phone": clean_tel, "countryShortName": "IT"}
+        if dati_fiscali:
+            adm_values["text_mm8yp2yy"] = dati_fiscali
+        if data_preventivo:
+            adm_values["date_mm8y1n2b"] = {"date": data_preventivo}
+        if budget_val:
+            adm_values["numeric_mm8yajj2"] = budget_val
+        if pagamento:
+            adm_values["text_mm8y8eqg"] = pagamento
+        if priorita:
+            adm_values["text_mm8yeabv"] = priorita
+        if data_consegna:
+            adm_values["date_mm8ymb9n"] = {"date": data_consegna}
+
+        if existing_adm:
+            admin_item_id = str(existing_adm["id"])
+            _query(
+                f"mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {BOARD_AMMINISTRAZIONE_NEW}, item_id: {admin_item_id}, column_values: $val) {{ id }} }}",
+                {"val": json.dumps(adm_values)},
+            )
+            logger.info("💼 Aggiornata commessa su AMMINISTRAZIONE NEW #%s", admin_item_id)
+        else:
+            adm_values["color_mm8ynr3s"] = {"label": "In produzione"}
+            adm_values["color_mm8yt562"] = {"label": "DA FARE"}
+            adm_values["color_mm8yk54d"] = {"label": "DA FARE"}
+            adm_values["color_mm8yhrqg"] = {"label": "DA FARE"}
+            adm_values["color_mm8yr340"] = {"label": "Non Consegnato"}
+            adm_values["color_mm8y87rn"] = {"label": "DA FARE"}
+            res_adm = _query(
+                "mutation ($bid: ID!, $name: String!, $val: JSON!) { create_item(board_id: $bid, item_name: $name, column_values: $val) { id } }",
+                {"bid": BOARD_AMMINISTRAZIONE_NEW, "name": c_item["name"], "val": json.dumps(adm_values)},
+            )
+            admin_item_id = str((res_adm.get("create_item") or {}).get("id") or "")
+            logger.info("💼 Creata nuova commessa su AMMINISTRAZIONE NEW #%s", admin_item_id)
+    except Exception as adm_err:
+        logger.warning("Impossibile sincronizzare AMMINISTRAZIONE NEW: %s", adm_err)
+
     # 4. Copia i file allegati nelle rispettive colonne (Doc Prev. vs Disegno) evitando duplicati
     existing_asset_names = {a["name"].strip().lower() for a in (existing_gp.get("assets", []) if existing_gp else [])}
-    doc_prev_asset_ids = _extract_asset_ids_from_col(col_values.get("file_mknpery4")) | _extract_asset_ids_from_col(col_values.get("file_mkt3h3j7"))
+    existing_adm_assets = {a["name"].strip().lower() for a in (existing_adm.get("assets", []) if locals().get("existing_adm") else [])}
+    doc_prev_only_ids = _extract_asset_ids_from_col(col_values.get("file_mknpery4"))
+    dati_fisc_ids = _extract_asset_ids_from_col(col_values.get("file_mkt3h3j7"))
+    doc_prev_asset_ids = doc_prev_only_ids | dati_fisc_ids
     disegno_asset_ids = _extract_asset_ids_from_col(col_values.get("file_mkn13rg5")) | _extract_asset_ids_from_col(col_values.get("file_mkyrtsyj"))
 
     assets = c_item.get("assets", [])
@@ -345,7 +422,9 @@ def onboard_item(commercial_item_id: str, force: bool = False) -> dict:
         with tempfile.TemporaryDirectory() as tmp_dir:
             for asset in assets:
                 filename = asset["name"]
-                if filename.strip().lower() in existing_asset_names:
+                need_gp = filename.strip().lower() not in existing_asset_names
+                need_adm = bool(admin_item_id) and (filename.strip().lower() not in existing_adm_assets)
+                if not need_gp and not need_adm:
                     continue
                 aid = str(asset.get("id", ""))
                 p_url = asset.get("public_url")
@@ -359,14 +438,18 @@ def onboard_item(commercial_item_id: str, force: bool = False) -> dict:
                     ok_dl = download_file(priv_url, str(local_path), use_auth=True)
 
                 if ok_dl:
-                    # Determina la colonna di destinazione in GESTIONE PROGETTI NEW
-                    if aid in doc_prev_asset_ids and aid not in disegno_asset_ids:
-                        target_file_col = "file_mknpery4"  # Doc Prev.
-                    else:
-                        target_file_col = "file_mkn13rg5"  # Disegno
-                    upload_file_to_monday(project_item_id, target_file_col, str(local_path))
-                    existing_asset_names.add(filename.strip().lower())
-                    copied_files += 1
+                    if need_gp:
+                        if aid in doc_prev_asset_ids and aid not in disegno_asset_ids:
+                            target_file_col = "file_mknpery4"  # Doc Prev.
+                        else:
+                            target_file_col = "file_mkn13rg5"  # Disegno
+                        upload_file_to_monday(project_item_id, target_file_col, str(local_path))
+                        existing_asset_names.add(filename.strip().lower())
+                        copied_files += 1
+                    if need_adm and (aid in doc_prev_asset_ids or filename.lower().endswith(".pdf")):
+                        adm_col = "file_mm8yh8m1" if aid in dati_fisc_ids else "file_mm8yb2dj"
+                        upload_file_to_monday(admin_item_id, adm_col, str(local_path))
+                        existing_adm_assets.add(filename.strip().lower())
 
     # 5. Copia gli Updates / Commenti (evitando duplicati)
     existing_updates_text = {(u.get("text_body") or "").strip()[:120] for u in (existing_gp.get("updates", []) if existing_gp else []) if u.get("text_body")}
@@ -388,7 +471,7 @@ def onboard_item(commercial_item_id: str, force: bool = False) -> dict:
         existing_updates_text.add(t_body[:120])
         copied_updates += 1
 
-    # 6. Innesca immediatamente la sincronizzazione da GESTIONE PROGETTI NEW verso i reparti (TAGLIO E FRESA, FINITURE, PROGETTAZIONE NEW)
+    # 6. Innesca immediatamente la sincronizzazione da GESTIONE PROGETTI NEW verso i reparti (TAGLIO E FRESA, FINITURE, PROGETTAZIONE NEW, AMMINISTRAZIONE NEW)
     dept_result = {}
     try:
         import department_syncer
@@ -401,6 +484,7 @@ def onboard_item(commercial_item_id: str, force: bool = False) -> dict:
         "ok": True,
         "commercial_item_id": str(commercial_item_id),
         "project_item_id": project_item_id,
+        "admin_item_id": admin_item_id,
         "created_new": created_new,
         "commessa": num_commessa,
         "copied_files": copied_files,

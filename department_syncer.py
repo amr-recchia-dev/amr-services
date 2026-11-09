@@ -18,11 +18,15 @@ from __future__ import annotations
 import os
 import json
 import time
+import threading
 import tempfile
 import subprocess
 import logging
 import requests
 from dotenv import load_dotenv
+
+_dept_sync_lock = threading.Lock()
+_recent_dept_sync_ts: dict[str, float] = {}
 
 load_dotenv()
 logger = logging.getLogger("department_syncer")
@@ -35,13 +39,14 @@ MONDAY_API_URL = "https://api.monday.com/v2"
 # Board Nuove e Reparti
 BOARD_GESTIONE_PROGETTI_NEW = "2136092569"
 BOARD_NEW_COMMERCIALE = "2133436509"
+BOARD_AMMINISTRAZIONE_NEW = "5107455153"
 
 BOARD_TAGLIO_FRESA = "5086546323"
 BOARD_FINITURE = "5088215890"
 BOARD_PROGETTAZIONE_NEW = "5089194104"
 
 # Blacklist tassativa di sicurezza: MAI interagire con questi ID
-FORBIDDEN_BOARDS = {"1865049112", "1865197409", "1865050352", "1988908927"}
+FORBIDDEN_BOARDS = {"1865049112", "1865197409", "1865050352", "1988908927", "1865824381"}
 
 PRIORITY_MAP = {
     "normale": "MEDIA",
@@ -187,14 +192,27 @@ def _sync_missing_assets_and_updates(source_assets: list, source_updates: list, 
         existing_update_prefixes.add(tb[:120])
 
 
-def sync_project_to_departments(item_id: str) -> dict:
+def sync_project_to_departments(item_id: str, force: bool = False) -> dict:
     """
     Legge un progetto (da GESTIONE PROGETTI NEW o NEW COMMERCIALE)
     e lo crea o aggiorna sulle schede operative:
     - TAGLIO E FRESA (5086546323) se Taglio o Fresa = SI
     - FINITURE (5088215890) se Finitura = SI
     - PROGETTAZIONE NEW (5089194104) se Disegno tecnico = SI
+    - AMMINISTRAZIONE NEW (5107455153)
+    Protetto da lock e debounce contro raffiche di webhook simultanei.
     """
+    with _dept_sync_lock:
+        now = time.time()
+        last_ts = _recent_dept_sync_ts.get(str(item_id), 0.0)
+        if not force and (now - last_ts) < 4.0:
+            logger.info("⏭️ [DEBOUNCE] Sync reparti per item #%s già eseguito %.1fs fa, ignoro evento duplicato.", item_id, now - last_ts)
+            return {"synced": True, "debounced": True, "item_id": str(item_id)}
+        _recent_dept_sync_ts[str(item_id)] = now
+        return _sync_project_to_departments_locked(item_id)
+
+
+def _sync_project_to_departments_locked(item_id: str) -> dict:
     logger.info(f"🔄 Verifica assegnazione reparti per item #{item_id}...")
     q = f"""
     query {{
@@ -462,6 +480,58 @@ def sync_project_to_departments(item_id: str) -> dict:
                 lambda _fname: "file_mm7nd89s",
             )
 
+    # ─────────────────────────────────────────────────────────────
+    # 4. AMMINISTRAZIONE NEW (5107455153)
+    # ─────────────────────────────────────────────────────────────
+    try:
+        adm_map = fetch_department_existing_items(BOARD_AMMINISTRAZIONE_NEW, "text_mm8y3t4q")
+        existing_adm = adm_map.get(commessa_code) or adm_map.get(item_name.lower())
+        adm_stato_prod = "Fatto" if stato_progetto == "Fatto" else ("Bloccato" if stato_progetto == "Bloccato" else "In produzione")
+        adm_values = {
+            "text_mm8y3t4q": commessa_code,
+            "text_mm8y9vxm": nome_progetto,
+            "color_mm8ynr3s": {"label": adm_stato_prod},
+            "text_mm8yeabv": priorita_label,
+        }
+        if data_consegna:
+            adm_values["date_mm8ymb9n"] = {"date": data_consegna}
+        referente_gp = (cols.get("dup__of_nome_referente_mkn3gf63", {}).get("text") or "").strip()
+        if referente_gp:
+            adm_values["text_mm8ynnhj"] = referente_gp
+        email_gp = (cols.get("email_mkn1v37b", {}).get("text") or "").strip()
+        if email_gp:
+            adm_values["email_mm8yvmcy"] = {"email": email_gp, "text": email_gp}
+        pag_gp = (cols.get("color_mknrnt50", {}).get("text") or "").strip()
+        if pag_gp:
+            adm_values["text_mm8y8eqg"] = pag_gp
+
+        if existing_adm:
+            target_adm_id = str(existing_adm["id"])
+            monday_query(
+                f"mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {BOARD_AMMINISTRAZIONE_NEW}, item_id: {target_adm_id}, column_values: $val) {{ id }} }}",
+                {"val": json.dumps(adm_values)},
+            )
+            results["amministrazione_new"] = f"Updated #{target_adm_id}"
+        else:
+            adm_values["color_mm8yt562"] = {"label": "DA FARE"}
+            adm_values["color_mm8yk54d"] = {"label": "DA FARE"}
+            adm_values["color_mm8yhrqg"] = {"label": "DA FARE"}
+            adm_values["color_mm8yr340"] = {"label": "Non Consegnato"}
+            adm_values["color_mm8y87rn"] = {"label": "DA FARE"}
+            res_adm = monday_query(
+                "mutation ($board_id: ID!, $item_name: String!, $column_values: JSON!) { create_item(board_id: $board_id, item_name: $item_name, column_values: $column_values) { id } }",
+                {
+                    "board_id": BOARD_AMMINISTRAZIONE_NEW,
+                    "item_name": item_name,
+                    "column_values": json.dumps(adm_values),
+                },
+            )
+            target_adm_id = res_adm.get("data", {}).get("create_item", {}).get("id")
+            if target_adm_id:
+                results["amministrazione_new"] = f"Created #{target_adm_id}"
+    except Exception as adm_err:
+        logger.warning("Sincronizzazione AMMINISTRAZIONE NEW: %s", adm_err)
+
     return results
 
 
@@ -469,7 +539,7 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
     """
     Quando un operatore su TAGLIO E FRESA (5086546323), FINITURE (5088215890) o PROGETTAZIONE NEW (5089194104)
     aggiorna uno stato o carica un file CAD esecutivo, riporta l'avanzamento sulla commessa corrispondente
-    in GESTIONE PROGETTI NEW (2136092569) (e propaga eventuale CAD esecutivo da PROGETTAZIONE NEW ai reparti).
+    in GESTIONE PROGETTI NEW (2136092569) e AMMINISTRAZIONE NEW (5107455153).
     """
     board_id = str(board_id)
     if board_id not in (BOARD_TAGLIO_FRESA, BOARD_FINITURE, BOARD_PROGETTAZIONE_NEW):
@@ -481,7 +551,7 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
         id
         name
         assets {{ id name url public_url }}
-        column_values {{ id title text value }}
+        column_values {{ id text value column {{ title }} }}
       }}
     }}
     """
@@ -502,7 +572,7 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
         return {"ok": False, "reason": f"Commessa '{commessa_code or item_name}' non trovata in GESTIONE PROGETTI NEW"}
 
     gp_id = str(gp_item["id"])
-    col_title = cols.get(column_id, {}).get("title") or column_id
+    col_title = (cols.get(column_id, {}).get("column") or {}).get("title") or column_id
     val_text = new_label or (cols.get(column_id, {}).get("text") or "").strip()
 
     dept_badge = {
@@ -519,7 +589,8 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
             {"item_id": gp_id, "body": msg},
         )
 
-    # 2. Se lo Stato di Produzione generale del reparto cambia, aggiorna lo Stato in GESTIONE PROGETTI NEW
+    # 2. Se lo Stato di Produzione generale del reparto cambia, aggiorna lo Stato in GESTIONE PROGETTI NEW e AMMINISTRAZIONE NEW
+    adm_updates = {}
     if column_id == "color_mkwq254a" and val_text:
         gp_status = None
         if val_text.lower() in ("in produzione", "in svolgimento"):
@@ -551,6 +622,25 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
                 f"mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {BOARD_GESTIONE_PROGETTI_NEW}, item_id: {gp_id}, column_values: $val) {{ id }} }}",
                 {"val": json.dumps({"color_mm45raj9": {"label": gp_status}})},
             )
+            adm_stato = "Fatto" if gp_status == "Fatto" else ("Bloccato" if gp_status == "Bloccato" else "In produzione")
+            adm_updates["color_mm8ynr3s"] = {"label": adm_stato}
+
+    if column_id == "color_mkwqfakf" and val_text:
+        adm_updates["color_mm8yhrqg"] = {"label": "APPROVATO" if "fatto" in val_text.lower() or "approv" in val_text.lower() else "DA FARE"}
+    if column_id == "color_mkwqfr4j" and val_text:
+        adm_updates["color_mm8yr340"] = {"label": "Consegnato" if "consegnato" in val_text.lower() and "non" not in val_text.lower() else "Non Consegnato"}
+
+    if adm_updates:
+        try:
+            adm_map = fetch_department_existing_items(BOARD_AMMINISTRAZIONE_NEW, "text_mm8y3t4q")
+            adm_it = adm_map.get(commessa_code) or adm_map.get(item_name.lower())
+            if adm_it:
+                monday_query(
+                    f"mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {BOARD_AMMINISTRAZIONE_NEW}, item_id: {adm_it['id']}, column_values: $val) {{ id }} }}",
+                    {"val": json.dumps(adm_updates)},
+                )
+        except Exception as adm_e:
+            logger.debug("Aggiornamento ritorno verso AMMINISTRAZIONE NEW: %s", adm_e)
 
     # 3. Se in PROGETTAZIONE NEW vengono caricati file CAD (Bozza o Esecutivo), propagali a GESTIONE PROGETTI NEW e ai reparti
     if board_id == BOARD_PROGETTAZIONE_NEW and dept_item.get("assets"):
@@ -578,7 +668,7 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
 
 def sync_all_active_departments() -> dict:
     """
-    1. Riconcilia prima le commesse accettate da NEW COMMERCIALE (2133436509) -> GESTIONE PROGETTI NEW (2136092569).
+    1. Riconcilia prima le commesse accettate da NEW COMMERCIALE (2133436509) -> GESTIONE PROGETTI NEW (2136092569) & AMMINISTRAZIONE NEW (5107455153).
     2. Esegue la scansione di GESTIONE PROGETTI NEW e sincronizza tutti i progetti assegnati
        ai reparti TAGLIO E FRESA, FINITURE e PROGETTAZIONE NEW.
     """
@@ -609,10 +699,10 @@ def sync_all_active_departments() -> dict:
     items = monday_query(q).get("data", {}).get("boards", [{}])[0].get("items_page", {}).get("items", [])
     logger.info(f"Letti {len(items)} progetti attivi da GESTIONE PROGETTI NEW.")
 
-    # Carica le mappe dei 3 reparti UNA SOLA VOLTA per risparmiare il 98% delle chiamate API Monday
+    # Carica le mappe dei reparti UNA SOLA VOLTA per risparmiare il 98% delle chiamate API Monday
     taglio_map = fetch_department_existing_items(BOARD_TAGLIO_FRESA, "text_mkvq6d5t")
     fin_map = fetch_department_existing_items(BOARD_FINITURE, "text_mkvq6d5t")
-    prog_map = fetch_department_existing_items(BOARD_PROGETTAZIONE_NEW, "text_mm51y7be")
+    prog_map = fetch_department_existing_items(BOARD_PROGETTAZIONE_NEW, "text_mm7nfz5s")
 
     summary = {
         "commercial_reconciled": comm_reconcile,

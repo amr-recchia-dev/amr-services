@@ -1050,6 +1050,9 @@ def webhook_status_change():
     
     # 1. Se l'evento proviene da NEW COMMERCIALE (2133436509) -> Se Preventivo Accettato = SI, allinea GESTIONE PROGETTI NEW e i Reparti
     if board_id == "2133436509":
+        if column_id == "text_mm51yvbk":
+            return jsonify({"status": "ignored", "reason": "self_updated_commessa_code"}), 200
+
         def _sync_from_new_comm(cid: str):
             import onboard_project
             try:
@@ -1062,6 +1065,9 @@ def webhook_status_change():
 
     # 2. Se l'evento proviene da GESTIONE PROGETTI NEW (2136092569) -> Inoltro/Aggiornamento schede Reparto (Taglio / Finiture / Progettazione)
     if board_id == "2136092569":
+        if column_id == "text_mm51yk45":
+            return jsonify({"status": "ignored", "reason": "self_updated_commessa_code"}), 200
+
         def _sync_from_gp_new(pid: str):
             try:
                 department_syncer.sync_project_to_departments(pid)
