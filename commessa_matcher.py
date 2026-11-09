@@ -558,22 +558,21 @@ def _search_by_client_name(
     nome_progetto: str = "",
     email_subject: str = "",
     tipo: str = "",
+    email_mittente: str = "",
+    note: str = "",
 ) -> MatchResult:
     """
-    Cerca per nome cliente + corrispondenza progetto su entrambe le board.
-    IMPORTANTE: In Monday ogni riga commerciale rappresenta uno specifico progetto/preventivo,
-    mentre il nome dell'item è il nome dell'azienda cliente.
-    Pertanto, se un cliente storico (es. Posterland, Xpose Forpress, Grafiche Antiga, Moncler)
-    invia una richiesta per un NUOVO progetto che non condivide parole chiave specifiche
-    con i progetti già aperti per quel cliente, restituisce MatchResult(found=False)
-    così viene creata una NUOVA riga visibile su COMMERCIALE e NEW COMMERCIALE.
+    Cerca per nome cliente (o email mittente) + corrispondenza progetto su tutte le board commerciali/progetti.
+    Include normalizzazione nomi manuali (es. 'ipe 26.10.26' -> 'ipe') e verifica anti-clone su numero ordine e progetto.
     """
-    if not client_name:
+    if not client_name and not email_mittente:
         return MatchResult(found=False)
+
+    from monday_client import normalize_client_name, is_same_commessa_project
 
     # Prepara tutte le varianti da confrontare
     patterns = _load_client_patterns()
-    search_names = list({client_name} | set(varianti))
+    search_names = list({client_name} | set(varianti)) if client_name else list(set(varianti))
 
     # Aggiungi eventuali mapping dal file client_patterns.json
     for name in list(search_names):
@@ -583,44 +582,57 @@ def _search_by_client_name(
     seen = set()
     unique_names = []
     for n in search_names:
-        if n.lower() not in seen:
+        if n and n.lower() not in seen:
             seen.add(n.lower())
             unique_names.append(n)
     search_names = unique_names
 
     # ── Arricchisci con la knowledge base clienti ──────────────────────────
     search_names = _expand_variants_from_kb(search_names)
+    norm_search_names = [normalize_client_name(sn) for sn in search_names if normalize_client_name(sn)]
+    sender_clean = (email_mittente or "").strip().lower()
+    is_internal_sender = sender_clean in ("ordini@amrrecchia.it", "info@amrrecchia.it", "")
 
     candidates = []
 
-    for board_id in [BOARD_COMMERCIALE, BOARD_PROGETTI]:
+    boards_to_check = list(dict.fromkeys(["1865049112", BOARD_COMMERCIALE, BOARD_PROGETTI]))
+    for board_id in boards_to_check:
         items = _get_all_items(board_id)
         for item in items:
             item_name = item.get("name", "").strip()
             if not item_name:
                 continue
 
-            # Calcola il punteggio migliore tra tutte le varianti
+            norm_item = normalize_client_name(item_name)
             best_score = max(
-                _fuzzy_score(sn, item_name)
-                for sn in search_names
+                [_fuzzy_score(sn, item_name) for sn in search_names]
+                + ([_fuzzy_score(nsn, norm_item) for nsn in norm_search_names if norm_item] if norm_search_names else [0.0])
             )
 
-            if best_score >= MATCH_THRESHOLD:
-                # Estrai eventuale nome progetto dall'item
-                proj_col = ""
-                for cv in item.get("column_values", []):
-                    if cv.get("id") in ("testo_mkn1sqb4", "text_mm51yk45", "lookup_mknz7srg"):
-                        val_txt = (cv.get("text") or "").strip()
-                        if val_txt:
-                            proj_col = (proj_col + " " + val_txt).strip()
+            proj_col = ""
+            item_email = ""
+            item_note = ""
+            for cv in item.get("column_values", []):
+                cid = cv.get("id")
+                val_txt = (cv.get("text") or "").strip()
+                if cid in ("testo_mkn1sqb4", "text_mm51yk45", "lookup_mknz7srg") and val_txt:
+                    proj_col = (proj_col + " " + val_txt).strip()
+                elif cid == "email_mkn1v37b" and val_txt:
+                    item_email = val_txt.lower()
+                elif cid == "testo_lungo_mkn1ydyz" and val_txt:
+                    item_note = val_txt
 
+            if not is_internal_sender and sender_clean and item_email and item_email == sender_clean:
+                best_score = max(best_score, 0.95)
+
+            if best_score >= MATCH_THRESHOLD:
                 candidates.append({
                     "id": item["id"],
                     "name": item_name,
                     "board_id": board_id,
                     "score": best_score,
                     "project": proj_col,
+                    "note": item_note,
                 })
 
     if not candidates:
@@ -629,6 +641,28 @@ def _search_by_client_name(
             client_name, MATCH_THRESHOLD
         )
         return MatchResult(found=False)
+
+    # 0) Controllo diretto Anti-Clone (numero ordine o progetto già presente su Monday, anche se inserito a mano da Gary)
+    for c in candidates:
+        if is_same_commessa_project(
+            f"{nome_progetto} {email_subject}",
+            f"{c.get('project', '')} {c['name']}",
+            note,
+            c.get("note", ""),
+        ):
+            logger.info(
+                "🛡️ [ANTI-CLONE MATCH] Commessa già presente su Monday: '%s' / '%s' (id: #%s, board: %s)",
+                c["name"], c.get("project"), c["id"], c["board_id"]
+            )
+            return MatchResult(
+                found=True,
+                item_id=c["id"],
+                item_name=c["name"],
+                board_id=c["board_id"],
+                confidence=c["score"],
+                ambiguous=False,
+                candidates=candidates,
+            )
 
     # Verifica se il progetto dell'email corrisponde davvero a uno dei progetti esistenti del cliente
     incoming_proj_text = f"{nome_progetto} {email_subject}".strip()
@@ -741,6 +775,8 @@ def find_commessa(classification, email_subject: str = "") -> MatchResult:
     varianti = getattr(classification, "cliente_varianti", []) or []
     nome_progetto = getattr(classification, "nome_progetto", "") or ""
     tipo = getattr(classification, "tipo", "") or ""
+    email_mittente = getattr(classification, "email_mittente", "") or ""
+    note = getattr(classification, "note", "") or ""
     logger.info(
         "🔍 Ricerca per cliente: '%s' (progetto: '%s', tipo: '%s', varianti: %s)",
         client_name, nome_progetto, tipo, varianti
@@ -751,6 +787,8 @@ def find_commessa(classification, email_subject: str = "") -> MatchResult:
         nome_progetto=nome_progetto,
         email_subject=email_subject,
         tipo=tipo,
+        email_mittente=email_mittente,
+        note=note,
     )
     return result
 

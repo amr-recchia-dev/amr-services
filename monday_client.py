@@ -218,6 +218,114 @@ def upload_attachments_to_item(item_id: str, attachments: Optional[List[Tuple[st
             logger.warning("Errore upload allegato '%s' su item #%s: %s", fname, item_id, e)
 
 
+import re as _re
+import difflib as _difflib
+
+
+def normalize_client_name(name: str) -> str:
+    """
+    Normalizza il nome cliente rimuovendo date manuali (es. 'ipe 26.10.26' -> 'ipe'),
+    punti nelle sigle ('I.P.E.' -> 'ipe') e suffissi societari ('s.r.l.', 'spa', ecc.).
+    """
+    if not name:
+        return ""
+    s = name.lower().strip()
+    # Rimuovi date tipo 26.10.26, 05/11/2026, 02-11-26
+    s = _re.sub(r"\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b", " ", s)
+    # Unisci sigle puntate: i.p.e. -> ipe, s.r.l. -> srl
+    s = _re.sub(r"\b([a-z])\.(?=[a-z]\b|\s|$)", r"\1", s)
+    s = s.replace(".", " ")
+    # Rimuovi forme societarie
+    s = _re.sub(r"\b(srl|srls|spa|snc|sas|ltd|gmbh|inc|s\s+r\s+l|s\s+p\s+a)\b", " ", s)
+    s = _re.sub(r"[^\w\s]", " ", s)
+    s = _re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+_PROJ_STOPWORDS = {
+    "conferma", "ordine", "ordini", "richiesta", "preventivo", "offerta", "quotazione",
+    "modifica", "aggiornamento", "invio", "file", "fornitura", "polistirolo", "polistirene",
+    "eps", "xps", "resina", "taglio", "fresa", "finitura", "del", "per", "con", "senza",
+    "rif", "nr", "num", "numero", "codice", "cod", "nuovo", "nuova", "elementi", "pezzi",
+}
+
+
+def _extract_order_numbers(text: str) -> set:
+    """Estrae numeri d'ordine/documento significativi ignorando date e dimensioni (es. 60x60)."""
+    if not text:
+        return set()
+    s = text.lower()
+    # Rimuovi date (02/11/2026, 09-11-2026, 26.10.26)
+    s = _re.sub(r"\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b", " ", s)
+    # Rimuovi dimensioni (es. 60x60, 1000x500x10)
+    s = _re.sub(r"\b\d+\s*[x*×]\s*\d+(?:\s*[x*×]\s*\d+)?\b", " ", s)
+    # Rimuovi anni isolati 2024..2029
+    s = _re.sub(r"\b202[4-9]\b", " ", s)
+
+    nums = set()
+    for m in _re.finditer(
+        r"\b(?:ordine|ord|conferma|prev|preventivo|off|offerta|ddt|rif|oda|odv|prf)[^\d]{0,12}(\d{2,7})\b",
+        s,
+    ):
+        nums.add(m.group(1).lstrip("0") or "0")
+    for m in _re.finditer(r"\b([a-z]{1,4}\d{4,8}|\d{4,6})\b", s):
+        nums.add(m.group(1).lstrip("0") or "0")
+    return nums
+
+
+def is_same_commessa_project(proj_a: str, proj_b: str, note_a: str = "", note_b: str = "") -> bool:
+    """
+    Determina se due stringhe di progetto/note si riferiscono alla STESSA commessa/ordine
+    per evitare qualsiasi clone su Monday.com.
+    """
+    pa = (proj_a or "").strip().lower()
+    pb = (proj_b or "").strip().lower()
+    if not pa or not pb:
+        return False
+
+    # 1. Confronto numeri d'ordine / documento (es. Ordine n. 1037 vs Conferma Ordine n. 1037)
+    nums_a = _extract_order_numbers(f"{proj_a} {note_a}")
+    nums_b = _extract_order_numbers(f"{proj_b} {note_b}")
+    proj_nums_a = _extract_order_numbers(proj_a)
+    proj_nums_b = _extract_order_numbers(proj_b)
+
+    if proj_nums_a and proj_nums_b:
+        if proj_nums_a & proj_nums_b:
+            return True
+        return False
+    if (proj_nums_a and not proj_nums_b) or (proj_nums_b and not proj_nums_a):
+        # Se uno ha un numero ordine esplicito nel titolo progetto (es. "Conferma Ordine n. 1020")
+        # e l'altro è solo generico ("Conferma Ordine"), NON sono lo stesso ordine
+        if nums_a & nums_b:
+            return True
+        return False
+
+    # 2. Confronto token specifici di progetto (ignorando date, punteggiatura e parole generiche)
+    def _tokens(txt: str) -> set:
+        t = _re.sub(r"\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b", " ", txt.lower())
+        t = _re.sub(r"[^\w\s]", " ", t)
+        return {
+            w for w in t.split()
+            if len(w) >= 3 and w not in _PROJ_STOPWORDS and not w.isdigit()
+        }
+
+    tok_a = _tokens(pa)
+    tok_b = _tokens(pb)
+    if tok_a and tok_b:
+        common = tok_a & tok_b
+        overlap = len(common) / max(1, min(len(tok_a), len(tok_b)))
+        if overlap >= 0.5 or len(common) >= 2:
+            return True
+        return False
+
+    # Fallback: confronto normalizzato solo se non è una dicitura puramente generica
+    clean_a = _re.sub(r"[^\w]", "", pa)
+    clean_b = _re.sub(r"[^\w]", "", pb)
+    if clean_a == clean_b and clean_a not in ("confermaordine", "ordine", "preventivo", "richiestapreventivo"):
+        return True
+    return False
+
+
 def _create_or_update_on_board(
     board_id: str,
     group_id: str,
@@ -226,44 +334,59 @@ def _create_or_update_on_board(
     classification,
     attachments: Optional[List[Tuple[str, bytes]]] = None,
 ) -> Optional[str]:
-    """Crea o aggiorna (anti-duplicato) un item su una specifica board Monday (COMMERCIALE o NEW COMMERCIALE)."""
+    """Crea o aggiorna (anti-clone) un item su una specifica board Monday (COMMERCIALE o NEW COMMERCIALE)."""
     try:
         check_q = """
-        query ($board_id: ID!, $item_name: String!) {
-          items_page_by_column_values(
-            limit: 25
-            board_id: $board_id
-            columns: [{ column_id: "name", column_values: [$item_name] }]
-          ) {
-            items {
-              id
-              name
-              column_values(ids: ["testo_mkn1sqb4"]) {
-                text
+        query ($board_id: [ID!]) {
+          boards(ids: $board_id) {
+            items_page(limit: 250) {
+              items {
+                id
+                name
+                column_values(ids: ["testo_mkn1sqb4", "email_mkn1v37b", "testo_lungo_mkn1ydyz"]) {
+                  id
+                  text
+                }
               }
             }
           }
         }
         """
-        existing = _graphql(check_q, {"board_id": str(board_id), "item_name": item_name.strip()})
-        recent_items = existing.get("items_page_by_column_values", {}).get("items", [])
-        norm_item_name = item_name.strip().lower()
-        norm_proj = (classification.nome_progetto or "").strip().lower()
+        existing = _graphql(check_q, {"board_id": [str(board_id)]})
+        recent_items = (existing.get("boards") or [{}])[0].get("items_page", {}).get("items", [])
+
+        norm_target_client = normalize_client_name(item_name)
+        sender_email = (classification.email_mittente or "").strip().lower()
+        is_internal_sender = sender_email in ("ordini@amrrecchia.it", "info@amrrecchia.it", "")
 
         for it in recent_items:
-            it_name = it.get("name", "").strip().lower()
-            cols = it.get("column_values", [])
-            it_proj = (cols[0].get("text") or "").strip().lower() if cols else ""
-            if it_name == norm_item_name and norm_proj and it_proj and (norm_proj in it_proj or it_proj in norm_proj):
+            it_name_norm = normalize_client_name(it.get("name", ""))
+            col_map = {c["id"]: (c.get("text") or "").strip() for c in it.get("column_values", [])}
+            it_proj = col_map.get("testo_mkn1sqb4", "")
+            it_email = col_map.get("email_mkn1v37b", "").lower()
+            it_note = col_map.get("testo_lungo_mkn1ydyz", "")
+
+            same_client = False
+            if norm_target_client and it_name_norm:
+                if norm_target_client == it_name_norm:
+                    same_client = True
+                elif _difflib.SequenceMatcher(None, norm_target_client, it_name_norm).ratio() >= 0.84:
+                    same_client = True
+            if not same_client and not is_internal_sender and it_email and it_email == sender_email:
+                same_client = True
+
+            if same_client and is_same_commessa_project(
+                classification.nome_progetto, it_proj, classification.note, it_note
+            ):
                 logger.info(
-                    "⚠️ Item per '%s' - '%s' già esistente su board %s (id: %s). Aggiorno l'item invece di duplicarlo.",
-                    item_name, classification.nome_progetto, board_id, it["id"]
+                    "🛡️ [ANTI-CLONE] Commessa già presente su board %s: '%s' / '%s' (id: #%s). Aggiorno senza clonare.",
+                    board_id, it.get("name"), it_proj, it["id"]
                 )
                 _add_update_to_item(it["id"], classification)
                 upload_attachments_to_item(it["id"], attachments)
                 return it["id"]
     except Exception as check_err:
-        logger.warning("Controllo preliminare duplicati su board %s fallito: %s", board_id, check_err)
+        logger.warning("Controllo preliminare anti-clone su board %s fallito: %s", board_id, check_err)
 
     cols_to_send = dict(column_values)
     # La colonna text_mkypgtb8 esiste solo su NEW COMMERCIALE (2133436509)
@@ -341,11 +464,28 @@ def create_item(classification, attachments: Optional[List[Tuple[str, bytes]]] =
         return None
 
 
-
-
 def _add_update_to_item(item_id: str, classification) -> None:
-    """Aggiunge un update/commento all'item con il dettaglio dell'email."""
+    """Aggiunge un update/commento all'item con il dettaglio dell'email (con controllo anti-duplicato)."""
     try:
+        check_q = """
+        query ($item_id: [ID!]) {
+          items(ids: $item_id) {
+            updates(limit: 15) {
+              body
+            }
+          }
+        }
+        """
+        res_u = _graphql(check_q, {"item_id": [str(item_id)]})
+        existing_updates = (res_u.get("items") or [{}])[0].get("updates", [])
+        clean_note = (classification.note or "").strip()[:50].lower()
+        clean_proj = (classification.nome_progetto or "").strip().lower()
+        for u in existing_updates:
+            ub = (u.get("body") or "").lower()
+            if (clean_note and len(clean_note) > 15 and clean_note in ub) or (clean_proj and len(clean_proj) > 10 and clean_proj in ub):
+                logger.debug("Update già presente su item %s, salto duplicato.", item_id)
+                return
+
         note_text = (
             f"📧 **Email ricevuta** da {classification.referente} "
             f"({classification.email_mittente})\n\n"
