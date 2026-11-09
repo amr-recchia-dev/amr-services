@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>AMR OS — Accesso Riservato Preventivatore 3D & Macchine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4">
+  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-12 h-12 rounded-xl bg-amber-500 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-amber-500/20">
+        AMR
+      </div>
+      <div>
+        <h1 class="text-lg font-extrabold tracking-tight text-white">AMR OS — Preventivatore 3D</h1>
+        <p class="text-xs text-slate-400">Calcolatore Tempi KUKA / OSAI & Connettore Monday.com</p>
+      </div>
+    </div>
+
+    <div class="bg-slate-950/80 border border-amber-500/30 rounded-xl p-3.5 mb-6 text-xs text-slate-300">
+      <div class="font-bold text-amber-400 mb-1 flex items-center gap-1.5">
+        <span>🛡️</span> Accesso Blindato Whitelist (PBKDF2-SHA256)
+      </div>
+      L'accesso a questo sistema è consentito esclusivamente agli account aziendali autorizzati:
+      <ul class="mt-1.5 space-y-0.5 text-[11px] font-mono text-slate-400">
+        <li>• riccardo.g@zaffiroweb.com</li>
+        <li>• ordini@amrrecchia.it</li>
+        <li>• info@amrrecchia.it</li>
+      </ul>
+    </div>
+
+    {% if error %}
+    <div class="mb-5 bg-rose-950/80 border border-rose-500/50 text-rose-200 text-xs rounded-xl p-3.5 font-medium">
+      ⚠️ {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ login_action }}" class="space-y-4">
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Email Autorizzata</label>
+        <input type="email" name="email" required autocomplete="username" placeholder="es. ordini@amrrecchia.it"
+          class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
+      </div>
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Password di Sicurezza</label>
+        <input type="password" name="password" required autocomplete="current-password" placeholder="••••••••••••••••"
+          class="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
+      </div>
+      <button type="submit"
+        class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold py-3 rounded-xl text-sm shadow-lg shadow-amber-500/20 transition">
+        🔐 Accedi al Preventivatore AMR OS
+      </button>
+    </form>
+
+    <div class="mt-6 pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 text-center">
+      Connessione cifrata TLS • Protezione anti-bruteforce attiva (blocco IP dopo 5 tentativi) • AMR Recchia S.r.l.
+    </div>
+  </div>
+</body>
+</html>

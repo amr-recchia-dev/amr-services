@@ -1361,6 +1361,163 @@ except Exception as _sa_err:
     logger.error(f"❌ Impossibile avviare thread sentinella anomalie: {_sa_err}")
 
 
+# ── Preventivatore 3D & Calcolatore Tempi Macchina (KUKA KRL / OSAI CNC) ─────
+
+def _get_preventivatore_user():
+    import amr_preventivatore_engine
+    token = request.cookies.get("amr_prev_session", "")
+    return amr_preventivatore_engine.verify_session_token(token)
+
+
+@app.route("/preventivatore/login", methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
+def preventivatore_login():
+    import amr_preventivatore_engine
+    from flask import redirect, make_response
+    if request.method == "GET":
+        if _get_preventivatore_user():
+            return redirect("./preventivatore")
+        return render_template("preventivatore_login.html", error=None, login_action="./login")
+
+    ip = get_client_ip()
+    email_addr = (request.form.get("email") or "").strip().lower()
+    password = request.form.get("password") or ""
+
+    allowed, retry_sec = amr_preventivatore_engine.check_rate_limit_login(f"{ip}:{email_addr}")
+    if not allowed:
+        return render_template(
+            "preventivatore_login.html",
+            error=f"Troppi tentativi falliti. Riprova tra {retry_sec // 60 + 1} minuti.",
+            login_action="./login",
+        ), 429
+
+    if email_addr not in amr_preventivatore_engine.ALLOWED_USERS:
+        amr_preventivatore_engine.record_failed_login(f"{ip}:{email_addr}")
+        logger.warning(f"⛔ Tentativo login Preventivatore con email NON autorizzata: '{email_addr}' da IP {ip}")
+        return render_template(
+            "preventivatore_login.html",
+            error="Accesso negato: questo indirizzo email non è nella whitelist autorizzata.",
+            login_action="./login",
+        ), 403
+
+    user = amr_preventivatore_engine.verify_user_credentials(email_addr, password)
+    if not user:
+        amr_preventivatore_engine.record_failed_login(f"{ip}:{email_addr}")
+        logger.warning(f"⛔ Password errata Preventivatore per '{email_addr}' da IP {ip}")
+        return render_template(
+            "preventivatore_login.html",
+            error="Credenziali non valide. Verifica email e password.",
+            login_action="./login",
+        ), 401
+
+    amr_preventivatore_engine.clear_failed_login(f"{ip}:{email_addr}")
+    tok = amr_preventivatore_engine.create_session_token(email_addr)
+    logger.info(f"✅ Login Preventivatore eseguito con successo da '{email_addr}' (IP {ip})")
+    resp = make_response(redirect("./preventivatore"))
+    resp.set_cookie(
+        "amr_prev_session",
+        tok,
+        max_age=43200,
+        httponly=True,
+        samesite="Lax",
+        secure=request.is_secure or request.headers.get("X-Forwarded-Proto") == "https",
+    )
+    return resp
+
+
+@app.route("/preventivatore/logout", methods=["GET", "POST"])
+@app.route("/logout", methods=["GET", "POST"])
+def preventivatore_logout():
+    import amr_preventivatore_engine
+    from flask import redirect, make_response
+    token = request.cookies.get("amr_prev_session", "")
+    amr_preventivatore_engine.revoke_session_token(token)
+    resp = make_response(redirect("./login"))
+    resp.delete_cookie("amr_prev_session")
+    return resp
+
+
+@app.route("/preventivatore", methods=["GET"])
+def preventivatore_ui():
+    """Interfaccia Web Preventivatore 3D, Analisi Mesh Rhino/ARPP e Calcolatore Tempi KUKA/OSAI (Protetta da Login)."""
+    user = _get_preventivatore_user()
+    if not user:
+        return render_template("preventivatore_login.html", error=None, login_action="./login"), 401
+    return render_template("preventivatore.html", current_user=user)
+
+
+@app.route("/api/preventivatore/monday/items", methods=["GET"])
+def api_preventivatore_monday_items():
+    """Legge in tempo reale le schede aperte da NEW COMMERCIALE (2133436509)."""
+    user = _get_preventivatore_user()
+    if not user:
+        return jsonify({"ok": False, "error": "Sessione scaduta o non autorizzata"}), 401
+    import amr_preventivatore_engine
+    try:
+        items = amr_preventivatore_engine.fetch_monday_commercial_items(limit=60)
+        return jsonify({"ok": True, "count": len(items), "items": items}), 200
+    except Exception as e:
+        logger.error(f"❌ Errore lettura NEW COMMERCIALE da Preventivatore: {e}", exc_info=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/preventivatore/monday/publish", methods=["POST"])
+def api_preventivatore_monday_publish():
+    """Pubblica o aggiorna un preventivo direttamente in NEW COMMERCIALE (2133436509) su Monday.com."""
+    user = _get_preventivatore_user()
+    if not user:
+        return jsonify({"ok": False, "error": "Sessione scaduta o non autorizzata"}), 401
+    import amr_preventivatore_engine
+    payload = request.get_json(silent=True) or {}
+    try:
+        res = amr_preventivatore_engine.publish_quote_to_monday(payload, author_email=user["email"])
+        return jsonify(res), 200
+    except Exception as e:
+        logger.error(f"❌ Errore pubblicazione preventivo su Monday.com: {e}", exc_info=True)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/preventivatore/parse-machine", methods=["POST"])
+def api_preventivatore_parse_machine():
+    """Analizza un programma KUKA KRL (.src generato da Roboticom ARPP 3.27.59) o OSAI CNC (.txt)."""
+    user = _get_preventivatore_user()
+    if not user:
+        return jsonify({"ok": False, "error": "Sessione scaduta o non autorizzata"}), 401
+    import amr_preventivatore_engine
+    body = request.get_json(silent=True) or {}
+    content = body.get("content", "")
+    filename = body.get("filename", "")
+    override = float(body.get("override_pct", 100.0))
+    machine_type = body.get("machine_type", "auto").lower()
+
+    if not content:
+        return jsonify({"ok": False, "error": "Contenuto programma macchina vuoto"}), 400
+
+    is_kuka = (
+        machine_type == "kuka"
+        or filename.lower().endswith(".src")
+        or "$VEL.CP" in content.upper()
+        or "E6POS" in content.upper()
+    )
+    if is_kuka:
+        res = amr_preventivatore_engine.parse_kuka_src(content, override_pct=override)
+    else:
+        res = amr_preventivatore_engine.parse_osai_gcode(content, override_pct=override)
+    return jsonify({"ok": True, **res}), 200
+
+
+@app.route("/api/preventivatore/storico", methods=["GET"])
+def api_preventivatore_storico():
+    """Restituisce lo storico preventivi estratti da Gestionale Eureka (Monday + IMAP)."""
+    user = _get_preventivatore_user()
+    if not user:
+        return jsonify({"ok": False, "error": "Sessione scaduta o non autorizzata"}), 401
+    import amr_preventivatore_engine
+    query = request.args.get("q", "").strip()
+    quotes = amr_preventivatore_engine.search_similar_historical_quotes(query=query, limit=100)
+    return jsonify({"ok": True, "count": len(quotes), "quotes": quotes}), 200
+
+
 if __name__ == "__main__":
     port = int(os.getenv("WEBHOOK_PORT", 8080))
     logger.info("=" * 55)

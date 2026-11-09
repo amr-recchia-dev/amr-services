@@ -1,0 +1,2728 @@
+{
+  "total_quotes": 81,
+  "quotes": [
+    {
+      "file": "IMAP_KIRA_EMAIL_333_SEMISFERA.eml",
+      "nr_documento": "MAIL-333",
+      "data": "09/09/2026",
+      "cliente": "KIRA SOLUTIONS SRL",
+      "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD",
+      "oggetto": "Mezza sfera D2000xH1000mm EPS fresato e carteggiato",
+      "totale_imponibile": 900.0,
+      "righe": [
+        {
+          "descrizione": "Mezza sfera diametro 2000mm x H 1000mm in EPS fresato e carteggiato (solo materiale EPS, senza verniciatura)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 900.0,
+          "importo": 900.0
+        }
+      ]
+    },
+    {
+      "file": "IMAP_KIRA_EMAIL_328_LIBRONE.eml",
+      "nr_documento": "MAIL-328",
+      "data": "02/09/2026",
+      "cliente": "KIRA SOLUTIONS SRL",
+      "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD",
+      "oggetto": "Librone 2600x1400mm solo EPS senza resinatura",
+      "totale_imponibile": 920.0,
+      "righe": [
+        {
+          "descrizione": "Librone grande 2600x1400mm solo in polistirolo EPS fresato senza resinatura e senza verniciatura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 660.0,
+          "importo": 660.0
+        },
+        {
+          "descrizione": "Librone piccolo solo in polistirolo EPS fresato senza resinatura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 260.0,
+          "importo": 260.0
+        }
+      ]
+    },
+    {
+      "file": "IMAP_KIRA_PREVENTIVO-17124.pdf",
+      "nr_documento": "308",
+      "data": "09/10/2026",
+      "cliente": "KIRA SOLUTIONS SRL",
+      "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD",
+      "oggetto": "logo pizza H1700x300mm",
+      "totale_imponibile": 900.0,
+      "righe": [
+        {
+          "descrizione": "logo pizza in eps H1700mm sp 300mm (solo polistirolo senza verniciatura)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 350.0,
+          "importo": 350.0
+        },
+        {
+          "descrizione": "struttura in ferro per sostegno inclinato",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 550.0,
+          "importo": 550.0
+        }
+      ]
+    },
+    {
+      "file": "IMAP_KIRA_PREVENTIVO-17061.pdf",
+      "nr_documento": "295",
+      "data": "01/10/2026",
+      "cliente": "KIRA SOLUTIONS SRL",
+      "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD",
+      "oggetto": "sedia in eps k25 grezzo",
+      "totale_imponibile": 690.0,
+      "righe": [
+        {
+          "descrizione": "sedia in eps k25 fresato e carteggiato (solo materiale EPS, senza verniciatura)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 690.0,
+          "importo": 690.0
+        }
+      ]
+    },
+    {
+      "file": "IMAP_KIRA_PREVENTIVO-16979.pdf",
+      "nr_documento": "277",
+      "data": "23/09/2026",
+      "cliente": "KIRA SOLUTIONS SRL",
+      "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD",
+      "oggetto": "mano famiglia Addams H2500mm",
+      "totale_imponibile": 1950.0,
+      "righe": [
+        {
+          "descrizione": "\"Mano\" della famiglia Addams alta 2500mm in eps fresato e carteggiato (senza colorazione) completa di struttura in ferro con piastre per il fissaggio a terra",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1950.0,
+          "importo": 1950.0
+        }
+      ]
+    },
+    {
+      "file": "IMAP_KIRA_PREVENTIVO-16935.pdf",
+      "nr_documento": "267",
+      "data": "16/09/2026",
+      "cliente": "KIRA SOLUTIONS SRL",
+      "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD",
+      "oggetto": "basamento per tavolo",
+      "totale_imponibile": 630.0,
+      "righe": [
+        {
+          "descrizione": "basamento per tavolo misure h720x570mm in eps fresato, carteggiato e completo di zavorra il tutto con rivestimento in vetroresina e 2 mani di fondo",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 630.0,
+          "importo": 630.0
+        }
+      ]
+    },
+    {
+      "file": "3205551353_PREVENTIVO-13672.pdf",
+      "nr_documento": "243",
+      "data": "28/05/2025",
+      "cliente": "MOGG S.R.L.",
+      "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO",
+      "oggetto": "modello telaio sedia",
+      "totale_imponibile": 1400.0,
+      "righe": [
+        {
+          "descrizione": "elemento in stamato in stampa 3d con resina completo di una mano di fondo per essere liscio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1400.0,
+          "importo": 1400.0
+        }
+      ]
+    },
+    {
+      "file": "3205551353_PREVENTIVO-13676.pdf",
+      "nr_documento": "243",
+      "data": "28/05/2025",
+      "cliente": "MOGG S.R.L.",
+      "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO",
+      "oggetto": "modello telaio sedia",
+      "totale_imponibile": 650.0,
+      "righe": [
+        {
+          "descrizione": "elemento in stampato in stampa 3d pezzo unico sp2mm riempito all'interno con schiuma fatto in resina completo di una mano di fondo per essere liscio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 650.0,
+          "importo": 650.0
+        }
+      ]
+    },
+    {
+      "file": "3205559056_PREVENTIVO-13976.pdf",
+      "nr_documento": "290",
+      "data": "24/06/2025",
+      "cliente": "OPERAE A MARINE INTERIORS COMPANY S.R.L.",
+      "indirizzo": "VIA GENOVA ,1, 34121 TRIESTE  ITALY",
+      "oggetto": "PROTOTIPAZIONE_WAYPOINT",
+      "totale_imponibile": 26200.0,
+      "righe": [
+        {
+          "descrizione": "petalo piccolo centrale stampato in vetroresina",
+          "um": "NR",
+          "quantita": 8.0,
+          "prezzo_unitario": 400.0,
+          "importo": 3200.0
+        },
+        {
+          "descrizione": "petalo medio stampato in vetroresina",
+          "um": "NR",
+          "quantita": 8.0,
+          "prezzo_unitario": 550.0,
+          "importo": 4400.0
+        },
+        {
+          "descrizione": "petalo grande stampato in vetroresina",
+          "um": "NR",
+          "quantita": 8.0,
+          "prezzo_unitario": 800.0,
+          "importo": 6400.0
+        },
+        {
+          "descrizione": "costo per dare una mano di fondo poliestere sui petali",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1200.0,
+          "importo": 1200.0
+        },
+        {
+          "descrizione": "costo per verniciatura liscia ral standard",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3000.0,
+          "importo": 3000.0
+        },
+        {
+          "descrizione": "struttura per sostegno a soffitto e montaggio in loco",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 8000.0,
+          "importo": 8000.0
+        }
+      ]
+    },
+    {
+      "file": "3205559056_PREVENTIVO-14412.pdf",
+      "nr_documento": "290",
+      "data": "24/06/2025",
+      "cliente": "OPERAE A MARINE INTERIORS COMPANY S.R.L.",
+      "indirizzo": "VIA GENOVA ,1, 34121 TRIESTE  ITALY",
+      "oggetto": "PROTOTIPAZIONE_WAYPOINT",
+      "totale_imponibile": 24100.0,
+      "righe": [
+        {
+          "descrizione": "petalo piccolo centrale stampato in vetroresina",
+          "um": "NR",
+          "quantita": 8.0,
+          "prezzo_unitario": 400.0,
+          "importo": 3200.0
+        },
+        {
+          "descrizione": "petalo medio stampato in vetroresina",
+          "um": "NR",
+          "quantita": 8.0,
+          "prezzo_unitario": 550.0,
+          "importo": 4400.0
+        },
+        {
+          "descrizione": "petalo grande stampato in vetroresina",
+          "um": "NR",
+          "quantita": 8.0,
+          "prezzo_unitario": 800.0,
+          "importo": 6400.0
+        },
+        {
+          "descrizione": "costo per dare una mano di fondo poliestere sui petali",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1200.0,
+          "importo": 1200.0
+        },
+        {
+          "descrizione": "costo per verniciatura liscia Farrow & Ball Wimborne white 239",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3000.0,
+          "importo": 3000.0
+        },
+        {
+          "descrizione": "struttura per sostegno a soffitto",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 7500.0,
+          "importo": 7500.0
+        },
+        {
+          "descrizione": "montaggio in loco certificazione da parte del nostro ingegnere compresa",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 500.0,
+          "importo": 500.0
+        },
+        {
+          "descrizione": "sconto a voi riservato per questo progetto",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": -2100.0,
+          "importo": -2100.0
+        }
+      ]
+    },
+    {
+      "file": "3205563458_PREVENTIVO-14714.pdf",
+      "nr_documento": "468",
+      "data": "29/10/2025",
+      "cliente": "EXTREME S.R.L.",
+      "indirizzo": "VIA L EINAUDI 10, 31030 CASIER - TV",
+      "oggetto": "scritta brillantinata",
+      "totale_imponibile": 1488.0,
+      "righe": [
+        {
+          "descrizione": "scirtta in xps \"LIMITED EDITION\" misure 1000X370X40 colorata con pantone 9384C+pantone 7528C tutto attorno e con brillanti su spessore e 1 faccia",
+          "um": "NR",
+          "quantita": 16.0,
+          "prezzo_unitario": 93.0,
+          "importo": 1488.0
+        }
+      ]
+    },
+    {
+      "file": "3205565011_PREVENTIVO-14885.pdf",
+      "nr_documento": "490",
+      "data": "12/11/2025",
+      "cliente": "PREFORMATI ITALIA SRL",
+      "indirizzo": "Via Trieste ,26/b, 36065 mussolente - VI",
+      "oggetto": "FR0378 - Cubic offer",
+      "totale_imponibile": 13500.0,
+      "righe": [
+        {
+          "descrizione": "elemento in eps rif FR0378 completo di resinatura e verniciatura colore Dark Pearl come da vostro file del 10/11/25",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 14650.0,
+          "importo": 14650.0
+        },
+        {
+          "descrizione": "sconto riservato per questo progetto",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": -1150.0,
+          "importo": -1150.0
+        }
+      ]
+    },
+    {
+      "file": "3205566526_PREVENTIVO-14914.pdf",
+      "nr_documento": "",
+      "data": "",
+      "cliente": "Tatjana Montagner",
+      "indirizzo": "Fixtures Sales Director, opzione con verniciatura liscia",
+      "oggetto": "2025FWW060 - NOABRANDS",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "prototipo levriero con misure come da voi indicato in stampa3d pla bio(allego scheda) completo di verniciatura liscia",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 580.0,
+          "importo": 580.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia",
+          "um": "NR",
+          "quantita": 60.0,
+          "prezzo_unitario": 330.0,
+          "importo": 19800.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia",
+          "um": "NR",
+          "quantita": 50.0,
+          "prezzo_unitario": 380.0,
+          "importo": 19000.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia",
+          "um": "NR",
+          "quantita": 40.0,
+          "prezzo_unitario": 395.0,
+          "importo": 15800.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia imballo in eps a lastre e pluribaal +scatola di ca rtone misure circa 500x500x750 (costo cadauna) opzione con verniciatura quarzo+sabbia e colore(allego foto della finitura)",
+          "um": "NR",
+          "quantita": 40.0,
+          "prezzo_unitario": 415.0,
+          "importo": 16600.0
+        },
+        {
+          "descrizione": "prototipo levriero con misure come da voi indicato in stampa3d pla bio(allego scheda) completo di verniciatura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 530.0,
+          "importo": 530.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 60.0,
+          "prezzo_unitario": 280.0,
+          "importo": 16800.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 50.0,
+          "prezzo_unitario": 310.0,
+          "importo": 15500.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 40.0,
+          "prezzo_unitario": 325.0,
+          "importo": 13000.0
+        },
+        {
+          "descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 30.0,
+          "prezzo_unitario": 365.0,
+          "importo": 10950.0
+        },
+        {
+          "descrizione": "imballo in eps a lastre e pluribaal +scatola di cartone misure circa 500x500x750 (costo cadauna)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 65.0,
+          "importo": 65.0
+        }
+      ]
+    },
+    {
+      "file": "3205568807_PREVENTIVO-14671.pdf",
+      "nr_documento": "463",
+      "data": "23/10/2025",
+      "cliente": "MOGG S.R.L.",
+      "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO",
+      "oggetto": "lamdade 3d Hiver",
+      "totale_imponibile": 3190.0,
+      "righe": [
+        {
+          "descrizione": "costo stampi e matrici",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2800.0,
+          "importo": 2800.0
+        },
+        {
+          "descrizione": "costo per produzione modello lampadario rif HIVER L stampato in vetroresina",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 90.0,
+          "importo": 90.0
+        },
+        {
+          "descrizione": "costo per produzione modello lampadario rif HIVER M stampato in vetroresina",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 120.0,
+          "importo": 120.0
+        },
+        {
+          "descrizione": "costo per produzione modello lampadario rif HIVER S stampato in vetroresina",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 180.0,
+          "importo": 180.0
+        }
+      ]
+    },
+    {
+      "file": "3205569020_PREVENTIVO-14309.pdf",
+      "nr_documento": "379",
+      "data": "03/09/2025",
+      "cliente": "EXTREME S.R.L.",
+      "indirizzo": "VIA L EINAUDI 10, 31030 CASIER - TV",
+      "oggetto": "sistemazione scritta",
+      "totale_imponibile": 4650.0,
+      "righe": [
+        {
+          "descrizione": "sistemazione scritta CALZEDONIA con stuccaggio e verniciatura con solo colore (si vedranno le parti stuccate) OPZIONE2",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1800.0,
+          "importo": 1800.0
+        },
+        {
+          "descrizione": "sistemazione scritta CALZEDONIA con stuccaggio,resinatura totale con finitura quarzo+sabbia e colore trasporti inclusi",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2850.0,
+          "importo": 2850.0
+        }
+      ]
+    },
+    {
+      "file": "3205571720_PREVENTIVO-14909.pdf",
+      "nr_documento": "501",
+      "data": "18/11/2025",
+      "cliente": "FORPRESS S.R.L. UNIPERSONALE",
+      "indirizzo": "VIA GIOVANNI SAVELLI 64, 35129 PADOVA - PD",
+      "oggetto": "quotazione stratificazione",
+      "totale_imponibile": 1350.0,
+      "righe": [
+        {
+          "descrizione": "elemento stratificato in eps con 1394 x 993 x 734",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 700.0,
+          "importo": 700.0
+        },
+        {
+          "descrizione": "resinatura con quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 650.0,
+          "importo": 650.0
+        }
+      ]
+    },
+    {
+      "file": "3205574312_PREVENTIVO-14767.pdf",
+      "nr_documento": "477",
+      "data": "05/11/2025",
+      "cliente": "OPERAE A MARINE INTERIORS COMPANY S.R.L.",
+      "indirizzo": "VIA GENOVA ,1, 34121 TRIESTE  ITALY",
+      "oggetto": "HO24015_HOTEL CORTINA: Foyer",
+      "totale_imponibile": 3300.0,
+      "righe": [
+        {
+          "descrizione": "decoro in forex spessore 15mm incollato su lastra forex da 5mm con finitura come vostro soffitto mentre decori con finitura foglia ora",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2800.0,
+          "importo": 2800.0
+        },
+        {
+          "descrizione": "montaggio in loco con stuccature e incollaggi",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 500.0,
+          "importo": 500.0
+        }
+      ]
+    },
+    {
+      "file": "3205577164_PREVENTIVO-14929.pdf",
+      "nr_documento": "505",
+      "data": "20/11/2025",
+      "cliente": "FORPRESS S.R.L. UNIPERSONALE",
+      "indirizzo": "VIA GIOVANNI SAVELLI 64, 35129 PADOVA - PD",
+      "oggetto": "3d amouage",
+      "totale_imponibile": 5450.0,
+      "righe": [
+        {
+          "descrizione": "elemento stratificato ineps misure 2930x1980x1330 circa completo di finitura quarzo+sabbia",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 5450.0,
+          "importo": 5450.0
+        }
+      ]
+    },
+    {
+      "file": "3205577315_PREVENTIVO-14861.pdf",
+      "nr_documento": "493",
+      "data": "12/11/2025",
+      "cliente": "PARDGROUP SPA",
+      "indirizzo": "VIA PIETRASANTA 14, 20141 MILANO - MI",
+      "oggetto": "25RET01897_NUDE PROJECT ROMA",
+      "totale_imponibile": 3250.0,
+      "righe": [
+        {
+          "descrizione": "espositore in eps con rivestimento in fibra e resina completo di verniciatura laccata ral da definire misure circa2400x900x650mm",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3250.0,
+          "importo": 3250.0
+        }
+      ]
+    },
+    {
+      "file": "3205577492_PREVENTIVO-14927.pdf",
+      "nr_documento": "504",
+      "data": "20/11/2025",
+      "cliente": "POSTERLAND S.R.L.",
+      "indirizzo": "VIA STANISLAO CANNIZZARO 30, 20090 BUCCINASCO - MI",
+      "oggetto": "scritta PROVA",
+      "totale_imponibile": 2160.0,
+      "righe": [
+        {
+          "descrizione": "scritta in eps misure 4500x500x100 completa di base in smartx sp200mm opzione finitura quarzo+sabbia",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 250.0,
+          "importo": 250.0
+        },
+        {
+          "descrizione": "finitura al quarzo+sabbia e colore nero su scritta e base opzione finitura liscia",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 410.0,
+          "importo": 410.0
+        },
+        {
+          "descrizione": "finitura finitura liscia colore nero su scritta e base",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1500.0,
+          "importo": 1500.0
+        }
+      ]
+    },
+    {
+      "file": "3205581398_PREVENTIVO-14969.pdf",
+      "nr_documento": "509",
+      "data": "24/11/2025",
+      "cliente": "BUSSOLA & RALPH INTERNATIONAL S.R.L.",
+      "indirizzo": "VIA DELLE INDUSTRIE 39/41, 31050 PONZANO VENETO - TV",
+      "oggetto": "2025145_NES LISTINO_RICHIESTA QUO",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "tavolo in esp rif 5.19B completo di resinatura e finitura cemento (costo per 1pz)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 990.0,
+          "importo": 990.0
+        },
+        {
+          "descrizione": "tavolo in esp rif 5.19B completo di resinatura e finitura cemento (costo per 5pz)",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 690.0,
+          "importo": 3450.0
+        },
+        {
+          "descrizione": "tavolo in esp rif 5.19C completo di resinatura e finitura cemento (costo per 1pz)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1140.0,
+          "importo": 1140.0
+        },
+        {
+          "descrizione": "tavolo in esp rif 5.19C completo di resinatura e finitura cemento (costo per 5pz)",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 790.0,
+          "importo": 3950.0
+        },
+        {
+          "descrizione": "tavolo in esp rif 5.19D completo di resinatura e finitura cemento (costo per 1pz)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2600.0,
+          "importo": 2600.0
+        },
+        {
+          "descrizione": "tavolo in esp rif 5.19D completo di resinatura e finitura cemento (costo per 5pz)",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 1960.0,
+          "importo": 9800.0
+        }
+      ]
+    },
+    {
+      "file": "3205581996_PREVENTIVO-15014.pdf",
+      "nr_documento": "524",
+      "data": "27/11/2025",
+      "cliente": "NI.VA. S.R.L. SOCIETA' UNIPERSONALE",
+      "indirizzo": "VIA CRISTOFORO COLOMBO 9, 35011 CAMPODARSEGO - PD",
+      "oggetto": "PARETI FLUTTED ACPV",
+      "totale_imponibile": 950.0,
+      "righe": [
+        {
+          "descrizione": "costo rivestimento al mq fornito in pezzi da 2770x900+1000x900 (allego foto precedente lavoro da noi fatto)",
+          "um": "Mq",
+          "quantita": 1.0,
+          "prezzo_unitario": 500.0,
+          "importo": 500.0
+        },
+        {
+          "descrizione": "costo campionatura 400x300(se poi si va in produzione il costo sara scalato)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 450.0,
+          "importo": 450.0
+        }
+      ]
+    },
+    {
+      "file": "3205581996_PREVENTIVO-15778.pdf",
+      "nr_documento": "153",
+      "data": "02/03/2026",
+      "cliente": "NI.VA. S.R.L. SOCIETA' UNIPERSONALE",
+      "indirizzo": "VIA CRISTOFORO COLOMBO 9, 35011 CAMPODARSEGO - PD",
+      "oggetto": "PARETI FLUTTED ACPV",
+      "totale_imponibile": 1530.0,
+      "righe": [
+        {
+          "descrizione": "parete in eps tagliata a filo completa di resinatura con poliurea fondo poliestere versione in vetroresina",
+          "um": "+",
+          "quantita": 1.0,
+          "prezzo_unitario": 650.0,
+          "importo": 650.0
+        },
+        {
+          "descrizione": "parete stampata in vetroresina +fondo poliestere",
+          "um": "Mq",
+          "quantita": 1.0,
+          "prezzo_unitario": 780.0,
+          "importo": 780.0
+        },
+        {
+          "descrizione": "costo per verniciatura in carrozzeria",
+          "um": "Mq",
+          "quantita": 1.0,
+          "prezzo_unitario": 100.0,
+          "importo": 100.0
+        }
+      ]
+    },
+    {
+      "file": "3205583190_PREVENTIVO-14078.pdf",
+      "nr_documento": "340",
+      "data": "22/07/2025",
+      "cliente": "KARMAN Srl Unipersonale",
+      "indirizzo": "Phone +39 0721 715042, Email: lorenzo@karmanitalia.it",
+      "oggetto": "lampade",
+      "totale_imponibile": 9862.0,
+      "righe": [
+        {
+          "descrizione": "stampo",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2000.0,
+          "importo": 2000.0
+        },
+        {
+          "descrizione": "elemento stampato in bayedur 1000 sp6mm",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 38.0,
+          "importo": 38.0
+        },
+        {
+          "descrizione": "verniciatura rif PR26DD01-N",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 22.0,
+          "importo": 22.0
+        },
+        {
+          "descrizione": "stampo",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2300.0,
+          "importo": 2300.0
+        },
+        {
+          "descrizione": "elemento stampato in bayedur 1000 sp6mm",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 45.0,
+          "importo": 45.0
+        },
+        {
+          "descrizione": "verniciatura rif PR26DD01-O",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 22.0,
+          "importo": 22.0
+        },
+        {
+          "descrizione": "stampo",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2850.0,
+          "importo": 2850.0
+        },
+        {
+          "descrizione": "elemento stampato in bayedur 1000 sp6mm",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 55.0,
+          "importo": 55.0
+        },
+        {
+          "descrizione": "verniciatura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 30.0,
+          "importo": 30.0
+        },
+        {
+          "descrizione": "prototipi 1 pezzo per tipologia verniciati",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2500.0,
+          "importo": 2500.0
+        }
+      ]
+    },
+    {
+      "file": "3205583362_PREVENTIVO-14970.pdf",
+      "nr_documento": "510",
+      "data": "24/11/2025",
+      "cliente": "AM INTERNI S.R.L.",
+      "indirizzo": "1.180,000, 1,000",
+      "oggetto": "quotazione tavoli espositivi",
+      "totale_imponibile": 26320.0,
+      "righe": [
+        {
+          "descrizione": "tavolo in eps misure 400x400x850 completo di resinatura ignifuga e finitura cemento (costo per 1 pz)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1180.0,
+          "importo": 1180.0
+        },
+        {
+          "descrizione": "tavolo in eps misure 400x400x850 completo di resinatura ignifuga e finitura cemento (costo per 5 pz)",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 830.0,
+          "importo": 4150.0
+        },
+        {
+          "descrizione": "tavolo in eps misure 500x500x750 completo di resinatura ignifuga e finitura cemento (costo per 1 pz)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1370.0,
+          "importo": 1370.0
+        },
+        {
+          "descrizione": "tavolo in eps misure 500x500x750 completo di resinatura ignifuga e finitura cemento (costo per 5 pz)",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 950.0,
+          "importo": 4750.0
+        },
+        {
+          "descrizione": "tavolo in eps misure 1050x1050x650 completo di resinatura ignifuga e finitura cemento (costo per 1 pz)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3120.0,
+          "importo": 3120.0
+        },
+        {
+          "descrizione": "tavolo in eps misure 1050x1050x650 completo di resinatura ignifuga e finitura cemento (costo per 5 pz)",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 2350.0,
+          "importo": 11750.0
+        }
+      ]
+    },
+    {
+      "file": "3205592302_PREVENTIVO-14987.pdf",
+      "nr_documento": "514",
+      "data": "25/11/2025",
+      "cliente": "FORPRESS S.R.L. UNIPERSONALE",
+      "indirizzo": "VIA GIOVANNI SAVELLI 64, 35129 PADOVA - PD",
+      "oggetto": "nuvola 3d",
+      "totale_imponibile": 680.0,
+      "righe": [
+        {
+          "descrizione": "nuvola in eps misure circa700x350x350 con predisposizione per inserimento pannello verticale completa di resinatura ignifuca e verniciatura liscia con ral da definire",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 680.0,
+          "importo": 680.0
+        }
+      ]
+    },
+    {
+      "file": "3205593404_PREVENTIVO-14975.pdf",
+      "nr_documento": "511",
+      "data": "24/11/2025",
+      "cliente": "Marco Chiodelli Bussandri",
+      "indirizzo": "342 049 6448, 17.000,000",
+      "oggetto": "rif. Mano Salone del mobile",
+      "totale_imponibile": 44400.0,
+      "righe": [
+        {
+          "descrizione": "mano in eps fresata e carteggiata completa di struttura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 17000.0,
+          "importo": 17000.0
+        },
+        {
+          "descrizione": "finitura liscia su mano",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 9000.0,
+          "importo": 9000.0
+        },
+        {
+          "descrizione": "finitura quarzo + sabbia su mano",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2900.0,
+          "importo": 2900.0
+        },
+        {
+          "descrizione": "elemento a ponti in eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3100.0,
+          "importo": 3100.0
+        },
+        {
+          "descrizione": "finitura liscia su ponti",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 10000.0,
+          "importo": 10000.0
+        },
+        {
+          "descrizione": "finitura quarzo+sabbia su ponti",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2400.0,
+          "importo": 2400.0
+        }
+      ]
+    },
+    {
+      "file": "3205595073_PREVENTIVO-15049.pdf",
+      "nr_documento": "533",
+      "data": "02/12/2025",
+      "cliente": "DIMENSIONE UNO SRLS",
+      "indirizzo": "VIA DELL'INDUSTRIA ,9, 31041 CORNUDA - TV",
+      "oggetto": "statua",
+      "totale_imponibile": 42100.0,
+      "righe": [
+        {
+          "descrizione": "statua in stampa 3d h600mm",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2100.0,
+          "importo": 2100.0
+        },
+        {
+          "descrizione": "statua in stampa 3d h3000mm",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 20500.0,
+          "importo": 20500.0
+        },
+        {
+          "descrizione": "statua in eps h3000mm fresata e scolpita",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 13000.0,
+          "importo": 13000.0
+        },
+        {
+          "descrizione": "finitura simil bronzo su statua h3000mm",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 6500.0,
+          "importo": 6500.0
+        }
+      ]
+    },
+    {
+      "file": "3205597728_PREVENTIVO-14964.pdf",
+      "nr_documento": "508",
+      "data": "24/11/2025",
+      "cliente": "PREFORMATI ITALIA SRL",
+      "indirizzo": "Via Trieste ,26/b, 36065 mussolente - VI",
+      "oggetto": "tavoli",
+      "totale_imponibile": 95310.0,
+      "righe": [
+        {
+          "descrizione": "elemento rif J10 in eps completo di resinatura e 2 mani di fondo poliestere",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 6350.0,
+          "importo": 6350.0
+        },
+        {
+          "descrizione": "opzione di finitura metallizzata su J10",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3500.0,
+          "importo": 3500.0
+        },
+        {
+          "descrizione": "opzione di finitura cromata su J10",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 7000.0,
+          "importo": 7000.0
+        },
+        {
+          "descrizione": "elemento rif J11 in eps completo di resinatura e 2 mani di fondo poliestere",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 13500.0,
+          "importo": 13500.0
+        },
+        {
+          "descrizione": "opzione di finitura metallizzata su J11",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 7000.0,
+          "importo": 7000.0
+        },
+        {
+          "descrizione": "opzione di finitura cromata su J11",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 14000.0,
+          "importo": 14000.0
+        },
+        {
+          "descrizione": "elemento rif J08 in eps completo di resinatura e 2 mani di fondo poliestere",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 16150.0,
+          "importo": 16150.0
+        },
+        {
+          "descrizione": "opzione di finitura metallizzata su J08",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4800.0,
+          "importo": 4800.0
+        },
+        {
+          "descrizione": "opzione di finitura cromata su J08",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 9500.0,
+          "importo": 9500.0
+        },
+        {
+          "descrizione": "elemento rif J09 in eps completo di resinatura e 2 mani di fondo poliestere",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2100.0,
+          "importo": 2100.0
+        },
+        {
+          "descrizione": "opzione di finitura metallizzata su J09",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1200.0,
+          "importo": 1200.0
+        },
+        {
+          "descrizione": "opzione di finitura cromata su J09",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2300.0,
+          "importo": 2300.0
+        },
+        {
+          "descrizione": "elemento rif J12 in eps completo di resinatura e 2 mani di fondo poliestere",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2660.0,
+          "importo": 2660.0
+        },
+        {
+          "descrizione": "opzione di finitura metallizzata su J12",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1750.0,
+          "importo": 1750.0
+        },
+        {
+          "descrizione": "opzione di finitura cromataa su J12",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3500.0,
+          "importo": 3500.0
+        }
+      ]
+    },
+    {
+      "file": "3205597966_PREVENTIVO-15003.pdf",
+      "nr_documento": "518",
+      "data": "26/11/2025",
+      "cliente": "HENOTO SPA",
+      "indirizzo": "Via Tolomeo , 14/16, 35028 PIOVE DI SACCO - PD",
+      "oggetto": "scaffale",
+      "totale_imponibile": 11000.0,
+      "righe": [
+        {
+          "descrizione": "scaffale con tubi in pvc tondi completo di finitura liscia (totale 54 cerchi assemblati fra loro)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 6500.0,
+          "importo": 6500.0
+        },
+        {
+          "descrizione": "scaffale ad elementi rettangolari in mdf assemblati fra loro e verniciati lisci (totale 54 elementi)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4500.0,
+          "importo": 4500.0
+        }
+      ]
+    },
+    {
+      "file": "3205598074_PREVENTIVO-14982.pdf",
+      "nr_documento": "512",
+      "data": "25/11/2025",
+      "cliente": "IMBALLAGGI PEGORARO SRL",
+      "indirizzo": "Via Monte Verena 5, 36022 San. Zeno di Cassola - VI",
+      "oggetto": "mano in eps",
+      "totale_imponibile": 18500.0,
+      "righe": [
+        {
+          "descrizione": "mano in eps fresata e carteggiata completa di ferro per irrigidire le dita il tutto come da vostro pdf (file 3d escluso)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 18500.0,
+          "importo": 18500.0
+        }
+      ]
+    },
+    {
+      "file": "3205600687_Re__Richiesta_preventivo_per_installazione_permanente.pdf",
+      "nr_documento": "",
+      "data": "",
+      "cliente": "",
+      "indirizzo": "",
+      "oggetto": "compreso di cer ﬁcazione ingegnere,stru graﬁche il tu o",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "Il contenuto di questa email e degli eventuali allega persona/e a cui è indirizzato. Se avete ricevuto per errore",
+          "um": ",",
+          "quantita": 1.0,
+          "prezzo_unitario": 0.0,
+          "importo": 0.0
+        },
+        {
+          "descrizione": "segnalarcelo immediatamente e di cancellarla dal vostro divulgare il contenuto di questa email. Ogni u lizzo abusivo",
+          "um": "computer.",
+          "quantita": 1.0,
+          "prezzo_unitario": 0.0,
+          "importo": 0.0
+        }
+      ]
+    },
+    {
+      "file": "3205601203_PREVENTIVO-15004.pdf",
+      "nr_documento": "519",
+      "data": "26/11/2025",
+      "cliente": "MATTEO CIBIC STUDIO",
+      "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI",
+      "oggetto": "ADP_OMINO_SOLE",
+      "totale_imponibile": 9100.0,
+      "righe": [
+        {
+          "descrizione": "scultura in eps rif ADP_OMINO_SOLE h1900mm completa di finitura simil gesso (costo per 1 o 5 pezzi)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 5200.0,
+          "importo": 5200.0
+        },
+        {
+          "descrizione": "scultura in eps rif ADP_OMINO_SOLE h1900mm completa di finitura simil gesso (costo per 5 o 10 pezzi)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3900.0,
+          "importo": 3900.0
+        }
+      ]
+    },
+    {
+      "file": "3205601203_PREVENTIVO-15051.pdf",
+      "nr_documento": "525",
+      "data": "27/11/2025",
+      "cliente": "MATTEO CIBIC STUDIO",
+      "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI",
+      "oggetto": "piastra grande + piastra piccola",
+      "totale_imponibile": 3160.0,
+      "righe": [
+        {
+          "descrizione": "piastra grande 1200x900x60 prodotta con tecnologia stampa3d resina completa di scenografatura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2700.0,
+          "importo": 2700.0
+        },
+        {
+          "descrizione": "sconto a voi riservato",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": -540.0,
+          "importo": -540.0
+        },
+        {
+          "descrizione": "piastra grande 500x630x60 prodotta con tecnologia stampa3d resina completa di scenografatura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1250.0,
+          "importo": 1250.0
+        },
+        {
+          "descrizione": "sconto a voi riservato",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": -250.0,
+          "importo": -250.0
+        }
+      ]
+    },
+    {
+      "file": "3205601258_PREVENTIVO-15008.pdf",
+      "nr_documento": "521",
+      "data": "26/11/2025",
+      "cliente": "Federico Soffiato",
+      "indirizzo": "23.500,000, 1,000",
+      "oggetto": "Madonna acqua lurida",
+      "totale_imponibile": 23500.0,
+      "righe": [
+        {
+          "descrizione": "statua con misure come da file allegato in PLA rinforzato realizzata con tecnologia stampa 3d completa di struttura in ferro fornita completamente assemblata e finita",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 23500.0,
+          "importo": 23500.0
+        }
+      ]
+    },
+    {
+      "file": "3205601803_PREVENTIVO-15013.pdf",
+      "nr_documento": "523",
+      "data": "27/11/2025",
+      "cliente": "GRUPPO GEROMIN SRL",
+      "indirizzo": "VIA I MAGGIO N 5, 30029 SAN STINO DI LIVENZA - VE",
+      "oggetto": "Progetto_25255_261125_Progetto_Eps",
+      "totale_imponibile": 2353.0,
+      "righe": [
+        {
+          "descrizione": "pareti",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1590.0,
+          "importo": 1590.0
+        },
+        {
+          "descrizione": "angolo panca senza schienale",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 108.0,
+          "importo": 108.0
+        },
+        {
+          "descrizione": "panche senza schienale",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 345.0,
+          "importo": 345.0
+        },
+        {
+          "descrizione": "tetto inclinato",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 310.0,
+          "importo": 310.0
+        }
+      ]
+    },
+    {
+      "file": "3205602652_PREVENTIVO-15106.pdf",
+      "nr_documento": "548",
+      "data": "04/12/2025",
+      "cliente": "MATTEO CIBIC STUDIO",
+      "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI",
+      "oggetto": "ADP SCULTURE",
+      "totale_imponibile": 15100.0,
+      "righe": [
+        {
+          "descrizione": "scultura rif A (vaso grande) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4900.0,
+          "importo": 4900.0
+        },
+        {
+          "descrizione": "scultura rif B (vaso piccolo) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4200.0,
+          "importo": 4200.0
+        },
+        {
+          "descrizione": "scultura rif C (luna) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3500.0,
+          "importo": 3500.0
+        },
+        {
+          "descrizione": "scultura rif C (bocca) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2500.0,
+          "importo": 2500.0
+        }
+      ]
+    },
+    {
+      "file": "3205603121_PREVENTIVO-15097.pdf",
+      "nr_documento": "539",
+      "data": "02/12/2025",
+      "cliente": "BERTONE DESIGN GROUP S.R.L.",
+      "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB",
+      "oggetto": "opere con finitura scenografica antiurto e co",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "opera cuore in eps fresato e carteggiato misure 3000x2000x1800 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 12750.0,
+          "importo": 12750.0
+        },
+        {
+          "descrizione": "finitura su cuore scenografica antiurto+colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 6450.0,
+          "importo": 6450.0
+        },
+        {
+          "descrizione": "opera cervello in eps fresato e carteggiato misure 3000x3350x2700 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 20250.0,
+          "importo": 20250.0
+        },
+        {
+          "descrizione": "finitura su cervello scenografica antiurto+colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 9450.0,
+          "importo": 9450.0
+        },
+        {
+          "descrizione": "opera stomaco in eps fresato e carteggiato misure 3000x3150x1200 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 9450.0,
+          "importo": 9450.0
+        },
+        {
+          "descrizione": "finitura su stomaco scenografica antiurto+colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 6200.0,
+          "importo": 6200.0
+        },
+        {
+          "descrizione": "opera cuore in eps fresato e carteggiato misure 1260x900x770 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1200.0,
+          "importo": 1200.0
+        },
+        {
+          "descrizione": "finitura su cuore scenografica antiurto+colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 850.0,
+          "importo": 850.0
+        },
+        {
+          "descrizione": "opera cervello in eps fresato e carteggiato misure 1280x1200x1500 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2550.0,
+          "importo": 2550.0
+        },
+        {
+          "descrizione": "finitura su cervello scenografica antiurto+colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1950.0,
+          "importo": 1950.0
+        },
+        {
+          "descrizione": "opera stomaco in eps fresato e carteggiato misure 1340x1400x550 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1450.0,
+          "importo": 1450.0
+        },
+        {
+          "descrizione": "finitura su stomaco scenografica antiurto+colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1050.0,
+          "importo": 1050.0
+        }
+      ]
+    },
+    {
+      "file": "3205603121_PREVENTIVO-15098.pdf",
+      "nr_documento": "538",
+      "data": "02/12/2025",
+      "cliente": "BERTONE DESIGN GROUP S.R.L.",
+      "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB",
+      "oggetto": "opere con finitura colore scenografico",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "opera cuore in eps fresato e carteggiato misure 3000x2000x1800 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 12750.0,
+          "importo": 12750.0
+        },
+        {
+          "descrizione": "finitura su cuore scenografica+colore ral",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3220.0,
+          "importo": 3220.0
+        },
+        {
+          "descrizione": "opera cervello in eps fresato e carteggiato misure 3000x3350x2700 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 20250.0,
+          "importo": 20250.0
+        },
+        {
+          "descrizione": "finitura su cervello scenografica+colore ral",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4750.0,
+          "importo": 4750.0
+        },
+        {
+          "descrizione": "opera stomaco in eps fresato e carteggiato misure 3000x3150x1200 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 9450.0,
+          "importo": 9450.0
+        },
+        {
+          "descrizione": "finitura su stomaco scenografica+colore ral",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3150.0,
+          "importo": 3150.0
+        },
+        {
+          "descrizione": "opera cuore in eps fresato e carteggiato misure 1260x900x770 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1200.0,
+          "importo": 1200.0
+        },
+        {
+          "descrizione": "finitura su cuore scenografica+colore ral",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 460.0,
+          "importo": 460.0
+        },
+        {
+          "descrizione": "opera cervello in eps fresato e carteggiato misure 1280x1200x1500 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2550.0,
+          "importo": 2550.0
+        },
+        {
+          "descrizione": "finitura su cervello scenografica+colore ral",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 980.0,
+          "importo": 980.0
+        },
+        {
+          "descrizione": "opera stomaco in eps fresato e carteggiato misure 1340x1400x550 completo di staffa e ferro per sostegno",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1450.0,
+          "importo": 1450.0
+        },
+        {
+          "descrizione": "finitura su stomaco scenografica+colore ral",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 520.0,
+          "importo": 520.0
+        }
+      ]
+    },
+    {
+      "file": "3205603640_PREVENTIVO-15031.pdf",
+      "nr_documento": "530",
+      "data": "28/11/2025",
+      "cliente": "agambuzza@alice.it",
+      "indirizzo": "680,000, 1,000",
+      "oggetto": "DONNINA4",
+      "totale_imponibile": 680.0,
+      "righe": [
+        {
+          "descrizione": "scultura rif DONNINA4 h tot 590 in eps fresata a pezzi e poi incollata (date le dimensioni non avra molti particolari del file)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 680.0,
+          "importo": 680.0
+        }
+      ]
+    },
+    {
+      "file": "3205603651_PREVENTIVO-15055.pdf",
+      "nr_documento": "",
+      "data": "",
+      "cliente": "PARDGROUP (IRELAND) LIMITED",
+      "indirizzo": "CHARLEMONT EXCHANGE CHARLEMONT ST,, SAINT KEVIN'S",
+      "oggetto": "PUCCI_ Produzione podi SS26",
+      "totale_imponibile": 3515.0,
+      "righe": [
+        {
+          "descrizione": "podio in eps rif A completo di rivestimento con pellicola specchio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 175.0,
+          "importo": 175.0
+        },
+        {
+          "descrizione": "podio in eps rif A completo di rivestimento con bambu'",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 155.0,
+          "importo": 155.0
+        },
+        {
+          "descrizione": "podio in eps rif B completo di rivestimento con pellicola specchio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 195.0,
+          "importo": 195.0
+        },
+        {
+          "descrizione": "podio in eps rif B completo di rivestimento con bambu'",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 165.0,
+          "importo": 165.0
+        },
+        {
+          "descrizione": "podio in eps rif C completo di rivestimento con pellicola specchio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 240.0,
+          "importo": 240.0
+        },
+        {
+          "descrizione": "podio in eps rif C completo di rivestimento con bambu'",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 215.0,
+          "importo": 215.0
+        },
+        {
+          "descrizione": "podio in eps rif D completo di rivestimento con pellicola specchio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 175.0,
+          "importo": 175.0
+        },
+        {
+          "descrizione": "podio in eps rif D completo di rivestimento con bambu'",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 155.0,
+          "importo": 155.0
+        },
+        {
+          "descrizione": "podio in eps rif D' completo di rivestimento con pellicola specchio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 175.0,
+          "importo": 175.0
+        },
+        {
+          "descrizione": "podio in eps rif D' completo di rivestimento con bambu'",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 155.0,
+          "importo": 155.0
+        },
+        {
+          "descrizione": "podio in eps rif E completo di rivestimento con pellicola specchio",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 175.0,
+          "importo": 350.0
+        },
+        {
+          "descrizione": "podio in eps rif E completo di rivestimento con bambu'",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 155.0,
+          "importo": 310.0
+        },
+        {
+          "descrizione": "podio in eps rif F completo di rivestimento con pellicola specchio",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 280.0,
+          "importo": 560.0
+        },
+        {
+          "descrizione": "podio in eps rif F completo di rivestimento con bambu'",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 245.0,
+          "importo": 490.0
+        }
+      ]
+    },
+    {
+      "file": "3205604169_PREVENTIVO-15103.pdf",
+      "nr_documento": "547",
+      "data": "04/12/2025",
+      "cliente": "La Mode en Images",
+      "indirizzo": "5 rue du Cirque, 75008 Paris",
+      "oggetto": "statue scenografate simil marmo",
+      "totale_imponibile": 38800.0,
+      "righe": [
+        {
+          "descrizione": "statua in eps fresata h massima 2800mm completa di resinatura e scenografatura simil marmo (costo per produzione di 12pz diversi)",
+          "um": "NR",
+          "quantita": 12.0,
+          "prezzo_unitario": 2900.0,
+          "importo": 34800.0
+        },
+        {
+          "descrizione": "statua in eps fresata h massima 2800mm completa di resinatura e scenografatura simil marmo (costo per produzione di 1pz)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4000.0,
+          "importo": 4000.0
+        }
+      ]
+    },
+    {
+      "file": "3205605615_PREVENTIVO-15155.pdf",
+      "nr_documento": "559",
+      "data": "11/12/2025",
+      "cliente": "VANITY S.r.l.",
+      "indirizzo": "17.000,000, 1,000",
+      "oggetto": "bancone cromato",
+      "totale_imponibile": 17000.0,
+      "righe": [
+        {
+          "descrizione": "bancone misure 2600x900x h1100mm in eps fresato con nicchie il tutto resinato antiurto e completo di finitura cromo argento",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 17000.0,
+          "importo": 17000.0
+        }
+      ]
+    },
+    {
+      "file": "3205606386_PREVENTIVO-15152.pdf",
+      "nr_documento": "558",
+      "data": "11/12/2025",
+      "cliente": "Raffaello Brunello",
+      "indirizzo": "pressa scenografica in eps repicante vostro modello con colori e, forme come da vostro pdf del 10.12.25 (escluso maniglierie e viti",
+      "oggetto": "pressa scenografica in eps",
+      "totale_imponibile": 0.0,
+      "righe": []
+    },
+    {
+      "file": "3205607025_PREVENTIVO-15230.pdf",
+      "nr_documento": "573",
+      "data": "23/12/2025",
+      "cliente": "ALLESTIMENTI BENFENATI SPA",
+      "indirizzo": "VIA LUIGI GALVANI 39, 20019 SETTIMO MILANESE - MI",
+      "oggetto": "100_ISO26_BURBERRY",
+      "totale_imponibile": 75500.0,
+      "righe": [
+        {
+          "descrizione": "elementi in eps come da vostri file per un totale di 28pz",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 42000.0,
+          "importo": 42000.0
+        },
+        {
+          "descrizione": "reisinatura con quarzo + sabbia e colore su elemnti in eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 24000.0,
+          "importo": 24000.0
+        },
+        {
+          "descrizione": "casse in osb per spedizione",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 9500.0,
+          "importo": 9500.0
+        }
+      ]
+    },
+    {
+      "file": "3205608172_PREVENTIVO-15052.pdf",
+      "nr_documento": "534",
+      "data": "02/12/2025",
+      "cliente": "ALU SRL",
+      "indirizzo": "via del Commercio 22, 36060 ROMANO D'EZZELINO - VI",
+      "oggetto": "250232_EVZ_Banco cassa",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "elemento riempitivo in eps per parte inferiore banco con predisposizione per inserimento stecche in mdf resinato e verniciato nella parte a vista",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 8500.0,
+          "importo": 8500.0
+        },
+        {
+          "descrizione": "eventuale porzione di campionatura se dopo campionatura si procede alla produzione il costo dei 500euro verra scalato",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 500.0,
+          "importo": 500.0
+        }
+      ]
+    },
+    {
+      "file": "3205608763_PREVENTIVO-15084.pdf",
+      "nr_documento": "545",
+      "data": "03/12/2025",
+      "cliente": "IMBALLAGGI PEGORARO SRL",
+      "indirizzo": "Via Monte Verena 5, 36022 San. Zeno di Cassola - VI",
+      "oggetto": "lavandino",
+      "totale_imponibile": 230.0,
+      "righe": [
+        {
+          "descrizione": "lavandino in eps misure 500x500x400 fresato e carteggiato",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 230.0,
+          "importo": 230.0
+        }
+      ]
+    },
+    {
+      "file": "3205610853_PREVENTIVO-15151.pdf",
+      "nr_documento": "557",
+      "data": "11/12/2025",
+      "cliente": "Sofia Carnesciali",
+      "indirizzo": "5.750,000, 1,000",
+      "oggetto": "25.90_ELEFANTE DA PARETE",
+      "totale_imponibile": 5750.0,
+      "righe": [
+        {
+          "descrizione": "scultura elefante da parete in eps misure circa 1400x1900x400mm fresato e resinato completo di finitura scenografica sviluppo disegni 3d compresi",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 5750.0,
+          "importo": 5750.0
+        }
+      ]
+    },
+    {
+      "file": "3205615580_PREVENTIVO-15157.pdf",
+      "nr_documento": "560",
+      "data": "11/12/2025",
+      "cliente": "VANITY S.r.l.",
+      "indirizzo": "5.500,000, 1,000",
+      "oggetto": "colonne in eps e cactus",
+      "totale_imponibile": 61050.0,
+      "righe": [
+        {
+          "descrizione": "cactus in eps h 2260mm in eps fresato e carteggiato completo di resinatura antiurto e finitura cromo argento",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 5500.0,
+          "importo": 5500.0
+        },
+        {
+          "descrizione": "colonne per Milano in eps tagliato a filo 2d e assemblato (fornite in 3 pezzi per il trasporto)",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 28900.0,
+          "importo": 28900.0
+        },
+        {
+          "descrizione": "colonne per Firenze in eps tagliato a filo 2d (fornite ad elementi) totale 5 colonne h 4225mm",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 3950.0,
+          "importo": 19750.0
+        },
+        {
+          "descrizione": "colonne per Roma in eps taglaito a filo 2d e assemblato (fornite in 2 elementi) totale 2 colonne h 3200mm con conferma entro il 15/12/25",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 3450.0,
+          "importo": 6900.0
+        }
+      ]
+    },
+    {
+      "file": "3205616144_PREVENTIVO-15192.pdf",
+      "nr_documento": "565",
+      "data": "18/12/2025",
+      "cliente": "Valentina",
+      "indirizzo": "Asolando in Rosa, 730,000",
+      "oggetto": "scritta in eps resinata",
+      "totale_imponibile": 1030.0,
+      "righe": [
+        {
+          "descrizione": "scritta in eps come da file allegato completa di resinatura con quarzo +sabbia e colore rosa",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 730.0,
+          "importo": 730.0
+        },
+        {
+          "descrizione": "sconto a voi riservato per quaesto progetto",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 300.0,
+          "importo": 300.0
+        }
+      ]
+    },
+    {
+      "file": "3205617712_PREVENTIVO-15180.pdf",
+      "nr_documento": "563",
+      "data": "16/12/2025",
+      "cliente": "GRUPPO PIAZZETTA SPA",
+      "indirizzo": "Via Montello  22, 31010 Casella d'Asolo - TV",
+      "oggetto": "H04011630",
+      "totale_imponibile": 1223.0,
+      "righe": [
+        {
+          "descrizione": "elemento in eps k30 articolo H04011630 (costo per lotto da 10 pz)",
+          "um": "NR",
+          "quantita": 10.0,
+          "prezzo_unitario": 19.8,
+          "importo": 198.0
+        },
+        {
+          "descrizione": "elemento in eps k30 articolo H04011630 (costo per lotto da 30 pz)",
+          "um": "NR",
+          "quantita": 30.0,
+          "prezzo_unitario": 15.0,
+          "importo": 450.0
+        },
+        {
+          "descrizione": "elemento in eps k30 articolo H04011630 (costo per lotto da 50 pz o piu)",
+          "um": "NR",
+          "quantita": 50.0,
+          "prezzo_unitario": 11.5,
+          "importo": 575.0
+        }
+      ]
+    },
+    {
+      "file": "3205618177_PREVENTIVO-15226.pdf",
+      "nr_documento": "572",
+      "data": "23/12/2025",
+      "cliente": "GRUPPO GEROMIN SRL",
+      "indirizzo": "VIA I MAGGIO N 5, 30029 SAN STINO DI LIVENZA - VE",
+      "oggetto": "Progetto_25261_091225_Mura_Icos_tetto i",
+      "totale_imponibile": 730.0,
+      "righe": [
+        {
+          "descrizione": "tetto a tunnel in eps sagoma fatta in doppia lavorazione il tutto completo di rasatura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 730.0,
+          "importo": 730.0
+        }
+      ]
+    },
+    {
+      "file": "3205619963_PREVENTIVO-15149.pdf",
+      "nr_documento": "555",
+      "data": "11/12/2025",
+      "cliente": "DOMINGO SALOTTI S.R.L.",
+      "indirizzo": "STRADA DELLA ROMAGNA 285, 61121 PESARO - PU",
+      "oggetto": "LD-OF-03 Stool",
+      "totale_imponibile": 7750.0,
+      "righe": [
+        {
+          "descrizione": "sgabello rif LD-OF-03 Stool in eps fresato e carteggiato completo di resinatura poliurea antiurto e finitura liscia lucida",
+          "um": "NR",
+          "quantita": 5.0,
+          "prezzo_unitario": 1550.0,
+          "importo": 7750.0
+        }
+      ]
+    },
+    {
+      "file": "3205621477_PREVENTIVO-16497.pdf",
+      "nr_documento": "220",
+      "data": "18/06/2026",
+      "cliente": "Stefania Di Dio",
+      "indirizzo": "2.100,000, 1,000",
+      "oggetto": "elementi scultorei",
+      "totale_imponibile": 21350.0,
+      "righe": [
+        {
+          "descrizione": "Buddha Piccolo in eps completo di finitura e sistemazione file3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2100.0,
+          "importo": 2100.0
+        },
+        {
+          "descrizione": "Buddha Grande in eps diviso in 2 parti completo di finitura e sistemazione file3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4400.0,
+          "importo": 4400.0
+        },
+        {
+          "descrizione": "Angelo in eps completo di finitura e creazione file 3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3200.0,
+          "importo": 3200.0
+        },
+        {
+          "descrizione": "Agnello in eps completo di finitura e creazione file 3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2200.0,
+          "importo": 2200.0
+        },
+        {
+          "descrizione": "Cristo in eps completo di finitura e creazione file 3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3300.0,
+          "importo": 3300.0
+        },
+        {
+          "descrizione": "Angioletti in eps con corona in stampa 3d e sistemazione file3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2100.0,
+          "importo": 2100.0
+        },
+        {
+          "descrizione": "Decorazione barocca1 in eps e sistemazione file3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 950.0,
+          "importo": 950.0
+        },
+        {
+          "descrizione": "Decorazione barocca2 in eps e sistemazione file3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 850.0,
+          "importo": 850.0
+        },
+        {
+          "descrizione": "Colomba in eps e creazione file3d",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 750.0,
+          "importo": 750.0
+        },
+        {
+          "descrizione": "trasporto fine agosto seconda parte 10 settembre chiusura ordine",
+          "um": "NR",
+          "quantita": 3.0,
+          "prezzo_unitario": 500.0,
+          "importo": 1500.0
+        }
+      ]
+    },
+    {
+      "file": "3205622811_PREVENTIVO-15484.pdf",
+      "nr_documento": "28",
+      "data": "15/01/2026",
+      "cliente": "Pietro Franesi",
+      "indirizzo": "International Art Curator, Writer, Creative Coach, 1.930,000",
+      "oggetto": "sculture e statue 3d",
+      "totale_imponibile": 46640.0,
+      "righe": [
+        {
+          "descrizione": "elementi in eps rif scultura1 come da file allegato completa di finitura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1930.0,
+          "importo": 1930.0
+        },
+        {
+          "descrizione": "elementi in eps rif scultura2 come da file allegato completa di finitura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2120.0,
+          "importo": 2120.0
+        },
+        {
+          "descrizione": "elementi in eps rif scultura3 come da file allegato completa di finitura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2150.0,
+          "importo": 2150.0
+        },
+        {
+          "descrizione": "elementi in eps rif scultura4 come da file allegato completa di finitura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4050.0,
+          "importo": 4050.0
+        },
+        {
+          "descrizione": "elementi in eps rif scultura5 come da file allegato completa di finitura quarzo+sabbia e colore",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4350.0,
+          "importo": 4350.0
+        },
+        {
+          "descrizione": "statua in stampa 3d PLA rif ganesha altezza totale 900mm completa di verniciatura",
+          "um": "NR",
+          "quantita": 12.0,
+          "prezzo_unitario": 890.0,
+          "importo": 10680.0
+        },
+        {
+          "descrizione": "statua in stampa 3d PLA rif dunga altezza totale 900mm completa di verniciatura",
+          "um": "NR",
+          "quantita": 12.0,
+          "prezzo_unitario": 890.0,
+          "importo": 10680.0
+        },
+        {
+          "descrizione": "statua in stampa 3d PLA rif indra altezza totale 900mm completa di verniciatura",
+          "um": "NR",
+          "quantita": 12.0,
+          "prezzo_unitario": 890.0,
+          "importo": 10680.0
+        }
+      ]
+    },
+    {
+      "file": "3205622857_PREVENTIVO-15360.pdf",
+      "nr_documento": "33",
+      "data": "16/01/2026",
+      "cliente": "POSTERLAND S.R.L.",
+      "indirizzo": "VIA STANISLAO CANNIZZARO 30, 20090 BUCCINASCO - MI",
+      "oggetto": "espositori per cuffie",
+      "totale_imponibile": 9600.0,
+      "righe": []
+    },
+    {
+      "file": "3205622925_PREVENTIVO-15399.pdf",
+      "nr_documento": "43",
+      "data": "20/01/2026",
+      "cliente": "PARDGROUP SPA",
+      "indirizzo": "VIA PIETRASANTA 14, 20141 MILANO - MI",
+      "oggetto": "CRISTINA RUBINETTERIE_stand salone d",
+      "totale_imponibile": 2550.0,
+      "righe": [
+        {
+          "descrizione": "panca in eps come da vostro file del 15/01/26 completa di resinatura antiurto e laccatura ral da definire",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1650.0,
+          "importo": 1650.0
+        },
+        {
+          "descrizione": "cerchio in multistrato marino diametro1200mm sp20mm completo di laccatura come la panca",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 450.0,
+          "importo": 900.0
+        }
+      ]
+    },
+    {
+      "file": "3205623468_PREVENTIVO-16719.pdf",
+      "nr_documento": "253",
+      "data": "28/08/2026",
+      "cliente": "LA MODE EN IMAGES",
+      "indirizzo": "5 rue du Cirque-75008 Paris, 6.000,000",
+      "oggetto": "vasi e sculture",
+      "totale_imponibile": 18500.0,
+      "righe": [
+        {
+          "descrizione": "numero 4 vasi in eps fresati e carteggiati +1 vaso stampato 3d resina ,tutti con indurimento in resina poliuretanica e scenografati come vostre richieste",
+          "um": "in",
+          "quantita": 1.0,
+          "prezzo_unitario": 6000.0,
+          "importo": 6000.0
+        },
+        {
+          "descrizione": "statua h3500mm completa di indurimento in resina poliuretanca e finitura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 8300.0,
+          "importo": 8300.0
+        },
+        {
+          "descrizione": "statua h1500mm completa di indurimento in resina poliuretanca e finitura",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4200.0,
+          "importo": 4200.0
+        }
+      ]
+    },
+    {
+      "file": "3205626383_PREVENTIVO-15249.pdf",
+      "nr_documento": "3",
+      "data": "07/01/2026",
+      "cliente": "BERTONE DESIGN GROUP S.R.L.",
+      "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB",
+      "oggetto": "colonne in eps k20 finitura cementizia",
+      "totale_imponibile": 133492.0,
+      "righe": [
+        {
+          "descrizione": "Colonna D30 H180 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 103.0,
+          "importo": 32754.0
+        },
+        {
+          "descrizione": "Colonna D25 H150 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 94.0,
+          "importo": 29892.0
+        },
+        {
+          "descrizione": "Colonna D20 H120 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 58.0,
+          "importo": 18444.0
+        },
+        {
+          "descrizione": "Colonna D35 H60 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 63.0,
+          "importo": 20034.0
+        },
+        {
+          "descrizione": "Parallelepipedo 35x35 H95 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 215.0,
+          "prezzo_unitario": 88.0,
+          "importo": 18920.0
+        },
+        {
+          "descrizione": "Pedana ovale 60x90 H20 cm NO LED",
+          "um": "NR",
+          "quantita": 164.0,
+          "prezzo_unitario": 82.0,
+          "importo": 13448.0
+        }
+      ]
+    },
+    {
+      "file": "3205626383_PREVENTIVO-15250.pdf",
+      "nr_documento": "2",
+      "data": "07/01/2026",
+      "cliente": "BERTONE DESIGN GROUP S.R.L.",
+      "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB",
+      "oggetto": "colonne in epsk13 finitura cementizia",
+      "totale_imponibile": 107609.0,
+      "righe": [
+        {
+          "descrizione": "Colonna D30 H180 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 88.0,
+          "importo": 27984.0
+        },
+        {
+          "descrizione": "Colonna D25 H150 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 78.0,
+          "importo": 24804.0
+        },
+        {
+          "descrizione": "Colonna D20 H120 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 43.0,
+          "importo": 13674.0
+        },
+        {
+          "descrizione": "Colonna D35 H60 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 46.0,
+          "importo": 14628.0
+        },
+        {
+          "descrizione": "Parallelepipedo 35x35 H95 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 215.0,
+          "prezzo_unitario": 73.0,
+          "importo": 15695.0
+        },
+        {
+          "descrizione": "Pedana ovale 60x90 H20 cm NO LED",
+          "um": "NR",
+          "quantita": 164.0,
+          "prezzo_unitario": 66.0,
+          "importo": 10824.0
+        }
+      ]
+    },
+    {
+      "file": "3205626644_PREVENTIVO-15243.pdf",
+      "nr_documento": "1",
+      "data": "07/01/2026",
+      "cliente": "IDEA BITMAP S.R.L. CON SOCIO UNICO",
+      "indirizzo": "VIA MILAZZO ,59, 21052 BUSTO ARSIZIO - VA",
+      "oggetto": "poltrona perugina",
+      "totale_imponibile": 14400.0,
+      "righe": [
+        {
+          "descrizione": "poltrona in eps a forma di bacio perugina completa di seduta e rivestimento(costo per produzione di 2 pezzi)",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 3000.0,
+          "importo": 6000.0
+        },
+        {
+          "descrizione": "poltrona in eps a forma di bacio perugina completa di seduta e rivestimento(costo per produzione di 3 pezzi)",
+          "um": "NR",
+          "quantita": 3.0,
+          "prezzo_unitario": 2800.0,
+          "importo": 8400.0
+        }
+      ]
+    },
+    {
+      "file": "3205629833_PREVENTIVO-16607.pdf",
+      "nr_documento": "244",
+      "data": "27/07/2026",
+      "cliente": "MATTEO CIBIC STUDIO",
+      "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI",
+      "oggetto": "SISTEMAZIONE STATUA",
+      "totale_imponibile": 580.0,
+      "righe": [
+        {
+          "descrizione": "intervento di sistemazione opera ACQUA DI PARMA presso Milano possiamo farlo il 26/08/26",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 580.0,
+          "importo": 580.0
+        }
+      ]
+    },
+    {
+      "file": "3205632615_PREVENTIVO-15301.pdf",
+      "nr_documento": "13",
+      "data": "12/01/2026",
+      "cliente": "LAB 05 S.R.L.",
+      "indirizzo": "VIA DELL'ARTIGIANATO 1, 20055 VIMODRONE - MI",
+      "oggetto": "libreria e tavoli",
+      "totale_imponibile": 7650.0,
+      "righe": [
+        {
+          "descrizione": "tavolo rif 1 in eps completo di piano inferiore e superiore in mdf tutto con finitura floccata nera",
+          "um": "il",
+          "quantita": 1.0,
+          "prezzo_unitario": 1550.0,
+          "importo": 1550.0
+        },
+        {
+          "descrizione": "tavolo rif 2 in eps completo di piano inferiore e superiore in mdf tutto con finitura floccata nera",
+          "um": "il",
+          "quantita": 1.0,
+          "prezzo_unitario": 1300.0,
+          "importo": 1300.0
+        }
+      ]
+    },
+    {
+      "file": "3205632858_PREVENTIVO-16442.pdf",
+      "nr_documento": "222",
+      "data": "22/06/2026",
+      "cliente": "MOBILIFICIO TREVISAN SRL",
+      "indirizzo": "VIA IPPOLITO NIEVO FR. GLAUNICCO 6, 33030 CAMINO AL TAGLIAMENTO - UD",
+      "oggetto": "libreria",
+      "totale_imponibile": 6500.0,
+      "righe": [
+        {
+          "descrizione": "libreria in eps e multistrato misure 1800x2100x500 completa di rivestimento in vetroresina e finitura liscia laccata",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 6500.0,
+          "importo": 6500.0
+        }
+      ]
+    },
+    {
+      "file": "3205633063_PREVENTIVO-15254.pdf",
+      "nr_documento": "5",
+      "data": "08/01/2026",
+      "cliente": "BUSSOLA & RALPH INTERNATIONAL S.R.L.",
+      "indirizzo": "VIA DELLE INDUSTRIE 39/41, 31050 PONZANO VENETO - TV",
+      "oggetto": "2025140 C_ QUOTAZIONE MANICHINI",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "manichino in eps (escluso di braccia ,testa e gambe) fresato,carteggiato e resinato completo di finitura bianca liscia",
+          "um": "NR",
+          "quantita": 2.0,
+          "prezzo_unitario": 580.0,
+          "importo": 1160.0
+        }
+      ]
+    },
+    {
+      "file": "3205635289_PREVENTIVO-15251.pdf",
+      "nr_documento": "4",
+      "data": "08/01/2026",
+      "cliente": "MAISON203 SRLS",
+      "indirizzo": "VIA CARTIZZE 5, 31049 VALDOBBIADENE - TV",
+      "oggetto": "rocce scenografate",
+      "totale_imponibile": 500.0,
+      "righe": [
+        {
+          "descrizione": "nemero 5 rocce in eps scolpite con forma e misura diversa fra loro,massima 550mm minima350mm il tutto completo di finitura e colore su base del campione visionato che allego foto",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 500.0,
+          "importo": 500.0
+        }
+      ]
+    },
+    {
+      "file": "3205635729_PREVENTIVO-16481.pdf",
+      "nr_documento": "214",
+      "data": "08/06/2026",
+      "cliente": "MOGG S.R.L.",
+      "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO",
+      "oggetto": "tessere per campionario",
+      "totale_imponibile": 1250.0,
+      "righe": [
+        {
+          "descrizione": "tessera in vetroresina come finitura lampada hiver formato 9x12cm totale 1000pz",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1750.0,
+          "importo": 1750.0
+        },
+        {
+          "descrizione": "sconto a voi riservato",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": -500.0,
+          "importo": -500.0
+        }
+      ]
+    },
+    {
+      "file": "3205636605_PREVENTIVO-15341.pdf",
+      "nr_documento": "26",
+      "data": "15/01/2026",
+      "cliente": "VENETIA S.R.L.",
+      "indirizzo": "SESTIERE SAN MARCO 1286, 30124 VENEZIA (VE), P.IVA 02815180274 C.F. 02815180274",
+      "oggetto": "sfera in polistirolo",
+      "totale_imponibile": 3750.0,
+      "righe": []
+    },
+    {
+      "file": "3205636806_PREVENTIVO-15310.pdf",
+      "nr_documento": "16",
+      "data": "13/01/2026",
+      "cliente": "MASIERO srl",
+      "indirizzo": "Via Peschiere, 53 - 31032 Casale sul Sile (TV) - Italia",
+      "oggetto": "prototipi in eps",
+      "totale_imponibile": 550.0,
+      "righe": []
+    },
+    {
+      "file": "3205636972_PREVENTIVO-15343.pdf",
+      "nr_documento": "27",
+      "data": "15/01/2026",
+      "cliente": "KIRA SOLUTIONS SRL",
+      "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD",
+      "oggetto": "statua h4000mm",
+      "totale_imponibile": 3200.0,
+      "righe": []
+    },
+    {
+      "file": "3205639789_PREVENTIVO-15260.pdf",
+      "nr_documento": "6",
+      "data": "08/01/2026",
+      "cliente": "\"Metalcreo - Bramani Cristiano\"",
+      "indirizzo": "commerciale@metalcreo.com, in eps k13 completo di finitura cementizia colore ral 9001",
+      "oggetto": "Colonne Display 2026",
+      "totale_imponibile": 137475.0,
+      "righe": [
+        {
+          "descrizione": "Colonna D30 H180 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 108.0,
+          "importo": 34344.0
+        },
+        {
+          "descrizione": "Colonna D25 H150 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 95.0,
+          "importo": 30210.0
+        },
+        {
+          "descrizione": "Colonna D20 H120 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 67.0,
+          "importo": 21306.0
+        },
+        {
+          "descrizione": "Colonna D35 H60 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 318.0,
+          "prezzo_unitario": 63.0,
+          "importo": 20034.0
+        },
+        {
+          "descrizione": "Parallelepipedo 35x35 H95 cm + scanalatura 16x8mm per Led COB",
+          "um": "NR",
+          "quantita": 215.0,
+          "prezzo_unitario": 79.0,
+          "importo": 16985.0
+        },
+        {
+          "descrizione": "Pedana ovale 60x90 H20 cm NO LED imballo con pluriball compreso",
+          "um": "NR",
+          "quantita": 164.0,
+          "prezzo_unitario": 89.0,
+          "importo": 14596.0
+        }
+      ]
+    },
+    {
+      "file": "3205641069_PREVENTIVO-15364.pdf",
+      "nr_documento": "34",
+      "data": "19/01/2026",
+      "cliente": "ALLESTIMENTI BENFENATI SPA",
+      "indirizzo": "VIA LUIGI GALVANI 39, 20019 SETTIMO MILANESE - MI",
+      "oggetto": "Bearista cup's Starbucks",
+      "totale_imponibile": 6500.0,
+      "righe": [
+        {
+          "descrizione": "scultura in eps riproducente Bearista Cup completa di verniciatura e scenografatura altezza totale escluso la cannuccia 2000mm sviluppo file 3d trasporto a Milano",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4900.0,
+          "importo": 4900.0
+        }
+      ]
+    },
+    {
+      "file": "3205641432_PREVENTIVO-15311.pdf",
+      "nr_documento": "17",
+      "data": "13/01/2026",
+      "cliente": "POSTERLAND S.R.L.",
+      "indirizzo": "VIA STANISLAO CANNIZZARO 30, 20090 BUCCINASCO - MI",
+      "oggetto": "scritta AZZURRO",
+      "totale_imponibile": 1200.0,
+      "righe": []
+    },
+    {
+      "file": "3205641765_PREVENTIVO-15318.pdf",
+      "nr_documento": "20",
+      "data": "14/01/2026",
+      "cliente": "IMBALLAGGI PEGORARO SRL",
+      "indirizzo": "Via Monte Verena 5, 36022 San. Zeno di Cassola - VI",
+      "oggetto": "bolla",
+      "totale_imponibile": 150.0,
+      "righe": []
+    },
+    {
+      "file": "3205642063_PREVENTIVO-15356.pdf",
+      "nr_documento": "30",
+      "data": "16/01/2026",
+      "cliente": "Pedemontana Serramenti",
+      "indirizzo": "Via per San Floriano, 58, 31033 CASTELFRANCO VENETO (TV)",
+      "oggetto": "logo per bancone",
+      "totale_imponibile": 480.0,
+      "righe": []
+    },
+    {
+      "file": "3205644001_PREVENTIVO-15435.pdf",
+      "nr_documento": "58",
+      "data": "22/01/2026",
+      "cliente": "BUSSOLA & RALPH INTERNATIONAL S.R.L.",
+      "indirizzo": "VIA DELLE INDUSTRIE 39/41, 31050 PONZANO VENETO - TV",
+      "oggetto": "BOUTIQUE JLC PARIGI",
+      "totale_imponibile": 0.0,
+      "righe": [
+        {
+          "descrizione": "pannelli in eps con supporto in mdf posteriore ,sagomatura ad onde da definire verniciati bianchi 9001 completi di resitura ignifuga per un totale di 18mq",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 6800.0,
+          "importo": 6800.0
+        }
+      ]
+    },
+    {
+      "file": "3205645549_PREVENTIVO-15530.pdf",
+      "nr_documento": "88",
+      "data": "03/02/2026",
+      "cliente": "Letizia Antico",
+      "indirizzo": "Purchasing Manager, Acqua di Parma & LVMH Beauty Division Italy",
+      "oggetto": "BRIEF/ADP VASI NASI DUSSELDORF",
+      "totale_imponibile": 14500.0,
+      "righe": [
+        {
+          "descrizione": "scultura in eps h2000 resinata e verniciata liscia completa di zavorra",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4900.0,
+          "importo": 4900.0
+        },
+        {
+          "descrizione": "cassa per imballo in osb completa di pluriball e eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 480.0,
+          "importo": 480.0
+        },
+        {
+          "descrizione": "scultura in eps h1800 resinata e verniciata liscia completa di zavorra",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4200.0,
+          "importo": 4200.0
+        },
+        {
+          "descrizione": "cassa per imballo in osb completa di pluriball e eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 420.0,
+          "importo": 420.0
+        },
+        {
+          "descrizione": "trasporto presso Hofgarten Dusseldor",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2500.0,
+          "importo": 2500.0
+        },
+        {
+          "descrizione": "montaggio presso Hofgarten Dusseldor",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2000.0,
+          "importo": 2000.0
+        }
+      ]
+    },
+    {
+      "file": "3205645549_PREVENTIVO-15531.pdf",
+      "nr_documento": "87",
+      "data": "03/02/2026",
+      "cliente": "Letizia Antico",
+      "indirizzo": "Purchasing Manager, Acqua di Parma & LVMH Beauty Division Italy",
+      "oggetto": "BRIEF/ADP VASI NASI MILANO",
+      "totale_imponibile": 20710.0,
+      "righe": [
+        {
+          "descrizione": "scultura in eps h2000 resinata e verniciata liscia completa di zavorra",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4900.0,
+          "importo": 4900.0
+        },
+        {
+          "descrizione": "cassa per imballo in osb completa di pluriball e eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 480.0,
+          "importo": 480.0
+        },
+        {
+          "descrizione": "scultura in eps h1800 resinata e verniciata liscia completa di zavorra",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 4200.0,
+          "importo": 4200.0
+        },
+        {
+          "descrizione": "cassa per imballo in osb completa di pluriball e eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 420.0,
+          "importo": 420.0
+        },
+        {
+          "descrizione": "scultura in eps bocca resinata e verniciata liscia completa di zavorra",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 2500.0,
+          "importo": 2500.0
+        },
+        {
+          "descrizione": "cassa per imballo in osb completa di pluriball e eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 450.0,
+          "importo": 450.0
+        },
+        {
+          "descrizione": "scultura in eps luna resinata e verniciata liscia completa di zavorra",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3500.0,
+          "importo": 3500.0
+        },
+        {
+          "descrizione": "cassa per imballo in osb completa di pluriball e eps",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 560.0,
+          "importo": 560.0
+        },
+        {
+          "descrizione": "trasporto a Milano",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1500.0,
+          "importo": 1500.0
+        },
+        {
+          "descrizione": "montaggio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 350.0,
+          "importo": 350.0
+        },
+        {
+          "descrizione": "smontaggio",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 350.0,
+          "importo": 350.0
+        }
+      ]
+    },
+    {
+      "file": "3205645580_PREVENTIVO-15327.pdf",
+      "nr_documento": "24",
+      "data": "14/01/2026",
+      "cliente": "GRAFICHE NEW PRINT SRL",
+      "indirizzo": "Via Pierluigi Nervi  24, 30016 JESOLO - VE",
+      "oggetto": "ripristino scacchi",
+      "totale_imponibile": 3400.0,
+      "righe": [
+        {
+          "descrizione": "ripristino scacchi con stuccatura e verniciatura per un totale di 32pezzi trasporto incluso",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 3400.0,
+          "importo": 3400.0
+        }
+      ]
+    },
+    {
+      "file": "3205647410_PREVENTIVO-15574.pdf",
+      "nr_documento": "39",
+      "data": "20/01/2026",
+      "cliente": "GRUPPO GEROMIN SRL",
+      "indirizzo": "VIA I MAGGIO N 5, 30029 SAN STINO DI LIVENZA - VE",
+      "oggetto": "Progetto_26009_150126_Carrus_Edilgabrie",
+      "totale_imponibile": 4223.0,
+      "righe": [
+        {
+          "descrizione": "pareti stanza",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 1850.0,
+          "importo": 1850.0
+        },
+        {
+          "descrizione": "pareti per modulo doccia",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 730.0,
+          "importo": 730.0
+        },
+        {
+          "descrizione": "tetto a botte",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 925.0,
+          "importo": 925.0
+        },
+        {
+          "descrizione": "panche",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 360.0,
+          "importo": 360.0
+        },
+        {
+          "descrizione": "angolo panche",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 108.0,
+          "importo": 108.0
+        },
+        {
+          "descrizione": "bacile",
+          "um": "NR",
+          "quantita": 1.0,
+          "prezzo_unitario": 250.0,
+          "importo": 250.0
+        }
+      ]
+    },
+    {
+      "file": "3205647512_PREVENTIVO-15358.pdf",
+      "nr_documento": "32",
+      "data": "16/01/2026",
+      "cliente": "Alessandro Menegon",
+      "indirizzo": "Espositori in cartone EB interamente stampato, con 4 ripiani",
+      "oggetto": "espositori in cartone",
+      "totale_imponibile": 13620.0,
+      "righe": []
+    }
+  ]
+}

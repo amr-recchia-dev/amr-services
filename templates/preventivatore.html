@@ -1,0 +1,1771 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AMR OS — Preventivatore Rapido 3D, Storico Eureka & Calcolatore Tempi KUKA/OSAI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f1f5f9; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .card { background: #111827; border: 1px solid #1e293b; border-radius: 0.875rem; }
+    .card-accent { background: linear-gradient(145deg, #131c31 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 0.875rem; }
+    input, select, textarea { background: #0f172a; border: 1px solid #334155; color: #f8fafc; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,0.2); }
+    .tab-btn { padding: 0.65rem 1.15rem; font-weight: 600; font-size: 0.875rem; border-radius: 0.6rem; transition: all 0.15s; }
+    .tab-btn.active { background: #f59e0b; color: #0b0f19; box-shadow: 0 4px 14px rgba(245,158,11,0.35); }
+    .tab-btn:not(.active) { color: #94a3b8; background: #1e293b; }
+    .tab-btn:not(.active):hover { color: #f8fafc; background: #334155; }
+    @media print {
+      body { background: #fff !important; color: #000 !important; }
+      .no-print { display: none !important; }
+      #eureka-print-sheet { display: block !important; box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-16">
+
+  <!-- TOP HEADER -->
+  <header class="no-print border-b border-slate-800 bg-slate-950/90 sticky top-0 z-40 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bg-amber-500 text-slate-950 font-black px-3 py-1.5 rounded-lg tracking-wider text-lg">AMR</div>
+        <div>
+          <h1 class="font-bold text-base md:text-lg text-white flex items-center gap-2">
+            AMR OS · Preventivatore 3D & Telemetria Macchine
+            <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-semibold">v1.0 Operativo</span>
+          </h1>
+          <p class="text-xs text-slate-400">Tarato su 75 Preventivi Reali Gestionale Eureka · Rhino 8 Slicer · Parser KUKA KRC2 (.SRC) & Pantografo OSAI (.TXT)</p>
+        </div>
+      </div>
+
+      <!-- NAVIGATION TABS & USER BADGE -->
+      <div class="flex flex-wrap items-center gap-2">
+        <nav class="flex flex-wrap gap-2">
+          <button onclick="switchTab('tab-preventivo')" id="btn-tab-preventivo" class="tab-btn active">⚡ 1. Preventivatore 3D & Monday</button>
+          <button onclick="switchTab('tab-macchine')" id="btn-tab-macchine" class="tab-btn">🤖 2. Tempi KUKA & OSAI</button>
+          <button onclick="switchTab('tab-storico')" id="btn-tab-storico" class="tab-btn">📚 3. Storico Eureka (<span id="count-storico-badge">81</span>)</button>
+          <button onclick="switchTab('tab-parametri')" id="btn-tab-parametri" class="tab-btn">⚙️ 4. Parametri</button>
+        </nav>
+        <a href="./logout" class="text-xs bg-rose-500/15 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 px-3 py-1.5 rounded-lg font-semibold transition" title="Termina sessione sicura">🔒 Esci</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 pt-6 no-print">
+
+    <!-- ===================================================================== -->
+    <!-- TAB 1: PREVENTIVATORE RAPIDO 3D & STORICO AI                          -->
+    <!-- ===================================================================== -->
+    <section id="tab-preventivo" class="space-y-6">
+
+      <!-- BARRA INTEGRAZIONE LIVE MONDAY.COM + TEST REALE KIRA SOLUTIONS -->
+      <div class="card p-4 border-amber-500/40 bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/20">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="text-xl">🔗</span>
+            <div>
+              <div class="text-xs font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                Connessione Live Monday.com (Board: NEW COMMERCIALE #2133436509)
+                <span id="monday-conn-badge" class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full text-[10px]">Pronto</span>
+              </div>
+              <div class="text-xs text-slate-400">Importa una richiesta aperta da Monday.com oppure pubblica il preventivo calcolato direttamente sulla board commerciale.</div>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="loadPresetPiece('kira_camera')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs px-3.5 py-2 rounded-lg shadow">
+              📸 Carica Test Reale: KIRA SOLUTIONS (Macchina Fotografica 150×60×100 cm)
+            </button>
+            <button onclick="fetchMondayCommercialItems()" class="bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 font-bold text-xs px-3 py-2 rounded-lg">
+              🔄 Sincronizza Richieste da Monday.com
+            </button>
+          </div>
+        </div>
+        <div id="monday-items-bar" class="hidden mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center gap-3">
+          <label class="text-xs text-slate-300 font-semibold">Seleziona richiesta da Monday (`NEW COMMERCIALE`):</label>
+          <select id="monday-select-item" class="flex-1 min-w-[260px] text-xs" onchange="applySelectedMondayItem()"></select>
+          <span id="monday-sync-msg" class="text-xs text-emerald-400 font-medium"></span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- COLONNA SINISTRA: INPUT GEOMETRIA, FILE 3D, LAVORAZIONE E FINITURA (7 col) -->
+        <div class="lg:col-span-7 space-y-5">
+
+          <!-- Dati Cliente & Progetto -->
+          <div class="card p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-sm font-bold uppercase tracking-wider text-amber-400">1. Dati Richiesta & Cliente</h2>
+              <span id="q-monday-linked-badge" class="text-xs text-slate-400 mono">Nuova Scheda Monday</span>
+            </div>
+            <input type="hidden" id="q-monday-id" value="" />
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Cliente / Azienda</label>
+                <input id="q-cliente" type="text" placeholder="Es. KIRA SOLUTIONS SRL" value="KIRA SOLUTIONS SRL" class="w-full font-semibold" oninput="recalcQuote()" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Oggetto Commessa</label>
+                <input id="q-oggetto" type="text" placeholder="Es. Macchina fotografica 150x60x100cm" value="Macchina fotografica Canon 150x60x100cm solo EPS grezzo" class="w-full" oninput="recalcQuote()" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Descrizione Articolo / Parole Chiave</label>
+                <input id="q-desc" type="text" placeholder="Es. macchina fotografica, statua, tavolo..." value="macchina fotografica corpo + obiettivo (esclusi particolari 3D, adesivi e verniciatura)" class="w-full" oninput="recalcQuote()" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Referente Cliente</label>
+                <input id="q-referente" type="text" placeholder="Es. Renato Karaboja" value="Renato Karaboja" class="w-full" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Email Cliente</label>
+                <input id="q-email" type="email" placeholder="Es. commerciale@kira3d.com" value="commerciale@kira3d.com" class="w-full mono text-xs" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Indirizzo / Sede (per PDF Eureka)</label>
+                <input id="q-indirizzo" type="text" placeholder="Es. VIA DESMAN 131, 35010 BORGORICCO - PD" value="VIA DESMAN 131, 35010 BORGORICCO - PD" class="w-full text-xs" oninput="recalcQuote()" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Ispettore 3D Drag & Drop + Dimensioni Pezzo -->
+          <div class="card p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h2 class="text-sm font-bold uppercase tracking-wider text-amber-400">2. Geometria Pezzo, Diagnostica Mesh 3D & Sezionamento KUKA</h2>
+              <div class="flex gap-2">
+                <button onclick="loadPresetPiece('statua_h3500')" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded border border-slate-700">Preset: Statua H3500 (Gucci)</button>
+                <button onclick="loadPresetPiece('cuore_bertone')" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded border border-slate-700">Preset: Cuore 3000×2000×1800</button>
+                <button onclick="loadPresetPiece('tavolo_am')" class="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded border border-slate-700">Preset: Tavolo 1050×1050×650</button>
+              </div>
+            </div>
+
+            <!-- Dropzone File 3D (.STL / .OBJ) -->
+            <div id="dropzone-3d" class="border-2 border-dashed border-slate-700 hover:border-amber-500/70 rounded-xl p-4 bg-slate-900/60 transition flex flex-col md:flex-row items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl">🧊</div>
+                <div>
+                  <div class="text-sm font-semibold text-white">Carica File 3D del Cliente (`.STL` o `.OBJ`) per Analisi Mesh & Volume</div>
+                  <div class="text-xs text-slate-400">Calcola in automatico Bounding Box, Volume reale, $m^2$ superficie, controlla se le mesh sono chiuse e quante sezioni KUKA servono.</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <label class="cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3.5 py-2 rounded-lg">
+                  📂 Scegli .STL / .OBJ
+                  <input type="file" id="file-3d-input" accept=".stl,.obj" class="hidden" onchange="handle3DFileUpload(event)" />
+                </label>
+                <button onclick="simulateDirtyMesh3D()" class="bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 px-3 py-2 rounded-lg border border-slate-700" title="Simula un file 3D cliente con mesh aperte">Test Mesh Aperta</button>
+              </div>
+            </div>
+
+            <!-- Banner Diagnostica Mesh 3D (visibile quando si carica o testa un 3D) -->
+            <div id="mesh-diagnostic-box" class="hidden p-3.5 rounded-lg border text-xs space-y-1.5"></div>
+
+            <!-- Dimensioni L x P x H + Quantità + Fattore Forma -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Larghezza X (mm)</label>
+                <input id="q-dim-x" type="number" value="1500" min="10" step="10" class="w-full mono font-bold" oninput="recalcQuote()" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Profondità Y (mm)</label>
+                <input id="q-dim-y" type="number" value="600" min="10" step="10" class="w-full mono font-bold" oninput="recalcQuote()" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Altezza Z (mm)</label>
+                <input id="q-dim-z" type="number" value="1000" min="10" step="10" class="w-full mono font-bold" oninput="recalcQuote()" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Quantità (Pezzi)</label>
+                <input id="q-qty" type="number" value="1" min="1" step="1" class="w-full mono font-bold text-amber-400" oninput="recalcQuote()" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Geometria / Riempimento</label>
+                <select id="q-shape-factor" class="w-full" onchange="recalcQuote()">
+                  <option value="0.55">Scultura / Organico (~55% box)</option>
+                  <option value="0.65" selected>Corpo + Cilindro Obiettivo (~65% box)</option>
+                  <option value="0.85">Pieno / Cubo / Tavolo (~85% box)</option>
+                  <option value="0.35">Sagoma Sottile / Arco (~35% box)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- KPI Geometrici & Sezionamento Blocchi KUKA -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+              <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-lg">
+                <div class="text-[11px] text-slate-400">Volume Box Lordo EPS</div>
+                <div id="kpi-vol-box" class="text-base font-bold mono text-white">2.28 m³</div>
+                <div id="kpi-vol-net" class="text-[11px] text-slate-400">Netto: 1.25 m³ (+20% sfrido)</div>
+              </div>
+              <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-lg">
+                <div class="text-[11px] text-slate-400">Superficie Esterna Finitura</div>
+                <div id="kpi-surf-mq" class="text-base font-bold mono text-emerald-400">8.65 m²</div>
+                <div id="kpi-poliurea-kg" class="text-[11px] text-slate-400">Resina stimata: ~16.3 kg</div>
+              </div>
+              <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-lg">
+                <div class="text-[11px] text-slate-400">Sezionamento Blocchi KUKA</div>
+                <div id="kpi-kuka-blocks" class="text-base font-bold mono text-amber-400">2 Blocchi</div>
+                <div id="kpi-kuka-joints" class="text-[11px] text-slate-400">Giunti da incollare: 1.2 m²</div>
+              </div>
+              <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-lg">
+                <div class="text-[11px] text-slate-400">Tempo Stimato Macchina</div>
+                <div id="kpi-mach-hours" class="text-base font-bold mono text-sky-400">5.8 h</div>
+                <div id="kpi-mach-source" class="text-[11px] text-slate-400">Stima parametrica KUKA</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scelta Lavorazione, Materiale, Finitura, File 3D e Accessori -->
+          <div class="card p-5 space-y-4">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-amber-400">3. Tecnologia, Materiale, Finitura & Opzioni</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Tecnologia di Lavorazione</label>
+                <select id="q-tech" class="w-full" onchange="recalcQuote()">
+                  <option value="fresa3d_kuka">🤖 Fresatura 3D Robot KUKA 7 Assi (KR16 / KR16F)</option>
+                  <option value="fresa3d_stratificato" selected>📚 EPS Stratificato / Sagomato Geom. (Pantografo + KUKA)</option>
+                  <option value="taglio2d_filo">⚡ Taglio 2D Filo Caldo / Pantografo OSAI (Scritte, Lastre, Colonne)</option>
+                  <option value="stampa3d">🖨️ Stampa 3D Grande Formato (PLA Bio / Resina + Rinforzo)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Materiale Principale</label>
+                <select id="q-materiale" class="w-full" onchange="recalcQuote()">
+                  <option value="eps_150" selected>EPS 150 / K25 Media-Alta Densità (Sculture, Volumi Grezzi Puliti)</option>
+                  <option value="eps_k13_100">EPS K13 / 100 Standard (Scenografie, Imballi, Grandi Volumi)</option>
+                  <option value="eps_200_hd">EPS 200 / K30 Alta Densità (Arredo, Tavoli, Sedute)</option>
+                  <option value="xps_stirodur">XPS Stirodur (Scritte Sottili, Fregi, Bassorilievi)</option>
+                  <option value="pla_stampa3d">PLA Bio / Resina Stampa 3D (con eventuale schiuma interna)</option>
+                </select>
+              </div>
+
+              <div class="md:col-span-2">
+                <label class="block text-xs text-slate-400 mb-1">Finitura Superficiale (Tarata su Listino Reale Eureka + Inventario AMR)</label>
+                <select id="q-finitura" class="w-full font-semibold text-amber-300" onchange="recalcQuote()">
+                  <option value="grezzo" selected>1. Grezzo Fresato e Carteggiato (Solo Materiale EPS — Nessuna Verniciatura)</option>
+                  <option value="grezzo_solo_fresa">1b. Solo Fresato Grezzo (Senza carteggiatura manuale e senza verniciatura — -18%)</option>
+                  <option value="scenografica_colore">2. Finitura Scenografica + Colore RAL (Stuccatura Aguaplast + Pittura)</option>
+                  <option value="quarzo_sabbia">3. Resinatura + Quarzo + Sabbia 0.6 + Colore (Molto richiesta — ~135 €/m²)</option>
+                  <option value="antiurto_poliurea_colore">4. Resinatura Antiurto (Poliurea / Resina PU) + Scenografatura Colore (~240 €/m²)</option>
+                  <option value="ignifuga_cemento_degarock">5. Resinatura Ignifuga + Finitura Cemento / Materica DEGA ROCK Gobbetto (~380 €/m²)</option>
+                  <option value="liscia_laccata_ral">6. Resinatura + 2 Mani Fondo Poliestere Renner + Verniciatura Liscia Laccata RAL (~420 €/m²)</option>
+                  <option value="metallizzata_bronzo_oro">7. Finitura Liscia Metallizzata / Simil Bronzo / Foglia Oro (~580 €/m²)</option>
+                  <option value="cromata_specchio">8. Finitura Cromata Specchio (Cromo Argento / Oro su Poliestere Lucido — ~840 €/m²)</option>
+                </select>
+                <div id="finitura-inventario-hint" class="text-[11px] text-slate-400 mt-1"></div>
+              </div>
+
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Stato File 3D / Progettazione Rhino 8</label>
+                <select id="q-file3d" class="w-full" onchange="recalcQuote()">
+                  <option value="file_ok">🟢 File 3D Cliente OK (Mesh chiusa pronta per ARPP — €0)</option>
+                  <option value="3d_geometrico_veloce" selected>🔵 Sviluppo 3D Semplificato solo Volumi EPS (Senza particolari — €80)</option>
+                  <option value="sistemazione_mesh">🟡 Sistemazione File 3D (Mesh aperte → ShrinkWrap Rhino 8 + Slicing)</option>
+                  <option value="creazione_3d_semplice">🟠 Creazione File 3D Completa da DWG/PDF/Foto</option>
+                  <option value="creazione_3d_scultura">🔴 Modellazione 3D Scultorea / Organica da Zero</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Ore Macchina Reali (Opzionale: da Calcolatore .SRC/.TXT)</label>
+                <div class="flex gap-2">
+                  <input id="q-override-mach-hours" type="number" step="0.1" min="0" placeholder="Auto da volume" class="w-full mono" oninput="recalcQuote()" />
+                  <button onclick="clearMachOverride()" class="text-xs bg-slate-800 hover:bg-slate-700 px-2.5 rounded border border-slate-700 text-slate-300">Auto</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Checkbox extra: Struttura Ferro, Cassa OSB, Trasporto -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-800">
+              <label class="flex items-center gap-2 text-xs cursor-pointer bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                <input type="checkbox" id="q-ferro" onchange="recalcQuote()" class="rounded" />
+                <span>🔩 Anima / Staffa interna in ferro o zavorra</span>
+              </label>
+              <label class="flex items-center gap-2 text-xs cursor-pointer bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                <input type="checkbox" id="q-cassa-osb" onchange="recalcQuote()" class="rounded" />
+                <span>📦 Cassa imballo in OSB + Pluriball + EPS (~450 €)</span>
+              </label>
+              <div class="flex items-center gap-2 bg-slate-900/70 p-2 rounded-lg border border-slate-800">
+                <span class="text-xs text-slate-400 shrink-0">🚚 Trasporto/Mont.: €</span>
+                <input type="number" id="q-trasporto" value="0" min="0" step="50" class="w-full mono py-1 px-2 text-xs" oninput="recalcQuote()" />
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- COLONNA DESTRA: RISULTATO PREVENTIVO, BREAKDOWN COSTI/MARGINI & STORICO SIMILE (5 col) -->
+        <div class="lg:col-span-5 space-y-5">
+
+          <!-- Card Prezzo Finale Consigliato & Marginalità -->
+          <div class="card-accent p-5 space-y-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <span class="text-xs uppercase font-bold tracking-wider text-amber-400">Quotazione Commerciale Consigliata</span>
+                <div class="flex items-baseline gap-3 mt-1">
+                  <div id="res-unit-price" class="text-3xl md:text-4xl font-extrabold mono text-white">€ 4.250,00</div>
+                  <span class="text-xs text-slate-400">/ cad. + IVA</span>
+                </div>
+                <div id="res-total-lot" class="text-sm font-semibold text-amber-300 mt-0.5">Totale Imponibile Lotto (1 pz): € 4.250,00</div>
+              </div>
+              <div class="text-right">
+                <span id="res-margin-badge" class="inline-block text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  Margine: 64%
+                </span>
+                <div id="res-qty-discount-label" class="text-[11px] text-slate-400 mt-1">Prezzo 1° Pezzo</div>
+              </div>
+            </div>
+
+            <!-- Tabella Scomposizione Analitica Voci -->
+            <div class="bg-slate-950/70 rounded-xl p-3.5 border border-slate-800/90 space-y-2 text-xs">
+              <div class="flex justify-between font-semibold text-slate-400 border-b border-slate-800 pb-1.5">
+                <span>Voce di Costo / Valore Commerciale</span>
+                <div class="flex gap-6">
+                  <span>Costo Vivo AMR</span>
+                  <span class="text-white">Valore Offerta</span>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <span class="text-slate-300">1. Materia Prima & Sfrido Blocchi</span>
+                <div class="flex gap-6 mono">
+                  <span id="bd-cost-mat" class="text-slate-400">€ 178</span>
+                  <span id="bd-price-mat" class="text-slate-200 w-20 text-right">€ 420</span>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <span class="text-slate-300">2. Fresatura Macchina + Sezionamento/Incoll.</span>
+                <div class="flex gap-6 mono">
+                  <span id="bd-cost-mach" class="text-slate-400">€ 315</span>
+                  <span id="bd-price-mach" class="text-slate-200 w-20 text-right">€ 1.680</span>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <span class="text-slate-300">3. Finitura Superficiale (<span id="bd-surf-label">8.6 m²</span>)</span>
+                <div class="flex gap-6 mono">
+                  <span id="bd-cost-fin" class="text-slate-400">€ 778</span>
+                  <span id="bd-price-fin" class="text-amber-300 font-semibold w-20 text-right">€ 2.075</span>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <span class="text-slate-300">4. File 3D Rhino 8 / Riparazione Mesh & CAM</span>
+                <div class="flex gap-6 mono">
+                  <span id="bd-cost-3d" class="text-slate-400">€ 125</span>
+                  <span id="bd-price-3d" class="text-slate-200 w-20 text-right">€ 220</span>
+                </div>
+              </div>
+
+              <div class="flex justify-between items-center">
+                <span class="text-slate-300">5. Struttura Ferro / Imballo OSB / Trasporto</span>
+                <div class="flex gap-6 mono">
+                  <span id="bd-cost-extra" class="text-slate-400">€ 0</span>
+                  <span id="bd-price-extra" class="text-slate-200 w-20 text-right">€ 0</span>
+                </div>
+              </div>
+
+              <div class="border-t border-slate-800 pt-2 flex justify-between items-center font-bold text-sm">
+                <span class="text-emerald-400">Utile Operativo Netto Commessa</span>
+                <div class="flex gap-6 mono">
+                  <span id="bd-cost-tot" class="text-slate-400 text-xs">Costo: € 1.396</span>
+                  <span id="bd-profit-net" class="text-emerald-400">€ +2.854</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scaletta Prezzi per Quantità (1pz vs 5pz vs 10pz come nei preventivi Bussola & Ralph / AM Interni) -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+              <div class="text-[11px] font-semibold text-slate-400 uppercase mb-2">Scaletta Automatica Lotti (Opzioni Multi-Quantità Eureka)</div>
+              <div class="grid grid-cols-4 gap-2 text-center mono text-xs">
+                <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                  <div class="text-[10px] text-slate-400">1 Pezzo</div>
+                  <div id="tier-1pz" class="font-bold text-white">€ 4.250</div>
+                </div>
+                <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                  <div class="text-[10px] text-slate-400">2–4 Pezzi (-18%)</div>
+                  <div id="tier-3pz" class="font-bold text-amber-300">€ 3.485</div>
+                </div>
+                <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                  <div class="text-[10px] text-slate-400">5–9 Pezzi (-28%)</div>
+                  <div id="tier-5pz" class="font-bold text-emerald-300">€ 3.060</div>
+                </div>
+                <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                  <div class="text-[10px] text-slate-400">10+ Pezzi (-38%)</div>
+                  <div id="tier-10pz" class="font-bold text-sky-300">€ 2.635</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Testo Descrizione Eureka Auto-Generato + Bottoni Azione -->
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Descrizione Riga Pronta per Preventivo Eureka (`Docp700r`)</label>
+              <textarea id="res-eureka-desc" rows="3" class="w-full text-xs mono"></textarea>
+            </div>
+
+            <div class="flex flex-wrap gap-2 pt-1">
+              <button onclick="addCurrentLineToQuote()" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-2.5 px-3 rounded-lg shadow">
+                ➕ Aggiungi Riga (<span id="quote-lines-count">1</span>)
+              </button>
+              <button onclick="printEurekaPDF()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-2.5 px-3 rounded-lg shadow">
+                🖨️ Stampa / PDF Eureka
+              </button>
+              <button onclick="publishQuoteToMonday()" id="btn-publish-monday" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-extrabold text-xs py-2.5 px-3.5 rounded-lg shadow">
+                🚀 Invia a Monday.com
+              </button>
+            </div>
+            <div id="monday-publish-result" class="hidden text-xs p-2.5 rounded-lg border"></div>
+          </div>
+
+          <!-- Card Preventivi Storici Simili Reali (Benchmarking Automatico) -->
+          <div class="card p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400">🔍 Confronto Immediato con Storico Reale AMR (Eureka)</h3>
+              <span class="text-[11px] text-slate-400">Ordinati per somiglianza</span>
+            </div>
+            <div id="similar-quotes-list" class="space-y-2.5 max-h-80 overflow-y-auto pr-1"></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 2: CALCOLATORE TEMPI MACCHINA (KUKA .SRC & PANTOGRAFO OSAI .TXT)  -->
+    <!-- ===================================================================== -->
+    <section id="tab-macchine" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left: Upload .SRC / .TXT + Demo Buttons + Code Inspector (6 col) -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="card p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-sm font-bold uppercase tracking-wider text-amber-400">Calcolatore Esatto Tempi Macchina (Reverse Engineering)</h2>
+                <p class="text-xs text-slate-400 mt-0.5">Trascina i file `.SRC` generati da <b>Roboticom ARPP 3.27.59</b> (anche più sottoprogrammi `_0001.._0004.SRC` insieme) o i file `.txt` del <b>Pantografo OSAI (`192.168.0.2`)</b>.</p>
+              </div>
+            </div>
+
+            <!-- Pulsanti Demo Reali dalle 3 Foto del Capannone -->
+            <div class="space-y-1.5">
+              <div class="text-xs font-semibold text-slate-300">Carica un programma reale rilevato dalle foto dei controller in capannone:</div>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="loadDemoMachineProgram('kuka2_pl2')" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold px-3 py-2 rounded-lg">
+                  🤖 Foto 3: KUKA 2 (`KR 16`) — `PL2_0004.SRC` ($VEL.CP + LIN)
+                </button>
+                <button onclick="loadDemoMachineProgram('kuka1_inout')" class="bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 text-xs font-semibold px-3 py-2 rounded-lg">
+                  🤖 Foto 2: KUKA 1 (`KR 16F`) — `INOUT1834_0001.SRC` (Asse E1)
+                </button>
+                <button onclick="loadDemoMachineProgram('osai_rustik')" class="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-semibold px-3 py-2 rounded-lg">
+                  ⚙️ Foto 1: Pantografo OSAI (`192.168.0.2`) — `RUSTIK.txt`
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload Multi-File .SRC / .TXT -->
+            <div class="border-2 border-dashed border-slate-700 hover:border-amber-500 rounded-xl p-4 bg-slate-900/50 flex items-center justify-between">
+              <div>
+                <div class="text-sm font-semibold text-white">Carica uno o più file `.SRC` (KUKA) o `.TXT` / `.NC` (Pantografo OSAI)</div>
+                <div class="text-xs text-slate-400">Se selezioni `_0001.SRC`, `_0002.SRC`, `_0003.SRC`, `_0004.SRC` somma automaticamente tutti i sottoprogrammi!</div>
+              </div>
+              <label class="cursor-pointer bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-4 py-2.5 rounded-lg shrink-0">
+                📂 Carica .SRC / .TXT
+                <input type="file" id="mach-file-input" multiple accept=".src,.txt,.nc,.gcode,.dat" class="hidden" onchange="handleMachineFilesUpload(event)" />
+              </label>
+            </div>
+
+            <!-- Override POV % Slider -->
+            <div class="bg-slate-900 p-3.5 rounded-lg border border-slate-800 space-y-2">
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-300 font-semibold">Override Velocità Operatore a Bordo Macchina (`POV %` KCP2 / `Percent %` OSAI):</span>
+                <span id="mach-pov-label" class="mono font-bold text-amber-400">100%</span>
+              </div>
+              <input id="mach-pov-slider" type="range" min="20" max="100" step="5" value="100" class="w-full accent-amber-500" oninput="parseCurrentMachineCode()" />
+              <div class="flex justify-between text-[10px] text-slate-500 mono">
+                <span>20% (Test cauto)</span>
+                <span>50%</span>
+                <span>80%</span>
+                <span>90% (Default OSAI foto 1)</span>
+                <span>100% (Default KUKA foto 2)</span>
+              </div>
+            </div>
+
+            <!-- Codice Sorgente KRL / G-Code -->
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <label class="text-xs text-slate-400">Codice Programma Macchina (`.SRC` KRL o `.TXT` G-Code — modificabile/incollabile):</label>
+                <span id="mach-prog-name" class="text-xs mono text-amber-400 font-semibold">PL2_0004.SRC</span>
+              </div>
+              <textarea id="mach-code-area" rows="11" class="w-full mono text-xs leading-relaxed" oninput="parseCurrentMachineCode()"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Risultati Tempo Macchina + Viewer 3D Percorso Utensile + Match Commessa (6 col) -->
+        <div class="lg:col-span-6 space-y-5">
+          <div class="card-accent p-5 space-y-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <span id="mach-detected-type" class="text-xs uppercase font-bold tracking-wider text-amber-400">Robot KUKA KRC2 (Roboticom ARPP 3.27.59)</span>
+                <div class="flex items-baseline gap-3 mt-1">
+                  <div id="mach-res-time" class="text-3xl md:text-4xl font-extrabold mono text-white">1h 42m 18s</div>
+                  <span id="mach-res-hours-dec" class="text-xs mono text-emerald-400">(1.71 ore)</span>
+                </div>
+                <div id="mach-res-100-note" class="text-xs text-slate-400 mt-0.5">Tempo teorico a POV 100%: 1h 42m 18s</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-slate-400">Costo Industriale Macchina</div>
+                <div id="mach-res-cost" class="text-2xl font-bold mono text-emerald-400">€ 76,73</div>
+              </div>
+            </div>
+
+            <!-- Metriche Percorso Utensile -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-slate-400 text-[11px]">Percorso Fresatura (LIN)</div>
+                <div id="mach-kpi-dist" class="text-base font-bold mono text-white">312.4 m</div>
+                <div id="mach-kpi-moves" class="text-[11px] text-slate-500">13.711 blocchi</div>
+              </div>
+              <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-slate-400 text-[11px]">Velocità Media ($VEL.CP)</div>
+                <div id="mach-kpi-vel" class="text-base font-bold mono text-amber-400">54.8 mm/s</div>
+                <div class="text-[11px] text-slate-500">~3.288 mm/min</div>
+              </div>
+              <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-slate-400 text-[11px]">Ingombro Fresatura XYZ</div>
+                <div id="mach-kpi-bbox" class="text-sm font-bold mono text-sky-400">840×620×910</div>
+                <div class="text-[11px] text-slate-500">mm (Area lavoro)</div>
+              </div>
+              <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                <div class="text-slate-400 text-[11px]">Asse Esterno Rotante E1</div>
+                <div id="mach-kpi-e1" class="text-sm font-bold mono text-purple-400">0° → 360°</div>
+                <div class="text-[11px] text-slate-500">Tavola / 7° Asse</div>
+              </div>
+            </div>
+
+            <!-- Canvas 3D Toolpath Preview -->
+            <div class="bg-slate-950 rounded-xl border border-slate-800 p-3">
+              <div class="flex justify-between items-center text-xs text-slate-400 mb-2">
+                <span>Anteprima 3D Percorso Utensile (Verde = alta velocità `$VEL.CP`, Ambra = finitura lenta)</span>
+                <span class="mono text-[11px]">Trascina col mouse per ruotare</span>
+              </div>
+              <canvas id="toolpath-canvas" width="560" height="240" class="w-full h-56 bg-slate-950 rounded cursor-move"></canvas>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <button onclick="sendMachineTimeToQuote()" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs py-2.5 px-4 rounded-lg shadow">
+                ⚡ Usa questo Tempo Macchina nel Preventivatore →
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 3: ARCHIVIO RICERCABILE DEI 75 PREVENTIVI REALI EUREKA            -->
+    <!-- ===================================================================== -->
+    <section id="tab-storico" class="hidden space-y-5">
+      <div class="card p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-bold text-white">📚 Archivio Storico Preventivi Reali AMR (Estratti da Gestionale Eureka `Docp700r`)</h2>
+            <p class="text-xs text-slate-400">Cerca per cliente, materiale (`eps`, `vetroresina`, `stampa 3d`), finitura (`quarzo`, `liscia`, `cemento`, `cromo`, `poliurea`) o oggetto (`statua`, `tavolo`, `scritta`, `colonna`).</p>
+          </div>
+          <input id="storico-search" type="text" placeholder="🔍 Cerca negli articoli (es. statua, quarzo, liscia, tavolo, mogg, bertone...)" class="w-full md:w-96" oninput="renderStoricoTable()" />
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-400 uppercase">
+                <th class="py-2.5 px-3">Doc / Data</th>
+                <th class="py-2.5 px-3">Cliente</th>
+                <th class="py-2.5 px-3">Oggetto</th>
+                <th class="py-2.5 px-3">Articolo e Descrizione Tecnica</th>
+                <th class="py-2.5 px-3 text-right">Qtà</th>
+                <th class="py-2.5 px-3 text-right">Prezzo Unit.</th>
+                <th class="py-2.5 px-3 text-right">Importo</th>
+                <th class="py-2.5 px-3 text-center">Azione</th>
+              </tr>
+            </thead>
+            <tbody id="storico-tbody" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- TAB 4: PARAMETRI & TARIFFE PER MASSIMO E GARY                         -->
+    <!-- ===================================================================== -->
+    <section id="tab-parametri" class="hidden space-y-5">
+      <div class="card p-5 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-bold text-amber-400">⚙️ Configurazione Costi, Finiture e Tariffe Macchine (Pannello per Massimo & Gary)</h2>
+            <p class="text-xs text-slate-400">Questi valori sono stati pre-calibrati analizzando i 75 preventivi reali di Gestionale Eureka e l'Inventario Materiali Monday. Modificali insieme a Massimo e Gary per affinare il calcolo al centesimo.</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="saveCustomParams()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-4 py-2 rounded-lg">💾 Salva Tariffe</button>
+            <button onclick="resetCustomParams()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-2 rounded-lg border border-slate-700">Ripristina Default</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+          <!-- Tariffe Orarie Reparti & Macchine -->
+          <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h3 class="font-bold text-white uppercase tracking-wider">1. Costi Orari Macchine & Reparti (€/h)</h3>
+            <div class="space-y-2">
+              <div class="flex justify-between items-center"><span>Robot KUKA KR16 / KR16F (€/h):</span><input id="p-kuka-h" type="number" value="45" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Pantografo CNC OSAI (€/h):</span><input id="p-osai-h" type="number" value="40" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Taglierina Filo Caldo 2D (€/h):</span><input id="p-filo-h" type="number" value="35" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Ufficio Tecnico Rhino 8 / ARPP (€/h):</span><input id="p-cad-h" type="number" value="50" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Operatore Finiture / Cartegg. (€/h):</span><input id="p-uomo-h" type="number" value="32" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Sfrido Medio Blocco EPS (%):</span><input id="p-sfrido" type="number" value="20" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+            </div>
+          </div>
+
+          <!-- Prezzi Finiture al m² -->
+          <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h3 class="font-bold text-white uppercase tracking-wider">2. Listino Finiture al m² di Superficie (€/m²)</h3>
+            <div class="space-y-2">
+              <div class="flex justify-between items-center"><span>Scenografica + Colore RAL:</span><input id="p-fin-sceno" type="number" value="115" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Resina + Quarzo + Sabbia + Colore:</span><input id="p-fin-quarzo" type="number" value="135" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Resina Antiurto Poliurea + Colore:</span><input id="p-fin-antiurto" type="number" value="240" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Ignifuga + Cemento DEGA ROCK:</span><input id="p-fin-cemento" type="number" value="380" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>2x Fondo Poliestere + Liscia RAL:</span><input id="p-fin-liscia" type="number" value="420" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Finitura Cromata Specchio:</span><input id="p-fin-cromo" type="number" value="840" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+            </div>
+          </div>
+
+          <!-- Costi EPS e Limiti KUKA -->
+          <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h3 class="font-bold text-white uppercase tracking-wider">3. Costo Acquisto EPS & Limiti KUKA</h3>
+            <div class="space-y-2">
+              <div class="flex justify-between items-center"><span>Costo Acquisto EPS K13/100 (€/m³):</span><input id="p-eps100" type="number" value="55" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Costo Acquisto EPS 150 (€/m³):</span><input id="p-eps150" type="number" value="78" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Costo Acquisto EPS 200/K30 (€/m³):</span><input id="p-eps200" type="number" value="110" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Max Box KUKA X (mm):</span><input id="p-kuka-x" type="number" value="1600" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Max Box KUKA Y (mm):</span><input id="p-kuka-y" type="number" value="1200" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+              <div class="flex justify-between items-center"><span>Max Box KUKA Z (mm):</span><input id="p-kuka-z" type="number" value="1400" class="w-24 mono text-right" onchange="updateParamsFromUI()" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================================================================= -->
+  <!-- FOGLIO DI STAMPA UFFICIALE EUREKA (Docp700r) — VISIBILE IN STAMPA/ANTEPRIMA -->
+  <!-- ======================================================================= -->
+  <div id="eureka-print-sheet" class="max-w-4xl mx-auto mt-8 bg-white text-black p-8 rounded shadow-2xl border border-slate-300">
+    <div class="flex justify-between items-start border-b-2 border-black pb-4">
+      <div>
+        <div class="border-4 border-black inline-block px-4 py-1 font-black text-4xl tracking-widest">AMR</div>
+        <div class="font-bold text-xs tracking-wide mt-1">LE TUE IDEE PRENDONO FORMA</div>
+        <div class="text-[11px] leading-tight mt-1">
+          <b>AMR srl</b><br/>
+          Via Cavasotta 20/A - 31040 Pederobba (TV)<br/>
+          CF / P.IVA / Reg.Imp. TV 04185500263<br/>
+          Tel. +39 0423 69212 · www.amrrecchia.it
+        </div>
+      </div>
+      <div class="text-right text-xs">
+        <div class="text-[10px] text-gray-600">SPETT.</div>
+        <div id="pr-cliente" class="font-bold text-base">PARDGROUP SPA</div>
+        <div class="mt-4 inline-grid grid-cols-3 border border-black text-center text-[11px]">
+          <div class="border-r border-black px-3 py-1"><div class="text-[9px] text-gray-600">Tipo Documento</div><b>PRD PREVENTIVO</b></div>
+          <div class="border-r border-black px-3 py-1"><div class="text-[9px] text-gray-600">Nr. Documento</div><b id="pr-docnum">AUTO-2026</b></div>
+          <div class="px-3 py-1"><div class="text-[9px] text-gray-600">Data Documento</div><b id="pr-date">09/11/2026</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 border-x border-b border-black text-xs">
+      <div class="p-2 border-r border-black"><span class="text-[10px] text-gray-600 block">Oggetto:</span><b id="pr-oggetto">Scultura 3D in EPS fresato con finitura</b></div>
+      <div class="p-2"><span class="text-[10px] text-gray-600 block">Pagamento & Consegna:</span><b>50% all'ordine + 50% alla consegna · Validità 7gg · Trasporto escluso</b></div>
+    </div>
+
+    <table class="w-full border-x border-b border-black text-xs mt-0">
+      <thead>
+        <tr class="border-b border-black bg-gray-100 text-[11px]">
+          <th class="p-2 text-left border-r border-black">Articolo e Descrizione</th>
+          <th class="p-2 text-center border-r border-black w-12">UM</th>
+          <th class="p-2 text-right border-r border-black w-20">Quantità</th>
+          <th class="p-2 text-right border-r border-black w-28">Prezzo Unitario</th>
+          <th class="p-2 text-right border-r border-black w-28">Importo</th>
+          <th class="p-2 text-center w-12">IVA</th>
+        </tr>
+      </thead>
+      <tbody id="pr-lines-tbody"></tbody>
+    </table>
+
+    <div class="flex justify-between items-end border-x border-b border-black p-4 text-xs">
+      <div class="space-y-1 text-[11px]">
+        <div>Distinti saluti</div>
+        <div><b>Innocente Gary</b> — Responsabile ordini (ordini@amrrecchia.it · Tel. 0423/69212 int 2)</div>
+        <div><b>Recchia Massimo</b> — Commerciale (info@amrrecchia.it)</div>
+        <div class="pt-4">Firma per conferma d'ordine: ____________________________________________</div>
+      </div>
+      <div class="w-64 border border-black p-2 space-y-1 text-right">
+        <div class="flex justify-between"><span>Totale Imponibile:</span><b id="pr-tot-imp">€ 4.250,00</b></div>
+        <div class="flex justify-between"><span>Totale Imposta (IVA 22%):</span><span id="pr-tot-iva">€ 935,00</span></div>
+        <div class="flex justify-between border-t border-black pt-1 text-sm font-bold"><span>Totale Documento:</span><span id="pr-tot-doc">€ 5.185,00</span></div>
+      </div>
+    </div>
+    <div class="flex justify-between items-center text-[10px] text-gray-500 mt-1">
+      <span>AMR OS Preventivatore 3D (Compatibile formato Gestionale Eureka Docp700r)</span>
+      <button onclick="clearPrintLines()" class="no-print text-red-600 underline font-semibold">Svuota righe preventivo</button>
+    </div>
+  </div>
+
+<script>
+// ── 1. STORICO REALE 75 PREVENTIVI EUREKA EMBEDDED ──────────────────────────
+const STORICO_QUOTES = [{"file": "IMAP_KIRA_EMAIL_333_SEMISFERA.eml", "nr_documento": "MAIL-333", "data": "09/09/2026", "cliente": "KIRA SOLUTIONS SRL", "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD", "oggetto": "Mezza sfera D2000xH1000mm EPS fresato e carteggiato", "totale_imponibile": 900.0, "righe": [{"descrizione": "Mezza sfera diametro 2000mm x H 1000mm in EPS fresato e carteggiato (solo materiale EPS, senza verniciatura)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 900.0, "importo": 900.0}]}, {"file": "IMAP_KIRA_EMAIL_328_LIBRONE.eml", "nr_documento": "MAIL-328", "data": "02/09/2026", "cliente": "KIRA SOLUTIONS SRL", "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD", "oggetto": "Librone 2600x1400mm solo EPS senza resinatura", "totale_imponibile": 920.0, "righe": [{"descrizione": "Librone grande 2600x1400mm solo in polistirolo EPS fresato senza resinatura e senza verniciatura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 660.0, "importo": 660.0}, {"descrizione": "Librone piccolo solo in polistirolo EPS fresato senza resinatura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 260.0, "importo": 260.0}]}, {"file": "IMAP_KIRA_PREVENTIVO-17124.pdf", "nr_documento": "308", "data": "09/10/2026", "cliente": "KIRA SOLUTIONS SRL", "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD", "oggetto": "logo pizza H1700x300mm", "totale_imponibile": 900.0, "righe": [{"descrizione": "logo pizza in eps H1700mm sp 300mm (solo polistirolo senza verniciatura)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 350.0, "importo": 350.0}, {"descrizione": "struttura in ferro per sostegno inclinato", "um": "NR", "quantita": 1.0, "prezzo_unitario": 550.0, "importo": 550.0}]}, {"file": "IMAP_KIRA_PREVENTIVO-17061.pdf", "nr_documento": "295", "data": "01/10/2026", "cliente": "KIRA SOLUTIONS SRL", "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD", "oggetto": "sedia in eps k25 grezzo", "totale_imponibile": 690.0, "righe": [{"descrizione": "sedia in eps k25 fresato e carteggiato (solo materiale EPS, senza verniciatura)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 690.0, "importo": 690.0}]}, {"file": "IMAP_KIRA_PREVENTIVO-16979.pdf", "nr_documento": "277", "data": "23/09/2026", "cliente": "KIRA SOLUTIONS SRL", "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD", "oggetto": "mano famiglia Addams H2500mm", "totale_imponibile": 1950.0, "righe": [{"descrizione": "\"Mano\" della famiglia Addams alta 2500mm in eps fresato e carteggiato (senza colorazione) completa di struttura in ferro con piastre per il fissaggio a terra", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1950.0, "importo": 1950.0}]}, {"file": "IMAP_KIRA_PREVENTIVO-16935.pdf", "nr_documento": "267", "data": "16/09/2026", "cliente": "KIRA SOLUTIONS SRL", "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD", "oggetto": "basamento per tavolo", "totale_imponibile": 630.0, "righe": [{"descrizione": "basamento per tavolo misure h720x570mm in eps fresato, carteggiato e completo di zavorra il tutto con rivestimento in vetroresina e 2 mani di fondo", "um": "NR", "quantita": 1.0, "prezzo_unitario": 630.0, "importo": 630.0}]}, {"file": "3205551353_PREVENTIVO-13672.pdf", "nr_documento": "243", "data": "28/05/2025", "cliente": "MOGG S.R.L.", "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO", "oggetto": "modello telaio sedia", "totale_imponibile": 1400.0, "righe": [{"descrizione": "elemento in stamato in stampa 3d con resina completo di una mano di fondo per essere liscio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1400.0, "importo": 1400.0}]}, {"file": "3205551353_PREVENTIVO-13676.pdf", "nr_documento": "243", "data": "28/05/2025", "cliente": "MOGG S.R.L.", "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO", "oggetto": "modello telaio sedia", "totale_imponibile": 650.0, "righe": [{"descrizione": "elemento in stampato in stampa 3d pezzo unico sp2mm riempito all'interno con schiuma fatto in resina completo di una mano di fondo per essere liscio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 650.0, "importo": 650.0}]}, {"file": "3205559056_PREVENTIVO-13976.pdf", "nr_documento": "290", "data": "24/06/2025", "cliente": "OPERAE A MARINE INTERIORS COMPANY S.R.L.", "indirizzo": "VIA GENOVA ,1, 34121 TRIESTE  ITALY", "oggetto": "PROTOTIPAZIONE_WAYPOINT", "totale_imponibile": 26200.0, "righe": [{"descrizione": "petalo piccolo centrale stampato in vetroresina", "um": "NR", "quantita": 8.0, "prezzo_unitario": 400.0, "importo": 3200.0}, {"descrizione": "petalo medio stampato in vetroresina", "um": "NR", "quantita": 8.0, "prezzo_unitario": 550.0, "importo": 4400.0}, {"descrizione": "petalo grande stampato in vetroresina", "um": "NR", "quantita": 8.0, "prezzo_unitario": 800.0, "importo": 6400.0}, {"descrizione": "costo per dare una mano di fondo poliestere sui petali", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1200.0, "importo": 1200.0}, {"descrizione": "costo per verniciatura liscia ral standard", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3000.0, "importo": 3000.0}, {"descrizione": "struttura per sostegno a soffitto e montaggio in loco", "um": "NR", "quantita": 1.0, "prezzo_unitario": 8000.0, "importo": 8000.0}]}, {"file": "3205559056_PREVENTIVO-14412.pdf", "nr_documento": "290", "data": "24/06/2025", "cliente": "OPERAE A MARINE INTERIORS COMPANY S.R.L.", "indirizzo": "VIA GENOVA ,1, 34121 TRIESTE  ITALY", "oggetto": "PROTOTIPAZIONE_WAYPOINT", "totale_imponibile": 24100.0, "righe": [{"descrizione": "petalo piccolo centrale stampato in vetroresina", "um": "NR", "quantita": 8.0, "prezzo_unitario": 400.0, "importo": 3200.0}, {"descrizione": "petalo medio stampato in vetroresina", "um": "NR", "quantita": 8.0, "prezzo_unitario": 550.0, "importo": 4400.0}, {"descrizione": "petalo grande stampato in vetroresina", "um": "NR", "quantita": 8.0, "prezzo_unitario": 800.0, "importo": 6400.0}, {"descrizione": "costo per dare una mano di fondo poliestere sui petali", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1200.0, "importo": 1200.0}, {"descrizione": "costo per verniciatura liscia Farrow & Ball Wimborne white 239", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3000.0, "importo": 3000.0}, {"descrizione": "struttura per sostegno a soffitto", "um": "NR", "quantita": 1.0, "prezzo_unitario": 7500.0, "importo": 7500.0}, {"descrizione": "montaggio in loco certificazione da parte del nostro ingegnere compresa", "um": "NR", "quantita": 1.0, "prezzo_unitario": 500.0, "importo": 500.0}, {"descrizione": "sconto a voi riservato per questo progetto", "um": "NR", "quantita": 1.0, "prezzo_unitario": -2100.0, "importo": -2100.0}]}, {"file": "3205563458_PREVENTIVO-14714.pdf", "nr_documento": "468", "data": "29/10/2025", "cliente": "EXTREME S.R.L.", "indirizzo": "VIA L EINAUDI 10, 31030 CASIER - TV", "oggetto": "scritta brillantinata", "totale_imponibile": 1488.0, "righe": [{"descrizione": "scirtta in xps \"LIMITED EDITION\" misure 1000X370X40 colorata con pantone 9384C+pantone 7528C tutto attorno e con brillanti su spessore e 1 faccia", "um": "NR", "quantita": 16.0, "prezzo_unitario": 93.0, "importo": 1488.0}]}, {"file": "3205565011_PREVENTIVO-14885.pdf", "nr_documento": "490", "data": "12/11/2025", "cliente": "PREFORMATI ITALIA SRL", "indirizzo": "Via Trieste ,26/b, 36065 mussolente - VI", "oggetto": "FR0378 - Cubic offer", "totale_imponibile": 13500.0, "righe": [{"descrizione": "elemento in eps rif FR0378 completo di resinatura e verniciatura colore Dark Pearl come da vostro file del 10/11/25", "um": "NR", "quantita": 1.0, "prezzo_unitario": 14650.0, "importo": 14650.0}, {"descrizione": "sconto riservato per questo progetto", "um": "NR", "quantita": 1.0, "prezzo_unitario": -1150.0, "importo": -1150.0}]}, {"file": "3205566526_PREVENTIVO-14914.pdf", "nr_documento": "", "data": "", "cliente": "Tatjana Montagner", "indirizzo": "Fixtures Sales Director, opzione con verniciatura liscia", "oggetto": "2025FWW060 - NOABRANDS", "totale_imponibile": 128625.0, "righe": [{"descrizione": "prototipo levriero con misure come da voi indicato in stampa3d pla bio(allego scheda) completo di verniciatura liscia", "um": "NR", "quantita": 1.0, "prezzo_unitario": 580.0, "importo": 580.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia", "um": "NR", "quantita": 60.0, "prezzo_unitario": 330.0, "importo": 19800.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia", "um": "NR", "quantita": 50.0, "prezzo_unitario": 380.0, "importo": 19000.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia", "um": "NR", "quantita": 40.0, "prezzo_unitario": 395.0, "importo": 15800.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura liscia imballo in eps a lastre e pluribaal +scatola di ca rtone misure circa 500x500x750 (costo cadauna) opzione con verniciatura quarzo+sabbia e colore(allego foto della finitura)", "um": "NR", "quantita": 40.0, "prezzo_unitario": 415.0, "importo": 16600.0}, {"descrizione": "prototipo levriero con misure come da voi indicato in stampa3d pla bio(allego scheda) completo di verniciatura quarzo+sabbia e colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 530.0, "importo": 530.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore", "um": "NR", "quantita": 60.0, "prezzo_unitario": 280.0, "importo": 16800.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore", "um": "NR", "quantita": 50.0, "prezzo_unitario": 310.0, "importo": 15500.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore", "um": "NR", "quantita": 40.0, "prezzo_unitario": 325.0, "importo": 13000.0}, {"descrizione": "levriero in stampa 3d pla bio completo di verniciatura quarzo+sabbia e colore", "um": "NR", "quantita": 30.0, "prezzo_unitario": 365.0, "importo": 10950.0}, {"descrizione": "imballo in eps a lastre e pluribaal +scatola di cartone misure circa 500x500x750 (costo cadauna)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 65.0, "importo": 65.0}]}, {"file": "3205568807_PREVENTIVO-14671.pdf", "nr_documento": "463", "data": "23/10/2025", "cliente": "MOGG S.R.L.", "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO", "oggetto": "lamdade 3d Hiver", "totale_imponibile": 3190.0, "righe": [{"descrizione": "costo stampi e matrici", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2800.0, "importo": 2800.0}, {"descrizione": "costo per produzione modello lampadario rif HIVER L stampato in vetroresina", "um": "NR", "quantita": 1.0, "prezzo_unitario": 90.0, "importo": 90.0}, {"descrizione": "costo per produzione modello lampadario rif HIVER M stampato in vetroresina", "um": "NR", "quantita": 1.0, "prezzo_unitario": 120.0, "importo": 120.0}, {"descrizione": "costo per produzione modello lampadario rif HIVER S stampato in vetroresina", "um": "NR", "quantita": 1.0, "prezzo_unitario": 180.0, "importo": 180.0}]}, {"file": "3205569020_PREVENTIVO-14309.pdf", "nr_documento": "379", "data": "03/09/2025", "cliente": "EXTREME S.R.L.", "indirizzo": "VIA L EINAUDI 10, 31030 CASIER - TV", "oggetto": "sistemazione scritta", "totale_imponibile": 4650.0, "righe": [{"descrizione": "sistemazione scritta CALZEDONIA con stuccaggio e verniciatura con solo colore (si vedranno le parti stuccate) OPZIONE2", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1800.0, "importo": 1800.0}, {"descrizione": "sistemazione scritta CALZEDONIA con stuccaggio,resinatura totale con finitura quarzo+sabbia e colore trasporti inclusi", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2850.0, "importo": 2850.0}]}, {"file": "3205571720_PREVENTIVO-14909.pdf", "nr_documento": "501", "data": "18/11/2025", "cliente": "FORPRESS S.R.L. UNIPERSONALE", "indirizzo": "VIA GIOVANNI SAVELLI 64, 35129 PADOVA - PD", "oggetto": "quotazione stratificazione", "totale_imponibile": 1350.0, "righe": [{"descrizione": "elemento stratificato in eps con 1394 x 993 x 734", "um": "NR", "quantita": 1.0, "prezzo_unitario": 700.0, "importo": 700.0}, {"descrizione": "resinatura con quarzo+sabbia e colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 650.0, "importo": 650.0}]}, {"file": "3205574312_PREVENTIVO-14767.pdf", "nr_documento": "477", "data": "05/11/2025", "cliente": "OPERAE A MARINE INTERIORS COMPANY S.R.L.", "indirizzo": "VIA GENOVA ,1, 34121 TRIESTE  ITALY", "oggetto": "HO24015_HOTEL CORTINA: Foyer", "totale_imponibile": 3300.0, "righe": [{"descrizione": "decoro in forex spessore 15mm incollato su lastra forex da 5mm con finitura come vostro soffitto mentre decori con finitura foglia ora", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2800.0, "importo": 2800.0}, {"descrizione": "montaggio in loco con stuccature e incollaggi", "um": "NR", "quantita": 1.0, "prezzo_unitario": 500.0, "importo": 500.0}]}, {"file": "3205577164_PREVENTIVO-14929.pdf", "nr_documento": "505", "data": "20/11/2025", "cliente": "FORPRESS S.R.L. UNIPERSONALE", "indirizzo": "VIA GIOVANNI SAVELLI 64, 35129 PADOVA - PD", "oggetto": "3d amouage", "totale_imponibile": 5450.0, "righe": [{"descrizione": "elemento stratificato ineps misure 2930x1980x1330 circa completo di finitura quarzo+sabbia", "um": "NR", "quantita": 1.0, "prezzo_unitario": 5450.0, "importo": 5450.0}]}, {"file": "3205577315_PREVENTIVO-14861.pdf", "nr_documento": "493", "data": "12/11/2025", "cliente": "PARDGROUP SPA", "indirizzo": "VIA PIETRASANTA 14, 20141 MILANO - MI", "oggetto": "25RET01897_NUDE PROJECT ROMA", "totale_imponibile": 3250.0, "righe": [{"descrizione": "espositore in eps con rivestimento in fibra e resina completo di verniciatura laccata ral da definire misure circa2400x900x650mm", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3250.0, "importo": 3250.0}]}, {"file": "3205577492_PREVENTIVO-14927.pdf", "nr_documento": "504", "data": "20/11/2025", "cliente": "POSTERLAND S.R.L.", "indirizzo": "VIA STANISLAO CANNIZZARO 30, 20090 BUCCINASCO - MI", "oggetto": "scritta PROVA", "totale_imponibile": 2160.0, "righe": [{"descrizione": "scritta in eps misure 4500x500x100 completa di base in smartx sp200mm opzione finitura quarzo+sabbia", "um": "NR", "quantita": 1.0, "prezzo_unitario": 250.0, "importo": 250.0}, {"descrizione": "finitura al quarzo+sabbia e colore nero su scritta e base opzione finitura liscia", "um": "NR", "quantita": 1.0, "prezzo_unitario": 410.0, "importo": 410.0}, {"descrizione": "finitura finitura liscia colore nero su scritta e base", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1500.0, "importo": 1500.0}]}, {"file": "3205581398_PREVENTIVO-14969.pdf", "nr_documento": "509", "data": "24/11/2025", "cliente": "BUSSOLA & RALPH INTERNATIONAL S.R.L.", "indirizzo": "VIA DELLE INDUSTRIE 39/41, 31050 PONZANO VENETO - TV", "oggetto": "2025145_NES LISTINO_RICHIESTA QUO", "totale_imponibile": 21930.0, "righe": [{"descrizione": "tavolo in esp rif 5.19B completo di resinatura e finitura cemento (costo per 1pz)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 990.0, "importo": 990.0}, {"descrizione": "tavolo in esp rif 5.19B completo di resinatura e finitura cemento (costo per 5pz)", "um": "NR", "quantita": 5.0, "prezzo_unitario": 690.0, "importo": 3450.0}, {"descrizione": "tavolo in esp rif 5.19C completo di resinatura e finitura cemento (costo per 1pz)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1140.0, "importo": 1140.0}, {"descrizione": "tavolo in esp rif 5.19C completo di resinatura e finitura cemento (costo per 5pz)", "um": "NR", "quantita": 5.0, "prezzo_unitario": 790.0, "importo": 3950.0}, {"descrizione": "tavolo in esp rif 5.19D completo di resinatura e finitura cemento (costo per 1pz)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2600.0, "importo": 2600.0}, {"descrizione": "tavolo in esp rif 5.19D completo di resinatura e finitura cemento (costo per 5pz)", "um": "NR", "quantita": 5.0, "prezzo_unitario": 1960.0, "importo": 9800.0}]}, {"file": "3205581996_PREVENTIVO-15014.pdf", "nr_documento": "524", "data": "27/11/2025", "cliente": "NI.VA. S.R.L. SOCIETA' UNIPERSONALE", "indirizzo": "VIA CRISTOFORO COLOMBO 9, 35011 CAMPODARSEGO - PD", "oggetto": "PARETI FLUTTED ACPV", "totale_imponibile": 950.0, "righe": [{"descrizione": "costo rivestimento al mq fornito in pezzi da 2770x900+1000x900 (allego foto precedente lavoro da noi fatto)", "um": "Mq", "quantita": 1.0, "prezzo_unitario": 500.0, "importo": 500.0}, {"descrizione": "costo campionatura 400x300(se poi si va in produzione il costo sara scalato)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 450.0, "importo": 450.0}]}, {"file": "3205581996_PREVENTIVO-15778.pdf", "nr_documento": "153", "data": "02/03/2026", "cliente": "NI.VA. S.R.L. SOCIETA' UNIPERSONALE", "indirizzo": "VIA CRISTOFORO COLOMBO 9, 35011 CAMPODARSEGO - PD", "oggetto": "PARETI FLUTTED ACPV", "totale_imponibile": 1530.0, "righe": [{"descrizione": "parete in eps tagliata a filo completa di resinatura con poliurea fondo poliestere versione in vetroresina", "um": "+", "quantita": 1.0, "prezzo_unitario": 650.0, "importo": 650.0}, {"descrizione": "parete stampata in vetroresina +fondo poliestere", "um": "Mq", "quantita": 1.0, "prezzo_unitario": 780.0, "importo": 780.0}, {"descrizione": "costo per verniciatura in carrozzeria", "um": "Mq", "quantita": 1.0, "prezzo_unitario": 100.0, "importo": 100.0}]}, {"file": "3205583190_PREVENTIVO-14078.pdf", "nr_documento": "340", "data": "22/07/2025", "cliente": "KARMAN Srl Unipersonale", "indirizzo": "Phone +39 0721 715042, Email: lorenzo@karmanitalia.it", "oggetto": "lampade", "totale_imponibile": 9862.0, "righe": [{"descrizione": "stampo", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2000.0, "importo": 2000.0}, {"descrizione": "elemento stampato in bayedur 1000 sp6mm", "um": "NR", "quantita": 1.0, "prezzo_unitario": 38.0, "importo": 38.0}, {"descrizione": "verniciatura rif PR26DD01-N", "um": "NR", "quantita": 1.0, "prezzo_unitario": 22.0, "importo": 22.0}, {"descrizione": "stampo", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2300.0, "importo": 2300.0}, {"descrizione": "elemento stampato in bayedur 1000 sp6mm", "um": "NR", "quantita": 1.0, "prezzo_unitario": 45.0, "importo": 45.0}, {"descrizione": "verniciatura rif PR26DD01-O", "um": "NR", "quantita": 1.0, "prezzo_unitario": 22.0, "importo": 22.0}, {"descrizione": "stampo", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2850.0, "importo": 2850.0}, {"descrizione": "elemento stampato in bayedur 1000 sp6mm", "um": "NR", "quantita": 1.0, "prezzo_unitario": 55.0, "importo": 55.0}, {"descrizione": "verniciatura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 30.0, "importo": 30.0}, {"descrizione": "prototipi 1 pezzo per tipologia verniciati", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2500.0, "importo": 2500.0}]}, {"file": "3205583362_PREVENTIVO-14970.pdf", "nr_documento": "510", "data": "24/11/2025", "cliente": "AM INTERNI S.R.L.", "indirizzo": "1.180,000, 1,000", "oggetto": "quotazione tavoli espositivi", "totale_imponibile": 26320.0, "righe": [{"descrizione": "tavolo in eps misure 400x400x850 completo di resinatura ignifuga e finitura cemento (costo per 1 pz)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1180.0, "importo": 1180.0}, {"descrizione": "tavolo in eps misure 400x400x850 completo di resinatura ignifuga e finitura cemento (costo per 5 pz)", "um": "NR", "quantita": 5.0, "prezzo_unitario": 830.0, "importo": 4150.0}, {"descrizione": "tavolo in eps misure 500x500x750 completo di resinatura ignifuga e finitura cemento (costo per 1 pz)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1370.0, "importo": 1370.0}, {"descrizione": "tavolo in eps misure 500x500x750 completo di resinatura ignifuga e finitura cemento (costo per 5 pz)", "um": "NR", "quantita": 5.0, "prezzo_unitario": 950.0, "importo": 4750.0}, {"descrizione": "tavolo in eps misure 1050x1050x650 completo di resinatura ignifuga e finitura cemento (costo per 1 pz)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3120.0, "importo": 3120.0}, {"descrizione": "tavolo in eps misure 1050x1050x650 completo di resinatura ignifuga e finitura cemento (costo per 5 pz)", "um": "NR", "quantita": 5.0, "prezzo_unitario": 2350.0, "importo": 11750.0}]}, {"file": "3205592302_PREVENTIVO-14987.pdf", "nr_documento": "514", "data": "25/11/2025", "cliente": "FORPRESS S.R.L. UNIPERSONALE", "indirizzo": "VIA GIOVANNI SAVELLI 64, 35129 PADOVA - PD", "oggetto": "nuvola 3d", "totale_imponibile": 680.0, "righe": [{"descrizione": "nuvola in eps misure circa700x350x350 con predisposizione per inserimento pannello verticale completa di resinatura ignifuca e verniciatura liscia con ral da definire", "um": "NR", "quantita": 1.0, "prezzo_unitario": 680.0, "importo": 680.0}]}, {"file": "3205593404_PREVENTIVO-14975.pdf", "nr_documento": "511", "data": "24/11/2025", "cliente": "Marco Chiodelli Bussandri", "indirizzo": "342 049 6448, 17.000,000", "oggetto": "rif. Mano Salone del mobile", "totale_imponibile": 44400.0, "righe": [{"descrizione": "mano in eps fresata e carteggiata completa di struttura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 17000.0, "importo": 17000.0}, {"descrizione": "finitura liscia su mano", "um": "NR", "quantita": 1.0, "prezzo_unitario": 9000.0, "importo": 9000.0}, {"descrizione": "finitura quarzo + sabbia su mano", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2900.0, "importo": 2900.0}, {"descrizione": "elemento a ponti in eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3100.0, "importo": 3100.0}, {"descrizione": "finitura liscia su ponti", "um": "NR", "quantita": 1.0, "prezzo_unitario": 10000.0, "importo": 10000.0}, {"descrizione": "finitura quarzo+sabbia su ponti", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2400.0, "importo": 2400.0}]}, {"file": "3205595073_PREVENTIVO-15049.pdf", "nr_documento": "533", "data": "02/12/2025", "cliente": "DIMENSIONE UNO SRLS", "indirizzo": "VIA DELL'INDUSTRIA ,9, 31041 CORNUDA - TV", "oggetto": "statua", "totale_imponibile": 42100.0, "righe": [{"descrizione": "statua in stampa 3d h600mm", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2100.0, "importo": 2100.0}, {"descrizione": "statua in stampa 3d h3000mm", "um": "NR", "quantita": 1.0, "prezzo_unitario": 20500.0, "importo": 20500.0}, {"descrizione": "statua in eps h3000mm fresata e scolpita", "um": "NR", "quantita": 1.0, "prezzo_unitario": 13000.0, "importo": 13000.0}, {"descrizione": "finitura simil bronzo su statua h3000mm", "um": "NR", "quantita": 1.0, "prezzo_unitario": 6500.0, "importo": 6500.0}]}, {"file": "3205597728_PREVENTIVO-14964.pdf", "nr_documento": "508", "data": "24/11/2025", "cliente": "PREFORMATI ITALIA SRL", "indirizzo": "Via Trieste ,26/b, 36065 mussolente - VI", "oggetto": "tavoli", "totale_imponibile": 95310.0, "righe": [{"descrizione": "elemento rif J10 in eps completo di resinatura e 2 mani di fondo poliestere", "um": "NR", "quantita": 1.0, "prezzo_unitario": 6350.0, "importo": 6350.0}, {"descrizione": "opzione di finitura metallizzata su J10", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3500.0, "importo": 3500.0}, {"descrizione": "opzione di finitura cromata su J10", "um": "NR", "quantita": 1.0, "prezzo_unitario": 7000.0, "importo": 7000.0}, {"descrizione": "elemento rif J11 in eps completo di resinatura e 2 mani di fondo poliestere", "um": "NR", "quantita": 1.0, "prezzo_unitario": 13500.0, "importo": 13500.0}, {"descrizione": "opzione di finitura metallizzata su J11", "um": "NR", "quantita": 1.0, "prezzo_unitario": 7000.0, "importo": 7000.0}, {"descrizione": "opzione di finitura cromata su J11", "um": "NR", "quantita": 1.0, "prezzo_unitario": 14000.0, "importo": 14000.0}, {"descrizione": "elemento rif J08 in eps completo di resinatura e 2 mani di fondo poliestere", "um": "NR", "quantita": 1.0, "prezzo_unitario": 16150.0, "importo": 16150.0}, {"descrizione": "opzione di finitura metallizzata su J08", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4800.0, "importo": 4800.0}, {"descrizione": "opzione di finitura cromata su J08", "um": "NR", "quantita": 1.0, "prezzo_unitario": 9500.0, "importo": 9500.0}, {"descrizione": "elemento rif J09 in eps completo di resinatura e 2 mani di fondo poliestere", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2100.0, "importo": 2100.0}, {"descrizione": "opzione di finitura metallizzata su J09", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1200.0, "importo": 1200.0}, {"descrizione": "opzione di finitura cromata su J09", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2300.0, "importo": 2300.0}, {"descrizione": "elemento rif J12 in eps completo di resinatura e 2 mani di fondo poliestere", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2660.0, "importo": 2660.0}, {"descrizione": "opzione di finitura metallizzata su J12", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1750.0, "importo": 1750.0}, {"descrizione": "opzione di finitura cromataa su J12", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3500.0, "importo": 3500.0}]}, {"file": "3205597966_PREVENTIVO-15003.pdf", "nr_documento": "518", "data": "26/11/2025", "cliente": "HENOTO SPA", "indirizzo": "Via Tolomeo , 14/16, 35028 PIOVE DI SACCO - PD", "oggetto": "scaffale", "totale_imponibile": 11000.0, "righe": [{"descrizione": "scaffale con tubi in pvc tondi completo di finitura liscia (totale 54 cerchi assemblati fra loro)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 6500.0, "importo": 6500.0}, {"descrizione": "scaffale ad elementi rettangolari in mdf assemblati fra loro e verniciati lisci (totale 54 elementi)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4500.0, "importo": 4500.0}]}, {"file": "3205598074_PREVENTIVO-14982.pdf", "nr_documento": "512", "data": "25/11/2025", "cliente": "IMBALLAGGI PEGORARO SRL", "indirizzo": "Via Monte Verena 5, 36022 San. Zeno di Cassola - VI", "oggetto": "mano in eps", "totale_imponibile": 18500.0, "righe": [{"descrizione": "mano in eps fresata e carteggiata completa di ferro per irrigidire le dita il tutto come da vostro pdf (file 3d escluso)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 18500.0, "importo": 18500.0}]}, {"file": "3205600687_Re__Richiesta_preventivo_per_installazione_permanente.pdf", "nr_documento": "", "data": "", "cliente": "", "indirizzo": "", "oggetto": "compreso di cer ﬁcazione ingegnere,stru graﬁche il tu o", "totale_imponibile": 0, "righe": [{"descrizione": "segnalarcelo immediatamente e di cancellarla dal vostro divulgare il contenuto di questa email. Ogni u lizzo abusivo", "um": "computer.", "quantita": 1.0, "prezzo_unitario": 0.0, "importo": 0.0}]}, {"file": "3205601203_PREVENTIVO-15004.pdf", "nr_documento": "519", "data": "26/11/2025", "cliente": "MATTEO CIBIC STUDIO", "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI", "oggetto": "ADP_OMINO_SOLE", "totale_imponibile": 9100.0, "righe": [{"descrizione": "scultura in eps rif ADP_OMINO_SOLE h1900mm completa di finitura simil gesso (costo per 1 o 5 pezzi)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 5200.0, "importo": 5200.0}, {"descrizione": "scultura in eps rif ADP_OMINO_SOLE h1900mm completa di finitura simil gesso (costo per 5 o 10 pezzi)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3900.0, "importo": 3900.0}]}, {"file": "3205601203_PREVENTIVO-15051.pdf", "nr_documento": "525", "data": "27/11/2025", "cliente": "MATTEO CIBIC STUDIO", "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI", "oggetto": "piastra grande + piastra piccola", "totale_imponibile": 3160.0, "righe": [{"descrizione": "piastra grande 1200x900x60 prodotta con tecnologia stampa3d resina completa di scenografatura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2700.0, "importo": 2700.0}, {"descrizione": "sconto a voi riservato", "um": "NR", "quantita": 1.0, "prezzo_unitario": -540.0, "importo": -540.0}, {"descrizione": "piastra grande 500x630x60 prodotta con tecnologia stampa3d resina completa di scenografatura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1250.0, "importo": 1250.0}, {"descrizione": "sconto a voi riservato", "um": "NR", "quantita": 1.0, "prezzo_unitario": -250.0, "importo": -250.0}]}, {"file": "3205601258_PREVENTIVO-15008.pdf", "nr_documento": "521", "data": "26/11/2025", "cliente": "Federico Soffiato", "indirizzo": "23.500,000, 1,000", "oggetto": "Madonna acqua lurida", "totale_imponibile": 23500.0, "righe": [{"descrizione": "statua con misure come da file allegato in PLA rinforzato realizzata con tecnologia stampa 3d completa di struttura in ferro fornita completamente assemblata e finita", "um": "NR", "quantita": 1.0, "prezzo_unitario": 23500.0, "importo": 23500.0}]}, {"file": "3205601803_PREVENTIVO-15013.pdf", "nr_documento": "523", "data": "27/11/2025", "cliente": "GRUPPO GEROMIN SRL", "indirizzo": "VIA I MAGGIO N 5, 30029 SAN STINO DI LIVENZA - VE", "oggetto": "Progetto_25255_261125_Progetto_Eps", "totale_imponibile": 2353.0, "righe": [{"descrizione": "pareti", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1590.0, "importo": 1590.0}, {"descrizione": "angolo panca senza schienale", "um": "NR", "quantita": 1.0, "prezzo_unitario": 108.0, "importo": 108.0}, {"descrizione": "panche senza schienale", "um": "NR", "quantita": 1.0, "prezzo_unitario": 345.0, "importo": 345.0}, {"descrizione": "tetto inclinato", "um": "NR", "quantita": 1.0, "prezzo_unitario": 310.0, "importo": 310.0}]}, {"file": "3205602652_PREVENTIVO-15106.pdf", "nr_documento": "548", "data": "04/12/2025", "cliente": "MATTEO CIBIC STUDIO", "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI", "oggetto": "ADP SCULTURE", "totale_imponibile": 15100.0, "righe": [{"descrizione": "scultura rif A (vaso grande) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4900.0, "importo": 4900.0}, {"descrizione": "scultura rif B (vaso piccolo) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4200.0, "importo": 4200.0}, {"descrizione": "scultura rif C (luna) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3500.0, "importo": 3500.0}, {"descrizione": "scultura rif C (bocca) in eps fresato e carteggiato completo di finitura antiurto e verniciatura bianca ral da definire", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2500.0, "importo": 2500.0}]}, {"file": "3205603121_PREVENTIVO-15097.pdf", "nr_documento": "539", "data": "02/12/2025", "cliente": "BERTONE DESIGN GROUP S.R.L.", "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB", "oggetto": "opere con finitura scenografica antiurto e co", "totale_imponibile": 73600.0, "righe": [{"descrizione": "opera cuore in eps fresato e carteggiato misure 3000x2000x1800 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 12750.0, "importo": 12750.0}, {"descrizione": "finitura su cuore scenografica antiurto+colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 6450.0, "importo": 6450.0}, {"descrizione": "opera cervello in eps fresato e carteggiato misure 3000x3350x2700 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 20250.0, "importo": 20250.0}, {"descrizione": "finitura su cervello scenografica antiurto+colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 9450.0, "importo": 9450.0}, {"descrizione": "opera stomaco in eps fresato e carteggiato misure 3000x3150x1200 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 9450.0, "importo": 9450.0}, {"descrizione": "finitura su stomaco scenografica antiurto+colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 6200.0, "importo": 6200.0}, {"descrizione": "opera cuore in eps fresato e carteggiato misure 1260x900x770 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1200.0, "importo": 1200.0}, {"descrizione": "finitura su cuore scenografica antiurto+colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 850.0, "importo": 850.0}, {"descrizione": "opera cervello in eps fresato e carteggiato misure 1280x1200x1500 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2550.0, "importo": 2550.0}, {"descrizione": "finitura su cervello scenografica antiurto+colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1950.0, "importo": 1950.0}, {"descrizione": "opera stomaco in eps fresato e carteggiato misure 1340x1400x550 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1450.0, "importo": 1450.0}, {"descrizione": "finitura su stomaco scenografica antiurto+colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1050.0, "importo": 1050.0}]}, {"file": "3205603121_PREVENTIVO-15098.pdf", "nr_documento": "538", "data": "02/12/2025", "cliente": "BERTONE DESIGN GROUP S.R.L.", "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB", "oggetto": "opere con finitura colore scenografico", "totale_imponibile": 60730.0, "righe": [{"descrizione": "opera cuore in eps fresato e carteggiato misure 3000x2000x1800 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 12750.0, "importo": 12750.0}, {"descrizione": "finitura su cuore scenografica+colore ral", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3220.0, "importo": 3220.0}, {"descrizione": "opera cervello in eps fresato e carteggiato misure 3000x3350x2700 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 20250.0, "importo": 20250.0}, {"descrizione": "finitura su cervello scenografica+colore ral", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4750.0, "importo": 4750.0}, {"descrizione": "opera stomaco in eps fresato e carteggiato misure 3000x3150x1200 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 9450.0, "importo": 9450.0}, {"descrizione": "finitura su stomaco scenografica+colore ral", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3150.0, "importo": 3150.0}, {"descrizione": "opera cuore in eps fresato e carteggiato misure 1260x900x770 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1200.0, "importo": 1200.0}, {"descrizione": "finitura su cuore scenografica+colore ral", "um": "NR", "quantita": 1.0, "prezzo_unitario": 460.0, "importo": 460.0}, {"descrizione": "opera cervello in eps fresato e carteggiato misure 1280x1200x1500 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2550.0, "importo": 2550.0}, {"descrizione": "finitura su cervello scenografica+colore ral", "um": "NR", "quantita": 1.0, "prezzo_unitario": 980.0, "importo": 980.0}, {"descrizione": "opera stomaco in eps fresato e carteggiato misure 1340x1400x550 completo di staffa e ferro per sostegno", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1450.0, "importo": 1450.0}, {"descrizione": "finitura su stomaco scenografica+colore ral", "um": "NR", "quantita": 1.0, "prezzo_unitario": 520.0, "importo": 520.0}]}, {"file": "3205603640_PREVENTIVO-15031.pdf", "nr_documento": "530", "data": "28/11/2025", "cliente": "agambuzza@alice.it", "indirizzo": "680,000, 1,000", "oggetto": "DONNINA4", "totale_imponibile": 680.0, "righe": [{"descrizione": "scultura rif DONNINA4 h tot 590 in eps fresata a pezzi e poi incollata (date le dimensioni non avra molti particolari del file)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 680.0, "importo": 680.0}]}, {"file": "3205603651_PREVENTIVO-15055.pdf", "nr_documento": "", "data": "", "cliente": "PARDGROUP (IRELAND) LIMITED", "indirizzo": "CHARLEMONT EXCHANGE CHARLEMONT ST,, SAINT KEVIN'S", "oggetto": "PUCCI_ Produzione podi SS26", "totale_imponibile": 3515.0, "righe": [{"descrizione": "podio in eps rif A completo di rivestimento con pellicola specchio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 175.0, "importo": 175.0}, {"descrizione": "podio in eps rif A completo di rivestimento con bambu'", "um": "NR", "quantita": 1.0, "prezzo_unitario": 155.0, "importo": 155.0}, {"descrizione": "podio in eps rif B completo di rivestimento con pellicola specchio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 195.0, "importo": 195.0}, {"descrizione": "podio in eps rif B completo di rivestimento con bambu'", "um": "NR", "quantita": 1.0, "prezzo_unitario": 165.0, "importo": 165.0}, {"descrizione": "podio in eps rif C completo di rivestimento con pellicola specchio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 240.0, "importo": 240.0}, {"descrizione": "podio in eps rif C completo di rivestimento con bambu'", "um": "NR", "quantita": 1.0, "prezzo_unitario": 215.0, "importo": 215.0}, {"descrizione": "podio in eps rif D completo di rivestimento con pellicola specchio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 175.0, "importo": 175.0}, {"descrizione": "podio in eps rif D completo di rivestimento con bambu'", "um": "NR", "quantita": 1.0, "prezzo_unitario": 155.0, "importo": 155.0}, {"descrizione": "podio in eps rif D' completo di rivestimento con pellicola specchio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 175.0, "importo": 175.0}, {"descrizione": "podio in eps rif D' completo di rivestimento con bambu'", "um": "NR", "quantita": 1.0, "prezzo_unitario": 155.0, "importo": 155.0}, {"descrizione": "podio in eps rif E completo di rivestimento con pellicola specchio", "um": "NR", "quantita": 2.0, "prezzo_unitario": 175.0, "importo": 350.0}, {"descrizione": "podio in eps rif E completo di rivestimento con bambu'", "um": "NR", "quantita": 2.0, "prezzo_unitario": 155.0, "importo": 310.0}, {"descrizione": "podio in eps rif F completo di rivestimento con pellicola specchio", "um": "NR", "quantita": 2.0, "prezzo_unitario": 280.0, "importo": 560.0}, {"descrizione": "podio in eps rif F completo di rivestimento con bambu'", "um": "NR", "quantita": 2.0, "prezzo_unitario": 245.0, "importo": 490.0}]}, {"file": "3205604169_PREVENTIVO-15103.pdf", "nr_documento": "547", "data": "04/12/2025", "cliente": "La Mode en Images", "indirizzo": "5 rue du Cirque, 75008 Paris", "oggetto": "statue scenografate simil marmo", "totale_imponibile": 38800.0, "righe": [{"descrizione": "statua in eps fresata h massima 2800mm completa di resinatura e scenografatura simil marmo (costo per produzione di 12pz diversi)", "um": "NR", "quantita": 12.0, "prezzo_unitario": 2900.0, "importo": 34800.0}, {"descrizione": "statua in eps fresata h massima 2800mm completa di resinatura e scenografatura simil marmo (costo per produzione di 1pz)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4000.0, "importo": 4000.0}]}, {"file": "3205605615_PREVENTIVO-15155.pdf", "nr_documento": "559", "data": "11/12/2025", "cliente": "VANITY S.r.l.", "indirizzo": "17.000,000, 1,000", "oggetto": "bancone cromato", "totale_imponibile": 17000.0, "righe": [{"descrizione": "bancone misure 2600x900x h1100mm in eps fresato con nicchie il tutto resinato antiurto e completo di finitura cromo argento", "um": "NR", "quantita": 1.0, "prezzo_unitario": 17000.0, "importo": 17000.0}]}, {"file": "3205607025_PREVENTIVO-15230.pdf", "nr_documento": "573", "data": "23/12/2025", "cliente": "ALLESTIMENTI BENFENATI SPA", "indirizzo": "VIA LUIGI GALVANI 39, 20019 SETTIMO MILANESE - MI", "oggetto": "100_ISO26_BURBERRY", "totale_imponibile": 75500.0, "righe": [{"descrizione": "elementi in eps come da vostri file per un totale di 28pz", "um": "NR", "quantita": 1.0, "prezzo_unitario": 42000.0, "importo": 42000.0}, {"descrizione": "reisinatura con quarzo + sabbia e colore su elemnti in eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 24000.0, "importo": 24000.0}, {"descrizione": "casse in osb per spedizione", "um": "NR", "quantita": 1.0, "prezzo_unitario": 9500.0, "importo": 9500.0}]}, {"file": "3205608172_PREVENTIVO-15052.pdf", "nr_documento": "534", "data": "02/12/2025", "cliente": "ALU SRL", "indirizzo": "via del Commercio 22, 36060 ROMANO D'EZZELINO - VI", "oggetto": "250232_EVZ_Banco cassa", "totale_imponibile": 9000.0, "righe": [{"descrizione": "elemento riempitivo in eps per parte inferiore banco con predisposizione per inserimento stecche in mdf resinato e verniciato nella parte a vista", "um": "NR", "quantita": 1.0, "prezzo_unitario": 8500.0, "importo": 8500.0}, {"descrizione": "eventuale porzione di campionatura se dopo campionatura si procede alla produzione il costo dei 500euro verra scalato", "um": "NR", "quantita": 1.0, "prezzo_unitario": 500.0, "importo": 500.0}]}, {"file": "3205608763_PREVENTIVO-15084.pdf", "nr_documento": "545", "data": "03/12/2025", "cliente": "IMBALLAGGI PEGORARO SRL", "indirizzo": "Via Monte Verena 5, 36022 San. Zeno di Cassola - VI", "oggetto": "lavandino", "totale_imponibile": 230.0, "righe": [{"descrizione": "lavandino in eps misure 500x500x400 fresato e carteggiato", "um": "NR", "quantita": 1.0, "prezzo_unitario": 230.0, "importo": 230.0}]}, {"file": "3205610853_PREVENTIVO-15151.pdf", "nr_documento": "557", "data": "11/12/2025", "cliente": "Sofia Carnesciali", "indirizzo": "5.750,000, 1,000", "oggetto": "25.90_ELEFANTE DA PARETE", "totale_imponibile": 5750.0, "righe": [{"descrizione": "scultura elefante da parete in eps misure circa 1400x1900x400mm fresato e resinato completo di finitura scenografica sviluppo disegni 3d compresi", "um": "NR", "quantita": 1.0, "prezzo_unitario": 5750.0, "importo": 5750.0}]}, {"file": "3205615580_PREVENTIVO-15157.pdf", "nr_documento": "560", "data": "11/12/2025", "cliente": "VANITY S.r.l.", "indirizzo": "5.500,000, 1,000", "oggetto": "colonne in eps e cactus", "totale_imponibile": 61050.0, "righe": [{"descrizione": "cactus in eps h 2260mm in eps fresato e carteggiato completo di resinatura antiurto e finitura cromo argento", "um": "NR", "quantita": 1.0, "prezzo_unitario": 5500.0, "importo": 5500.0}, {"descrizione": "colonne per Milano in eps tagliato a filo 2d e assemblato (fornite in 3 pezzi per il trasporto)", "um": "NR", "quantita": 1.0, "prezzo_unitario": 28900.0, "importo": 28900.0}, {"descrizione": "colonne per Firenze in eps tagliato a filo 2d (fornite ad elementi) totale 5 colonne h 4225mm", "um": "NR", "quantita": 5.0, "prezzo_unitario": 3950.0, "importo": 19750.0}, {"descrizione": "colonne per Roma in eps taglaito a filo 2d e assemblato (fornite in 2 elementi) totale 2 colonne h 3200mm con conferma entro il 15/12/25", "um": "NR", "quantita": 2.0, "prezzo_unitario": 3450.0, "importo": 6900.0}]}, {"file": "3205616144_PREVENTIVO-15192.pdf", "nr_documento": "565", "data": "18/12/2025", "cliente": "Valentina", "indirizzo": "Asolando in Rosa, 730,000", "oggetto": "scritta in eps resinata", "totale_imponibile": 1030.0, "righe": [{"descrizione": "scritta in eps come da file allegato completa di resinatura con quarzo +sabbia e colore rosa", "um": "NR", "quantita": 1.0, "prezzo_unitario": 730.0, "importo": 730.0}, {"descrizione": "sconto a voi riservato per quaesto progetto", "um": "NR", "quantita": 1.0, "prezzo_unitario": 300.0, "importo": 300.0}]}, {"file": "3205617712_PREVENTIVO-15180.pdf", "nr_documento": "563", "data": "16/12/2025", "cliente": "GRUPPO PIAZZETTA SPA", "indirizzo": "Via Montello  22, 31010 Casella d'Asolo - TV", "oggetto": "H04011630", "totale_imponibile": 1223.0, "righe": [{"descrizione": "elemento in eps k30 articolo H04011630 (costo per lotto da 10 pz)", "um": "NR", "quantita": 10.0, "prezzo_unitario": 19.8, "importo": 198.0}, {"descrizione": "elemento in eps k30 articolo H04011630 (costo per lotto da 30 pz)", "um": "NR", "quantita": 30.0, "prezzo_unitario": 15.0, "importo": 450.0}, {"descrizione": "elemento in eps k30 articolo H04011630 (costo per lotto da 50 pz o piu)", "um": "NR", "quantita": 50.0, "prezzo_unitario": 11.5, "importo": 575.0}]}, {"file": "3205618177_PREVENTIVO-15226.pdf", "nr_documento": "572", "data": "23/12/2025", "cliente": "GRUPPO GEROMIN SRL", "indirizzo": "VIA I MAGGIO N 5, 30029 SAN STINO DI LIVENZA - VE", "oggetto": "Progetto_25261_091225_Mura_Icos_tetto i", "totale_imponibile": 730.0, "righe": [{"descrizione": "tetto a tunnel in eps sagoma fatta in doppia lavorazione il tutto completo di rasatura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 730.0, "importo": 730.0}]}, {"file": "3205619963_PREVENTIVO-15149.pdf", "nr_documento": "555", "data": "11/12/2025", "cliente": "DOMINGO SALOTTI S.R.L.", "indirizzo": "STRADA DELLA ROMAGNA 285, 61121 PESARO - PU", "oggetto": "LD-OF-03 Stool", "totale_imponibile": 7750.0, "righe": [{"descrizione": "sgabello rif LD-OF-03 Stool in eps fresato e carteggiato completo di resinatura poliurea antiurto e finitura liscia lucida", "um": "NR", "quantita": 5.0, "prezzo_unitario": 1550.0, "importo": 7750.0}]}, {"file": "3205621477_PREVENTIVO-16497.pdf", "nr_documento": "220", "data": "18/06/2026", "cliente": "Stefania Di Dio", "indirizzo": "2.100,000, 1,000", "oggetto": "elementi scultorei", "totale_imponibile": 21350.0, "righe": [{"descrizione": "Buddha Piccolo in eps completo di finitura e sistemazione file3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2100.0, "importo": 2100.0}, {"descrizione": "Buddha Grande in eps diviso in 2 parti completo di finitura e sistemazione file3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4400.0, "importo": 4400.0}, {"descrizione": "Angelo in eps completo di finitura e creazione file 3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3200.0, "importo": 3200.0}, {"descrizione": "Agnello in eps completo di finitura e creazione file 3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2200.0, "importo": 2200.0}, {"descrizione": "Cristo in eps completo di finitura e creazione file 3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3300.0, "importo": 3300.0}, {"descrizione": "Angioletti in eps con corona in stampa 3d e sistemazione file3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2100.0, "importo": 2100.0}, {"descrizione": "Decorazione barocca1 in eps e sistemazione file3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 950.0, "importo": 950.0}, {"descrizione": "Decorazione barocca2 in eps e sistemazione file3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 850.0, "importo": 850.0}, {"descrizione": "Colomba in eps e creazione file3d", "um": "NR", "quantita": 1.0, "prezzo_unitario": 750.0, "importo": 750.0}, {"descrizione": "trasporto fine agosto seconda parte 10 settembre chiusura ordine", "um": "NR", "quantita": 3.0, "prezzo_unitario": 500.0, "importo": 1500.0}]}, {"file": "3205622811_PREVENTIVO-15484.pdf", "nr_documento": "28", "data": "15/01/2026", "cliente": "Pietro Franesi", "indirizzo": "International Art Curator, Writer, Creative Coach, 1.930,000", "oggetto": "sculture e statue 3d", "totale_imponibile": 46640.0, "righe": [{"descrizione": "elementi in eps rif scultura1 come da file allegato completa di finitura quarzo+sabbia e colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1930.0, "importo": 1930.0}, {"descrizione": "elementi in eps rif scultura2 come da file allegato completa di finitura quarzo+sabbia e colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2120.0, "importo": 2120.0}, {"descrizione": "elementi in eps rif scultura3 come da file allegato completa di finitura quarzo+sabbia e colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2150.0, "importo": 2150.0}, {"descrizione": "elementi in eps rif scultura4 come da file allegato completa di finitura quarzo+sabbia e colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4050.0, "importo": 4050.0}, {"descrizione": "elementi in eps rif scultura5 come da file allegato completa di finitura quarzo+sabbia e colore", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4350.0, "importo": 4350.0}, {"descrizione": "statua in stampa 3d PLA rif ganesha altezza totale 900mm completa di verniciatura", "um": "NR", "quantita": 12.0, "prezzo_unitario": 890.0, "importo": 10680.0}, {"descrizione": "statua in stampa 3d PLA rif dunga altezza totale 900mm completa di verniciatura", "um": "NR", "quantita": 12.0, "prezzo_unitario": 890.0, "importo": 10680.0}, {"descrizione": "statua in stampa 3d PLA rif indra altezza totale 900mm completa di verniciatura", "um": "NR", "quantita": 12.0, "prezzo_unitario": 890.0, "importo": 10680.0}]}, {"file": "3205622857_PREVENTIVO-15360.pdf", "nr_documento": "33", "data": "16/01/2026", "cliente": "POSTERLAND S.R.L.", "indirizzo": "VIA STANISLAO CANNIZZARO 30, 20090 BUCCINASCO - MI", "oggetto": "espositori per cuffie", "totale_imponibile": 9600.0, "righe": []}, {"file": "3205622925_PREVENTIVO-15399.pdf", "nr_documento": "43", "data": "20/01/2026", "cliente": "PARDGROUP SPA", "indirizzo": "VIA PIETRASANTA 14, 20141 MILANO - MI", "oggetto": "CRISTINA RUBINETTERIE_stand salone d", "totale_imponibile": 2550.0, "righe": [{"descrizione": "panca in eps come da vostro file del 15/01/26 completa di resinatura antiurto e laccatura ral da definire", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1650.0, "importo": 1650.0}, {"descrizione": "cerchio in multistrato marino diametro1200mm sp20mm completo di laccatura come la panca", "um": "NR", "quantita": 2.0, "prezzo_unitario": 450.0, "importo": 900.0}]}, {"file": "3205623468_PREVENTIVO-16719.pdf", "nr_documento": "253", "data": "28/08/2026", "cliente": "LA MODE EN IMAGES", "indirizzo": "5 rue du Cirque-75008 Paris, 6.000,000", "oggetto": "vasi e sculture", "totale_imponibile": 18500.0, "righe": [{"descrizione": "numero 4 vasi in eps fresati e carteggiati +1 vaso stampato 3d resina ,tutti con indurimento in resina poliuretanica e scenografati come vostre richieste", "um": "in", "quantita": 1.0, "prezzo_unitario": 6000.0, "importo": 6000.0}, {"descrizione": "statua h3500mm completa di indurimento in resina poliuretanca e finitura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 8300.0, "importo": 8300.0}, {"descrizione": "statua h1500mm completa di indurimento in resina poliuretanca e finitura", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4200.0, "importo": 4200.0}]}, {"file": "3205626383_PREVENTIVO-15249.pdf", "nr_documento": "3", "data": "07/01/2026", "cliente": "BERTONE DESIGN GROUP S.R.L.", "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB", "oggetto": "colonne in eps k20 finitura cementizia", "totale_imponibile": 133492.0, "righe": [{"descrizione": "Colonna D30 H180 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 103.0, "importo": 32754.0}, {"descrizione": "Colonna D25 H150 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 94.0, "importo": 29892.0}, {"descrizione": "Colonna D20 H120 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 58.0, "importo": 18444.0}, {"descrizione": "Colonna D35 H60 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 63.0, "importo": 20034.0}, {"descrizione": "Parallelepipedo 35x35 H95 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 215.0, "prezzo_unitario": 88.0, "importo": 18920.0}, {"descrizione": "Pedana ovale 60x90 H20 cm NO LED", "um": "NR", "quantita": 164.0, "prezzo_unitario": 82.0, "importo": 13448.0}]}, {"file": "3205626383_PREVENTIVO-15250.pdf", "nr_documento": "2", "data": "07/01/2026", "cliente": "BERTONE DESIGN GROUP S.R.L.", "indirizzo": "VIA DOMENICO GHIRLANDAIO , 5, 20900 MONZA - MB", "oggetto": "colonne in epsk13 finitura cementizia", "totale_imponibile": 107609.0, "righe": [{"descrizione": "Colonna D30 H180 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 88.0, "importo": 27984.0}, {"descrizione": "Colonna D25 H150 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 78.0, "importo": 24804.0}, {"descrizione": "Colonna D20 H120 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 43.0, "importo": 13674.0}, {"descrizione": "Colonna D35 H60 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 46.0, "importo": 14628.0}, {"descrizione": "Parallelepipedo 35x35 H95 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 215.0, "prezzo_unitario": 73.0, "importo": 15695.0}, {"descrizione": "Pedana ovale 60x90 H20 cm NO LED", "um": "NR", "quantita": 164.0, "prezzo_unitario": 66.0, "importo": 10824.0}]}, {"file": "3205626644_PREVENTIVO-15243.pdf", "nr_documento": "1", "data": "07/01/2026", "cliente": "IDEA BITMAP S.R.L. CON SOCIO UNICO", "indirizzo": "VIA MILAZZO ,59, 21052 BUSTO ARSIZIO - VA", "oggetto": "poltrona perugina", "totale_imponibile": 14400.0, "righe": [{"descrizione": "poltrona in eps a forma di bacio perugina completa di seduta e rivestimento(costo per produzione di 2 pezzi)", "um": "NR", "quantita": 2.0, "prezzo_unitario": 3000.0, "importo": 6000.0}, {"descrizione": "poltrona in eps a forma di bacio perugina completa di seduta e rivestimento(costo per produzione di 3 pezzi)", "um": "NR", "quantita": 3.0, "prezzo_unitario": 2800.0, "importo": 8400.0}]}, {"file": "3205629833_PREVENTIVO-16607.pdf", "nr_documento": "244", "data": "27/07/2026", "cliente": "MATTEO CIBIC STUDIO", "indirizzo": "CONTRA DELLA GRAZIE ,11, 36100 VICENZA - VI", "oggetto": "SISTEMAZIONE STATUA", "totale_imponibile": 580.0, "righe": [{"descrizione": "intervento di sistemazione opera ACQUA DI PARMA presso Milano possiamo farlo il 26/08/26", "um": "NR", "quantita": 1.0, "prezzo_unitario": 580.0, "importo": 580.0}]}, {"file": "3205632615_PREVENTIVO-15301.pdf", "nr_documento": "13", "data": "12/01/2026", "cliente": "LAB 05 S.R.L.", "indirizzo": "VIA DELL'ARTIGIANATO 1, 20055 VIMODRONE - MI", "oggetto": "libreria e tavoli", "totale_imponibile": 7650.0, "righe": [{"descrizione": "tavolo rif 1 in eps completo di piano inferiore e superiore in mdf tutto con finitura floccata nera", "um": "il", "quantita": 1.0, "prezzo_unitario": 1550.0, "importo": 1550.0}, {"descrizione": "tavolo rif 2 in eps completo di piano inferiore e superiore in mdf tutto con finitura floccata nera", "um": "il", "quantita": 1.0, "prezzo_unitario": 1300.0, "importo": 1300.0}]}, {"file": "3205632858_PREVENTIVO-16442.pdf", "nr_documento": "222", "data": "22/06/2026", "cliente": "MOBILIFICIO TREVISAN SRL", "indirizzo": "VIA IPPOLITO NIEVO FR. GLAUNICCO 6, 33030 CAMINO AL TAGLIAMENTO - UD", "oggetto": "libreria", "totale_imponibile": 6500.0, "righe": [{"descrizione": "libreria in eps e multistrato misure 1800x2100x500 completa di rivestimento in vetroresina e finitura liscia laccata", "um": "NR", "quantita": 1.0, "prezzo_unitario": 6500.0, "importo": 6500.0}]}, {"file": "3205633063_PREVENTIVO-15254.pdf", "nr_documento": "5", "data": "08/01/2026", "cliente": "BUSSOLA & RALPH INTERNATIONAL S.R.L.", "indirizzo": "VIA DELLE INDUSTRIE 39/41, 31050 PONZANO VENETO - TV", "oggetto": "2025140 C_ QUOTAZIONE MANICHINI", "totale_imponibile": 1160.0, "righe": [{"descrizione": "manichino in eps (escluso di braccia ,testa e gambe) fresato,carteggiato e resinato completo di finitura bianca liscia", "um": "NR", "quantita": 2.0, "prezzo_unitario": 580.0, "importo": 1160.0}]}, {"file": "3205635289_PREVENTIVO-15251.pdf", "nr_documento": "4", "data": "08/01/2026", "cliente": "MAISON203 SRLS", "indirizzo": "VIA CARTIZZE 5, 31049 VALDOBBIADENE - TV", "oggetto": "rocce scenografate", "totale_imponibile": 500.0, "righe": [{"descrizione": "nemero 5 rocce in eps scolpite con forma e misura diversa fra loro,massima 550mm minima350mm il tutto completo di finitura e colore su base del campione visionato che allego foto", "um": "NR", "quantita": 1.0, "prezzo_unitario": 500.0, "importo": 500.0}]}, {"file": "3205635729_PREVENTIVO-16481.pdf", "nr_documento": "214", "data": "08/06/2026", "cliente": "MOGG S.R.L.", "indirizzo": "CORSO UNITA' D'ITALIA 10, 22063 CANTU' - CO", "oggetto": "tessere per campionario", "totale_imponibile": 1250.0, "righe": [{"descrizione": "tessera in vetroresina come finitura lampada hiver formato 9x12cm totale 1000pz", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1750.0, "importo": 1750.0}, {"descrizione": "sconto a voi riservato", "um": "NR", "quantita": 1.0, "prezzo_unitario": -500.0, "importo": -500.0}]}, {"file": "3205636605_PREVENTIVO-15341.pdf", "nr_documento": "26", "data": "15/01/2026", "cliente": "VENETIA S.R.L.", "indirizzo": "SESTIERE SAN MARCO 1286, 30124 VENEZIA (VE), P.IVA 02815180274 C.F. 02815180274", "oggetto": "sfera in polistirolo", "totale_imponibile": 3750.0, "righe": []}, {"file": "3205636806_PREVENTIVO-15310.pdf", "nr_documento": "16", "data": "13/01/2026", "cliente": "MASIERO srl", "indirizzo": "Via Peschiere, 53 - 31032 Casale sul Sile (TV) - Italia", "oggetto": "prototipi in eps", "totale_imponibile": 550.0, "righe": []}, {"file": "3205636972_PREVENTIVO-15343.pdf", "nr_documento": "27", "data": "15/01/2026", "cliente": "KIRA SOLUTIONS SRL", "indirizzo": "VIA DESMAN 131, 35010 BORGORICCO - PD", "oggetto": "statua h4000mm", "totale_imponibile": 3200.0, "righe": []}, {"file": "3205639789_PREVENTIVO-15260.pdf", "nr_documento": "6", "data": "08/01/2026", "cliente": "\"Metalcreo - Bramani Cristiano\"", "indirizzo": "commerciale@metalcreo.com, in eps k13 completo di finitura cementizia colore ral 9001", "oggetto": "Colonne Display 2026", "totale_imponibile": 137475.0, "righe": [{"descrizione": "Colonna D30 H180 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 108.0, "importo": 34344.0}, {"descrizione": "Colonna D25 H150 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 95.0, "importo": 30210.0}, {"descrizione": "Colonna D20 H120 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 67.0, "importo": 21306.0}, {"descrizione": "Colonna D35 H60 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 318.0, "prezzo_unitario": 63.0, "importo": 20034.0}, {"descrizione": "Parallelepipedo 35x35 H95 cm + scanalatura 16x8mm per Led COB", "um": "NR", "quantita": 215.0, "prezzo_unitario": 79.0, "importo": 16985.0}, {"descrizione": "Pedana ovale 60x90 H20 cm NO LED imballo con pluriball compreso", "um": "NR", "quantita": 164.0, "prezzo_unitario": 89.0, "importo": 14596.0}]}, {"file": "3205641069_PREVENTIVO-15364.pdf", "nr_documento": "34", "data": "19/01/2026", "cliente": "ALLESTIMENTI BENFENATI SPA", "indirizzo": "VIA LUIGI GALVANI 39, 20019 SETTIMO MILANESE - MI", "oggetto": "Bearista cup's Starbucks", "totale_imponibile": 6500.0, "righe": [{"descrizione": "scultura in eps riproducente Bearista Cup completa di verniciatura e scenografatura altezza totale escluso la cannuccia 2000mm sviluppo file 3d trasporto a Milano", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4900.0, "importo": 4900.0}]}, {"file": "3205641432_PREVENTIVO-15311.pdf", "nr_documento": "17", "data": "13/01/2026", "cliente": "POSTERLAND S.R.L.", "indirizzo": "VIA STANISLAO CANNIZZARO 30, 20090 BUCCINASCO - MI", "oggetto": "scritta AZZURRO", "totale_imponibile": 1200.0, "righe": []}, {"file": "3205641765_PREVENTIVO-15318.pdf", "nr_documento": "20", "data": "14/01/2026", "cliente": "IMBALLAGGI PEGORARO SRL", "indirizzo": "Via Monte Verena 5, 36022 San. Zeno di Cassola - VI", "oggetto": "bolla", "totale_imponibile": 150.0, "righe": []}, {"file": "3205642063_PREVENTIVO-15356.pdf", "nr_documento": "30", "data": "16/01/2026", "cliente": "Pedemontana Serramenti", "indirizzo": "Via per San Floriano, 58, 31033 CASTELFRANCO VENETO (TV)", "oggetto": "logo per bancone", "totale_imponibile": 480.0, "righe": []}, {"file": "3205644001_PREVENTIVO-15435.pdf", "nr_documento": "58", "data": "22/01/2026", "cliente": "BUSSOLA & RALPH INTERNATIONAL S.R.L.", "indirizzo": "VIA DELLE INDUSTRIE 39/41, 31050 PONZANO VENETO - TV", "oggetto": "BOUTIQUE JLC PARIGI", "totale_imponibile": 6800.0, "righe": [{"descrizione": "pannelli in eps con supporto in mdf posteriore ,sagomatura ad onde da definire verniciati bianchi 9001 completi di resitura ignifuga per un totale di 18mq", "um": "NR", "quantita": 1.0, "prezzo_unitario": 6800.0, "importo": 6800.0}]}, {"file": "3205645549_PREVENTIVO-15530.pdf", "nr_documento": "88", "data": "03/02/2026", "cliente": "Letizia Antico", "indirizzo": "Purchasing Manager, Acqua di Parma & LVMH Beauty Division Italy", "oggetto": "BRIEF/ADP VASI NASI DUSSELDORF", "totale_imponibile": 14500.0, "righe": [{"descrizione": "scultura in eps h2000 resinata e verniciata liscia completa di zavorra", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4900.0, "importo": 4900.0}, {"descrizione": "cassa per imballo in osb completa di pluriball e eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 480.0, "importo": 480.0}, {"descrizione": "scultura in eps h1800 resinata e verniciata liscia completa di zavorra", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4200.0, "importo": 4200.0}, {"descrizione": "cassa per imballo in osb completa di pluriball e eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 420.0, "importo": 420.0}, {"descrizione": "trasporto presso Hofgarten Dusseldor", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2500.0, "importo": 2500.0}, {"descrizione": "montaggio presso Hofgarten Dusseldor", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2000.0, "importo": 2000.0}]}, {"file": "3205645549_PREVENTIVO-15531.pdf", "nr_documento": "87", "data": "03/02/2026", "cliente": "Letizia Antico", "indirizzo": "Purchasing Manager, Acqua di Parma & LVMH Beauty Division Italy", "oggetto": "BRIEF/ADP VASI NASI MILANO", "totale_imponibile": 20710.0, "righe": [{"descrizione": "scultura in eps h2000 resinata e verniciata liscia completa di zavorra", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4900.0, "importo": 4900.0}, {"descrizione": "cassa per imballo in osb completa di pluriball e eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 480.0, "importo": 480.0}, {"descrizione": "scultura in eps h1800 resinata e verniciata liscia completa di zavorra", "um": "NR", "quantita": 1.0, "prezzo_unitario": 4200.0, "importo": 4200.0}, {"descrizione": "cassa per imballo in osb completa di pluriball e eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 420.0, "importo": 420.0}, {"descrizione": "scultura in eps bocca resinata e verniciata liscia completa di zavorra", "um": "NR", "quantita": 1.0, "prezzo_unitario": 2500.0, "importo": 2500.0}, {"descrizione": "cassa per imballo in osb completa di pluriball e eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 450.0, "importo": 450.0}, {"descrizione": "scultura in eps luna resinata e verniciata liscia completa di zavorra", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3500.0, "importo": 3500.0}, {"descrizione": "cassa per imballo in osb completa di pluriball e eps", "um": "NR", "quantita": 1.0, "prezzo_unitario": 560.0, "importo": 560.0}, {"descrizione": "trasporto a Milano", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1500.0, "importo": 1500.0}, {"descrizione": "montaggio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 350.0, "importo": 350.0}, {"descrizione": "smontaggio", "um": "NR", "quantita": 1.0, "prezzo_unitario": 350.0, "importo": 350.0}]}, {"file": "3205645580_PREVENTIVO-15327.pdf", "nr_documento": "24", "data": "14/01/2026", "cliente": "GRAFICHE NEW PRINT SRL", "indirizzo": "Via Pierluigi Nervi  24, 30016 JESOLO - VE", "oggetto": "ripristino scacchi", "totale_imponibile": 3400.0, "righe": [{"descrizione": "ripristino scacchi con stuccatura e verniciatura per un totale di 32pezzi trasporto incluso", "um": "NR", "quantita": 1.0, "prezzo_unitario": 3400.0, "importo": 3400.0}]}, {"file": "3205647410_PREVENTIVO-15574.pdf", "nr_documento": "39", "data": "20/01/2026", "cliente": "GRUPPO GEROMIN SRL", "indirizzo": "VIA I MAGGIO N 5, 30029 SAN STINO DI LIVENZA - VE", "oggetto": "Progetto_26009_150126_Carrus_Edilgabrie", "totale_imponibile": 4223.0, "righe": [{"descrizione": "pareti stanza", "um": "NR", "quantita": 1.0, "prezzo_unitario": 1850.0, "importo": 1850.0}, {"descrizione": "pareti per modulo doccia", "um": "NR", "quantita": 1.0, "prezzo_unitario": 730.0, "importo": 730.0}, {"descrizione": "tetto a botte", "um": "NR", "quantita": 1.0, "prezzo_unitario": 925.0, "importo": 925.0}, {"descrizione": "panche", "um": "NR", "quantita": 1.0, "prezzo_unitario": 360.0, "importo": 360.0}, {"descrizione": "angolo panche", "um": "NR", "quantita": 1.0, "prezzo_unitario": 108.0, "importo": 108.0}, {"descrizione": "bacile", "um": "NR", "quantita": 1.0, "prezzo_unitario": 250.0, "importo": 250.0}]}, {"file": "3205647512_PREVENTIVO-15358.pdf", "nr_documento": "32", "data": "16/01/2026", "cliente": "Alessandro Menegon", "indirizzo": "Espositori in cartone EB interamente stampato, con 4 ripiani", "oggetto": "espositori in cartone", "totale_imponibile": 13620.0, "righe": []}];
+
+document.getElementById('count-storico-badge').textContent = STORICO_QUOTES.length;
+document.getElementById('pr-date').textContent = new Date().toLocaleDateString('it-IT');
+
+// ── 2. PARAMETRI DI CALCOLO (PRE-TARATI SU STORICO EUREKA) ──────────────────
+const PARAMS = {
+  kuka_h: 45, osai_h: 40, filo_h: 35, cad_h: 50, uomo_h: 32, sfrido_pct: 20,
+  kuka_max: [1600, 1200, 1400],
+  materiali: {
+    eps_k13_100:  { nome: "eps K13", costo_mc: 55,  fresa_mc: 720,  taglio_mc: 310 },
+    eps_150:      { nome: "eps",     costo_mc: 78,  fresa_mc: 920,  taglio_mc: 390 },
+    eps_200_hd:   { nome: "eps alta densità K30", costo_mc: 110, fresa_mc: 1150, taglio_mc: 480 },
+    xps_stirodur: { nome: "xps stirodur", costo_mc: 145, fresa_mc: 1250, taglio_mc: 550 },
+    pla_stampa3d: { nome: "stampa 3D PLA/resina", costo_mc: 450, fresa_mc: 2300, taglio_mc: 1800 }
+  },
+  finiture: {
+    grezzo:                   { label: "fresato e carteggiato (solo materiale EPS, senza verniciatura)", mq: 0,   cost_mq: 4,   h_mq: 0.15, inv: "Carteggiatura base EPS + Schiuma incollaggio Tytan Stiro 753 sui giunti" },
+    grezzo_solo_fresa:        { label: "solo fresato grezzo (senza carteggiatura manuale e senza verniciatura)", mq: -24, cost_mq: 0, h_mq: 0.0, inv: "Solo blocco EPS + incollaggio Tytan Stiro 753 (zero carteggiatura e zero verniciatura)" },
+    scenografica_colore:      { label: "completo di finitura scenografica e colore RAL", mq: 115, cost_mq: 14, h_mq: 0.8, inv: "Aguaplast Bianco/Grigio + Fondo AUL Acqua + Pittura RAL" },
+    quarzo_sabbia:            { label: "completo di resinatura con finitura quarzo+sabbia e colore", mq: 135, cost_mq: 22, h_mq: 1.0, inv: "Resina + Quarzo Bianco/Rosso + Sabbia 0.6 + Colore" },
+    antiurto_poliurea_colore: { label: "completo di indurimento in resina poliuretanica antiurto e finitura colore", mq: 240, cost_mq: 42, h_mq: 1.5, inv: "Kit Poliurea (47kg resa 25m² = 1.88 kg/m²) o Resina HE300 + Catalizzatore + Colore" },
+    ignifuga_cemento_degarock:{ label: "completo di resinatura ignifuga e finitura cemento materico", mq: 380, cost_mq: 65, h_mq: 2.2, inv: "DEGA ROCK 25(A+B) + DEGA ROCK 50(A+B) Gobbetto + Rete cappotto" },
+    liscia_laccata_ral:       { label: "completo di resinatura, 2 mani di fondo poliestere e verniciatura liscia laccata RAL", mq: 420, cost_mq: 75, h_mq: 3.2, inv: "Poliurea/Vetroresina + 2x Fondo Poliestere Renner (latte 25kg) + Carteggiatura fine + Laccatura RAL" },
+    metallizzata_bronzo_oro:  { label: "completo di resinatura, fondo poliestere e finitura metallizzata / simil bronzo", mq: 580, cost_mq: 110, h_mq: 4.0, inv: "Fondo Poliestere Renner + Vernice Metallizzata / Simil Bronzo / Foglia Oro" },
+    cromata_specchio:         { label: "completo di resinatura antiurto e finitura cromo argento a specchio", mq: 840, cost_mq: 165, h_mq: 5.5, inv: "Resina Antiurto + Fondo Poliestere Lucido + Trattamento Cromo Specchio" }
+  },
+  file3d: {
+    file_ok:               { label: "", price: 0,   h: 0.25 },
+    "3d_geometrico_veloce":{ label: "incluso sviluppo 3d volumi base", price: 80,  h: 1.5 },
+    sistemazione_mesh:     { label: "e sistemazione file 3d", price: 220, h: 2.5 },
+    creazione_3d_semplice: { label: "e creazione file 3d", price: 450, h: 5.0 },
+    creazione_3d_scultura: { label: "e sviluppo modello 3d scultoreo", price: 850, h: 10.0 }
+  }
+};
+
+let quoteDocumentLines = [];
+let currentCalculatedLine = null;
+
+function formatEUR(n) {
+  return '€ ' + Number(n || 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function formatEUR0(n) {
+  return '€ ' + Math.round(Number(n || 0)).toLocaleString('it-IT');
+}
+
+function switchTab(tabId) {
+  ['tab-preventivo', 'tab-macchine', 'tab-storico', 'tab-parametri'].forEach(id => {
+    document.getElementById(id).classList.toggle('hidden', id !== tabId);
+    document.getElementById('btn-' + id).classList.toggle('active', id === tabId);
+  });
+  if (tabId === 'tab-storico') renderStoricoTable();
+  if (tabId === 'tab-macchine') parseCurrentMachineCode();
+}
+
+// ── 3. MOTORE DI CALCOLO PREVENTIVO 3D + SEZIONAMENTO BLOCCHI KUKA ──────────
+function recalcQuote() {
+  const dx = Math.max(10, parseFloat(document.getElementById('q-dim-x').value) || 1000);
+  const dy = Math.max(10, parseFloat(document.getElementById('q-dim-y').value) || 1000);
+  const dz = Math.max(10, parseFloat(document.getElementById('q-dim-z').value) || 1000);
+  const qty = Math.max(1, parseInt(document.getElementById('q-qty').value) || 1);
+  const shapeFactor = parseFloat(document.getElementById('q-shape-factor').value) || 0.55;
+
+  const tech = document.getElementById('q-tech').value;
+  const matKey = document.getElementById('q-materiale').value;
+  const finKey = document.getElementById('q-finitura').value;
+  const f3dKey = document.getElementById('q-file3d').value;
+
+  const mat = PARAMS.materiali[matKey] || PARAMS.materiali.eps_150;
+  const fin = PARAMS.finiture[finKey] || PARAMS.finiture.antiurto_poliurea_colore;
+  const f3d = PARAMS.file3d[f3dKey] || PARAMS.file3d.sistemazione_mesh;
+
+  document.getElementById('finitura-inventario-hint').innerHTML =
+    `📦 <b>Materiali da Magazzino AMR</b>: ${fin.inv}`;
+
+  // 1. Volumi e Superficie
+  const boxVolMc = (dx * dy * dz) / 1e9;
+  const netVolMc = boxVolMc * shapeFactor;
+  const grossEpsVolMc = boxVolMc * (1 + PARAMS.sfrido_pct / 100.0);
+
+  // Superficie esterna del parallelepipedo modulata dal fattore di forma (scultura ha pieghe ma è più stretta del box)
+  const boxSurfaceMq = 2 * ((dx * dy) + (dx * dz) + (dy * dz)) / 1e6;
+  const effectiveSurfMq = Math.max(0.15, boxSurfaceMq * (0.55 + shapeFactor * 0.45));
+  const poliureaKg = effectiveSurfMq * 1.88;
+
+  // 2. Calcolo Sezionamento Blocchi KUKA (Max work envelope KUKA KR16)
+  const [kx, ky, kz] = PARAMS.kuka_max;
+  const nx = Math.max(1, Math.ceil(dx / kx));
+  const ny = Math.max(1, Math.ceil(dy / ky));
+  const nz = Math.max(1, Math.ceil(dz / kz));
+  const numBlocks = (tech === 'taglio2d_filo') ? 1 : (nx * ny * nz);
+  const jointPlanes = Math.max(0, numBlocks - 1);
+  const jointAreaMq = jointPlanes * ((dx * dy) / 1e6) * 0.65;
+
+  // Aggiorna KPI Geometrici
+  document.getElementById('kpi-vol-box').textContent = boxVolMc.toFixed(2) + ' m³';
+  document.getElementById('kpi-vol-net').textContent = `Lordo c/sfrido: ${grossEpsVolMc.toFixed(2)} m³`;
+  document.getElementById('kpi-surf-mq').textContent = effectiveSurfMq.toFixed(2) + ' m²';
+  document.getElementById('kpi-poliurea-kg').textContent = `Resina/Poliurea: ~${poliureaKg.toFixed(1)} kg`;
+  document.getElementById('kpi-kuka-blocks').textContent = numBlocks === 1 ? '1 Blocco Unico' : `${numBlocks} Blocchi (${nx}×${ny}×${nz})`;
+  document.getElementById('kpi-kuka-joints').textContent = numBlocks === 1 ? 'Zero giunti incollaggio' : `Incollaggio: ${jointAreaMq.toFixed(1)} m² (Tytan 753)`;
+
+  // 3. Stima Ore Macchina (o Override da .SRC/.TXT)
+  const overrideMachH = parseFloat(document.getElementById('q-override-mach-hours').value);
+  let machHours = 0;
+  if (!isNaN(overrideMachH) && overrideMachH > 0) {
+    machHours = overrideMachH;
+    document.getElementById('kpi-mach-source').textContent = 'Da file macchina .SRC / .TXT reale';
+  } else {
+    if (tech === 'taglio2d_filo') {
+      machHours = Math.max(0.4, boxVolMc * 0.8 + effectiveSurfMq * 0.15);
+    } else if (tech === 'fresa3d_stratificato') {
+      machHours = Math.max(1.2, boxVolMc * 1.6 + effectiveSurfMq * 0.35);
+    } else {
+      // KUKA 3D Sculpting: ~1.8h base + proporzionale alla superficie da fresare e ai blocchi
+      machHours = Math.max(1.5, 1.2 + effectiveSurfMq * 0.55 + (numBlocks - 1) * 0.65);
+    }
+    document.getElementById('kpi-mach-source').textContent = 'Stima automatica KUKA/OSAI';
+  }
+  document.getElementById('kpi-mach-hours').textContent = machHours.toFixed(1) + ' h';
+
+  // 4. Calcolo Costi Vivi AMR vs Prezzo Commerciale Eureka (Tarato sulle curve empiriche dei 75 preventivi)
+  const costMat = grossEpsVolMc * mat.costo_mc + (jointAreaMq * 12);
+  const priceMat = Math.max(60, grossEpsVolMc * (mat.costo_mc * 2.2));
+
+  const hourlyMachCost = (tech === 'taglio2d_filo') ? PARAMS.filo_h : (tech === 'fresa3d_stratificato' ? PARAMS.osai_h : PARAMS.kuka_h);
+  const assemblyHours = (numBlocks > 1) ? (numBlocks * 0.75 + jointAreaMq * 0.6) : 0.5;
+  const costMach = (machHours * hourlyMachCost) + (assemblyHours * PARAMS.uomo_h);
+
+  // Curva degressiva sui grandi volumi (es. Cuore Bertone 10.8m³ -> 1180€/m³, Cervello 27m³ -> 750€/m³)
+  const volScaleFactor = boxVolMc > 8 ? Math.pow(8 / boxVolMc, 0.22) : (boxVolMc < 0.3 ? 1.35 : 1.0);
+  let baseMachPrice = 0;
+  if (tech === 'taglio2d_filo') {
+    baseMachPrice = Math.max(140, boxVolMc * mat.taglio_mc + machHours * 65);
+  } else if (tech === 'fresa3d_stratificato') {
+    baseMachPrice = Math.max(220, boxVolMc * (mat.fresa_mc * 0.72) * volScaleFactor);
+  } else if (tech === 'stampa3d') {
+    baseMachPrice = Math.max(350, effectiveSurfMq * 320 + boxVolMc * mat.fresa_mc * 0.8);
+  } else {
+    baseMachPrice = Math.max(230, (boxVolMc * mat.fresa_mc * volScaleFactor) + (machHours * 55) + (numBlocks - 1) * 140);
+  }
+  const priceMach = Math.max(costMach * 1.65, baseMachPrice - priceMat);
+
+  // Finitura
+  const costFin = effectiveSurfMq * (fin.cost_mq + fin.h_mq * PARAMS.uomo_h);
+  const priceFin = effectiveSurfMq * fin.mq;
+
+  // File 3D (ripartito sulla quantità se > 1)
+  const cost3D = (f3d.h * PARAMS.cad_h) / qty;
+  const price3D = f3d.price / qty;
+
+  // Extra (Ferro, Cassa OSB, Trasporto)
+  const hasFerro = document.getElementById('q-ferro').checked;
+  const hasCassa = document.getElementById('q-cassa-osb').checked;
+  const traspVal = parseFloat(document.getElementById('q-trasporto').value) || 0;
+
+  const ferroPrice = hasFerro ? Math.max(180, boxVolMc * 160) : 0;
+  const ferroCost = ferroPrice * 0.45;
+  const cassaPrice = hasCassa ? Math.max(320, Math.min(680, 280 + boxSurfaceMq * 28)) : 0;
+  const cassaCost = cassaPrice * 0.48;
+
+  const costExtra = ferroCost + cassaCost + (traspVal * 0.7) / qty;
+  const priceExtra = ferroPrice + cassaPrice + (traspVal / qty);
+
+  // Prezzo 1 pezzo singolo
+  const rawSinglePrice = Math.max(180, priceMat + priceMach + priceFin + price3D + priceExtra);
+  const singlePrice = Math.round(rawSinglePrice / 10) * 10;
+
+  // Sconto Quantità (Curva reale AMR: 1pz=100%, 2-4pz=-18%, 5-9pz=-28%, 10+pz=-38%)
+  let qtyMultiplier = 1.0;
+  let qtyLabel = "Prezzo 1° Pezzo Unico";
+  if (qty >= 10) { qtyMultiplier = 0.62; qtyLabel = `Sconto Lotto ${qty} pz (-38%)`; }
+  else if (qty >= 5) { qtyMultiplier = 0.72; qtyLabel = `Sconto Lotto ${qty} pz (-28%)`; }
+  else if (qty >= 2) { qtyMultiplier = 0.82; qtyLabel = `Sconto Lotto ${qty} pz (-18%)`; }
+
+  // Il costo fisso 3D non si sconta ma è già diviso per qty; applichiamo il moltiplicatore sulla produzione
+  const unitPriceFinal = Math.round(((singlePrice - price3D - (traspVal / qty)) * qtyMultiplier + price3D + (traspVal / qty)) / 5) * 5;
+  const totalLotPrice = unitPriceFinal * qty;
+
+  const unitCostTotal = (costMat + costMach + costFin) * (qty > 1 ? 0.88 : 1.0) + cost3D + costExtra;
+  const totalLotCost = unitCostTotal * qty;
+  const totalLotProfit = totalLotPrice - totalLotCost;
+  const marginPct = totalLotPrice > 0 ? Math.round((totalLotProfit / totalLotPrice) * 100) : 0;
+
+  // Aggiorna UI Risultati
+  document.getElementById('res-unit-price').textContent = formatEUR(unitPriceFinal);
+  document.getElementById('res-total-lot').textContent = `Totale Imponibile Lotto (${qty} pz): ${formatEUR(totalLotPrice)}`;
+  document.getElementById('res-qty-discount-label').textContent = qtyLabel;
+
+  const mbadge = document.getElementById('res-margin-badge');
+  mbadge.textContent = `Margine: ${marginPct}%`;
+  mbadge.className = 'inline-block text-xs font-bold px-2.5 py-1 rounded-full border ' +
+    (marginPct >= 55 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+     marginPct >= 38 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                       'bg-rose-500/20 text-rose-300 border-rose-500/40');
+
+  document.getElementById('bd-surf-label').textContent = effectiveSurfMq.toFixed(1) + ' m²';
+  document.getElementById('bd-cost-mat').textContent = formatEUR0(costMat);
+  document.getElementById('bd-price-mat').textContent = formatEUR0(priceMat * qtyMultiplier);
+  document.getElementById('bd-cost-mach').textContent = formatEUR0(costMach);
+  document.getElementById('bd-price-mach').textContent = formatEUR0(priceMach * qtyMultiplier);
+  document.getElementById('bd-cost-fin').textContent = formatEUR0(costFin);
+  document.getElementById('bd-price-fin').textContent = formatEUR0(priceFin * qtyMultiplier);
+  document.getElementById('bd-cost-3d').textContent = formatEUR0(cost3D);
+  document.getElementById('bd-price-3d').textContent = formatEUR0(price3D);
+  document.getElementById('bd-cost-extra').textContent = formatEUR0(costExtra);
+  document.getElementById('bd-price-extra').textContent = formatEUR0(priceExtra);
+  document.getElementById('bd-cost-tot').textContent = `Costo Lotto: ${formatEUR0(totalLotCost)}`;
+  document.getElementById('bd-profit-net').textContent = `+${formatEUR0(totalLotProfit)}`;
+
+  // Tiers 1 / 3 / 5 / 10 pz
+  document.getElementById('tier-1pz').textContent = formatEUR0(singlePrice);
+  document.getElementById('tier-3pz').textContent = formatEUR0(Math.round((singlePrice * 0.82) / 5) * 5);
+  document.getElementById('tier-5pz').textContent = formatEUR0(Math.round((singlePrice * 0.72) / 5) * 5);
+  document.getElementById('tier-10pz').textContent = formatEUR0(Math.round((singlePrice * 0.62) / 5) * 5);
+
+  // Genera descrizione stile Gestionale Eureka
+  const descBase = document.getElementById('q-desc').value.trim() || 'elemento in eps';
+  const partsNote = numBlocks > 1 ? ` diviso in ${numBlocks} parti` : '';
+  const ferroNote = hasFerro ? ' completo di staffa e struttura interna in ferro' : '';
+  const cassaNote = hasCassa ? ' + cassa per imballo in OSB con pluriball' : '';
+  const eurekaText = `${descBase} in ${mat.nome} misure ${Math.round(dx)}x${Math.round(dy)}x${Math.round(dz)}mm${partsNote} ${fin.label}${ferroNote} ${f3d.label}${cassaNote}`.replace(/\s+/g, ' ').trim();
+  document.getElementById('res-eureka-desc').value = eurekaText;
+
+  currentCalculatedLine = {
+    descrizione: eurekaText,
+    um: 'NR',
+    quantita: qty,
+    prezzo_unitario: unitPriceFinal,
+    importo: totalLotPrice
+  };
+
+  // Aggiorna Foglio Stampa Eureka
+  document.getElementById('pr-cliente').textContent = document.getElementById('q-cliente').value || 'SPETT. CLIENTE';
+  document.getElementById('pr-oggetto').textContent = document.getElementById('q-oggetto').value || 'Preventivo fornitura';
+  renderPrintSheet();
+
+  // Aggiorna Ricerca Storico Simile
+  updateSimilarHistoricalQuotes(descBase, dx, dy, dz, boxVolMc, finKey);
+}
+
+// ── 4. RICERCA PREVENTIVI STORICI SIMILI (SUI 75 PREVENTIVI EUREKA) ──────────
+function updateSimilarHistoricalQuotes(queryText, dx, dy, dz, targetVolMc, finKey) {
+  const qTokens = (queryText + ' ' + document.getElementById('q-oggetto').value)
+    .toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+  const maxDim = Math.max(dx, dy, dz);
+  const scored = [];
+
+  STORICO_QUOTES.forEach(q => {
+    (q.righe || []).forEach(r => {
+      const desc = r.descrizione || '';
+      const imp = r.importo || 0;
+      if (imp <= 0 || desc.toLowerCase().includes('sconto')) return;
+      const full = (q.oggetto + ' ' + desc).toLowerCase();
+      let score = 0;
+
+      qTokens.forEach(t => { if (full.includes(t)) score += 18; });
+
+      // Cerca dimensioni AxBxC o hXXXX
+      const m3 = full.match(/(\d{3,4})\s*[x×]\s*(\d{3,4})\s*[x×]\s*(?:h\s*)?(\d{2,4})/);
+      const mh = full.match(/\bh\.?\s*(\d{3,4})\b/);
+      let dimTag = '';
+      if (m3) {
+        const d1 = parseFloat(m3[1]), d2 = parseFloat(m3[2]), d3 = parseFloat(m3[3]);
+        dimTag = `${d1}×${d2}×${d3}mm`;
+        const hVol = (d1 * d2 * d3) / 1e9;
+        if (targetVolMc > 0 && hVol > 0) {
+          score += (Math.min(targetVolMc, hVol) / Math.max(targetVolMc, hVol)) * 50;
+        }
+      } else if (mh) {
+        const hVal = parseFloat(mh[1]);
+        dimTag = `H ${hVal}mm`;
+        score += (Math.min(maxDim, hVal) / Math.max(maxDim, hVal)) * 38;
+      }
+
+      if (finKey.includes('grezzo') && (full.includes('senza') || full.includes('stratificat') || full.includes('sedia in eps') || full.includes('librone') || full.includes('mezza sfera'))) score += 35;
+      if (finKey.includes('quarzo') && full.includes('quarzo')) score += 25;
+      if (finKey.includes('liscia') && (full.includes('liscia') || full.includes('laccat') || full.includes('poliestere'))) score += 25;
+      if (finKey.includes('cemento') && (full.includes('cemento') || full.includes('ignifug'))) score += 25;
+      if (finKey.includes('antiurto') && (full.includes('antiurto') || full.includes('resina'))) score += 22;
+      if (finKey.includes('cromo') && full.includes('crom')) score += 30;
+
+      const curClient = (document.getElementById('q-cliente').value || '').toLowerCase().trim();
+      if (curClient && curClient.length >= 4 && (q.cliente || '').toLowerCase().includes(curClient.split(' ')[0])) {
+        score += 40;
+      }
+
+      if (score > 8) {
+        scored.push({ score, q, r, dimTag });
+      }
+    });
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, 6);
+  const container = document.getElementById('similar-quotes-list');
+  if (!top.length) {
+    container.innerHTML = `<div class="text-xs text-slate-500">Nessuna corrispondenza diretta trovata. Consulta il Tab 3 per tutti i 75 preventivi.</div>`;
+    return;
+  }
+  container.innerHTML = top.map(item => `
+    <div class="bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 p-3 rounded-lg transition text-xs">
+      <div class="flex justify-between items-start gap-2">
+        <div>
+          <span class="text-[10px] bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-mono">Prev. #${item.q.nr_documento || 'N/D'} (${item.q.data || ''})</span>
+          <span class="font-bold text-white ml-1">${item.q.cliente || ''}</span>
+          ${item.dimTag ? `<span class="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded ml-1 font-mono">${item.dimTag}</span>` : ''}
+        </div>
+        <div class="text-right shrink-0">
+          <div class="font-bold mono text-emerald-400 text-sm">${formatEUR(item.r.prezzo_unitario)} <span class="text-[10px] text-slate-400">cad</span></div>
+          ${item.r.quantita > 1 ? `<div class="text-[10px] text-slate-400">Lotto ${item.r.quantita} pz = ${formatEUR(item.r.importo)}</div>` : ''}
+        </div>
+      </div>
+      <div class="text-slate-300 mt-1.5 leading-snug">${item.r.descrizione}</div>
+    </div>
+  `).join('');
+}
+
+// ── 5. PRESET RAPIDI E ISPETTORE FILE 3D (.STL / .OBJ) ───────────────────────
+function loadPresetPiece(key) {
+  if (key === 'kira_camera') {
+    document.getElementById('q-cliente').value = 'KIRA SOLUTIONS SRL';
+    document.getElementById('q-referente').value = 'Renato Karaboja';
+    document.getElementById('q-email').value = 'commerciale@kira3d.com';
+    document.getElementById('q-indirizzo').value = 'VIA DESMAN 131, 35010 BORGORICCO - PD';
+    document.getElementById('q-oggetto').value = 'Macchina fotografica Canon 150x60x100cm solo EPS grezzo';
+    document.getElementById('q-desc').value = 'macchina fotografica (corpo + obiettivo frontale, esclusi particolari 3D, adesivi e verniciatura)';
+    document.getElementById('q-dim-x').value = 1500;
+    document.getElementById('q-dim-y').value = 600;
+    document.getElementById('q-dim-z').value = 1000;
+    document.getElementById('q-qty').value = 1;
+    document.getElementById('q-shape-factor').value = '0.65';
+    document.getElementById('q-tech').value = 'fresa3d_stratificato';
+    document.getElementById('q-materiale').value = 'eps_150';
+    document.getElementById('q-finitura').value = 'grezzo';
+    document.getElementById('q-file3d').value = '3d_geometrico_veloce';
+    document.getElementById('q-ferro').checked = false;
+    document.getElementById('q-cassa-osb').checked = false;
+    document.getElementById('q-trasporto').value = 0;
+
+    const box = document.getElementById('mesh-diagnostic-box');
+    box.classList.remove('hidden');
+    box.className = 'p-3.5 rounded-lg border text-xs space-y-1.5 bg-emerald-500/10 border-emerald-500/40 text-emerald-200';
+    box.innerHTML = `
+      <div class="font-bold text-emerald-400 flex items-center justify-between">
+        <span>📸 CASO REALE KIRA SOLUTIONS: Macchina Fotografica Canon G-III QL (1500 × 600 × 1000 mm = 0,90 m³)</span>
+        <span class="mono bg-emerald-500/20 px-2 py-0.5 rounded">Solo EPS • Zero Verniciatura • Zero Particolari 3D</span>
+      </div>
+      <div><b>Scomposizione Ottimale per Capannone AMR:</b> Corpo parallelepipedo smussato (<code>1500×320×1000 mm</code> sagomato rapido su Pantografo OSAI) + Barilotto Obiettivo cilindrico concentrico (<code>Ø 680×280 mm</code> fresato 3D su KUKA KR16) incollati con schiuma <code>Tytan Stiro 753</code>. Ghiere superiori, pulsanti, levette e attacchi cinghia esclusi (stampati in 3D direttamente da Kira Solutions).</div>
+      <div class="text-amber-300 font-semibold">💡 Benchmark Storico Reale KIRA SOLUTIONS: Librone solo EPS (<code>€ 660</code>) · Sedia EPS K25 fresata e carteggiata Prev. #295 (<code>€ 690</code>) · Elemento EPS stratificato 1,01 m³ Forpress Prev. #501 (<code>€ 700</code>).</div>
+    `;
+    quoteDocumentLines = [
+      {
+        descrizione: "macchina fotografica (corpo 1500x320x1000mm + obiettivo frontale sporgente, tot. ingombro 1500x600x1000mm) in eps K25 fresato e carteggiato, esclusi adesivi, esclusi particolari in stampa 3D ed esclusa verniciatura",
+        um: "NR",
+        quantita: 1,
+        prezzo_unitario: 680,
+        importo: 680
+      },
+      {
+        descrizione: "OPZIONE ALTERNATIVA SOLO FRESATO GREZZO (senza carteggiatura manuale, solo materiale EPS fresato senza particolari 3D e senza verniciatura): € 550,00 + IVA",
+        um: "NR",
+        quantita: 1,
+        prezzo_unitario: 0,
+        importo: 0
+      }
+    ];
+  } else if (key === 'statua_h3500') {
+    document.getElementById('q-cliente').value = 'LA MODE EN IMAGES (Paris)';
+    document.getElementById('q-oggetto').value = 'Vasi e sculture Gucci';
+    document.getElementById('q-desc').value = 'statua scultura in eps';
+    document.getElementById('q-dim-x').value = 1100;
+    document.getElementById('q-dim-y').value = 1100;
+    document.getElementById('q-dim-z').value = 3500;
+    document.getElementById('q-qty').value = 1;
+    document.getElementById('q-finitura').value = 'antiurto_poliurea_colore';
+    document.getElementById('q-file3d').value = 'sistemazione_mesh';
+    document.getElementById('q-ferro').checked = true;
+  } else if (key === 'cuore_bertone') {
+    document.getElementById('q-cliente').value = 'BERTONE DESIGN GROUP S.R.L.';
+    document.getElementById('q-oggetto').value = 'Opere scenografiche Cuore / Cervello';
+    document.getElementById('q-desc').value = 'opera cuore in eps fresato e carteggiato';
+    document.getElementById('q-dim-x').value = 3000;
+    document.getElementById('q-dim-y').value = 2000;
+    document.getElementById('q-dim-z').value = 1800;
+    document.getElementById('q-qty').value = 1;
+    document.getElementById('q-finitura').value = 'antiurto_poliurea_colore';
+    document.getElementById('q-ferro').checked = true;
+  } else if (key === 'tavolo_am') {
+    document.getElementById('q-cliente').value = 'AM INTERNI S.R.L.';
+    document.getElementById('q-oggetto').value = 'Quotazione tavoli espositivi';
+    document.getElementById('q-desc').value = 'tavolo espositivo in eps';
+    document.getElementById('q-dim-x').value = 1050;
+    document.getElementById('q-dim-y').value = 1050;
+    document.getElementById('q-dim-z').value = 650;
+    document.getElementById('q-qty').value = 1;
+    document.getElementById('q-shape-factor').value = '0.85';
+    document.getElementById('q-finitura').value = 'ignifuga_cemento_degarock';
+    document.getElementById('q-ferro').checked = false;
+  }
+  recalcQuote();
+}
+
+function simulateDirtyMesh3D() {
+  const box = document.getElementById('mesh-diagnostic-box');
+  box.classList.remove('hidden');
+  box.className = 'p-3.5 rounded-lg border text-xs space-y-1.5 bg-amber-500/10 border-amber-500/40 text-amber-200';
+  box.innerHTML = `
+    <div class="font-bold text-amber-400 flex items-center justify-between">
+      <span>⚠️ DIAGNOSTICA MESH 3D: Rilevate 48 Mesh Aperte (Non-Manifold / Naked Edges)</span>
+      <span class="mono bg-amber-500/20 px-2 py-0.5 rounded">File: Statua_Cliente_Raw.obj</span>
+    </div>
+    <div>Il file 3D inviato dal cliente <b>non ha le mesh chiuse correttamente</b> e non può essere inviato direttamente a Roboticom ARPP 3.27.59.</div>
+    <div class="text-emerald-300 font-semibold">✅ Azione Automatica Preventivatore: selezionata voce "Sistemazione File 3D (ShrinkWrap Rhino 8 + Sezionamento Blocchi)" (+€ 220,00) e ricalcolato il sezionamento KUKA.</div>
+  `;
+  document.getElementById('q-file3d').value = 'sistemazione_mesh';
+  recalcQuote();
+}
+
+function handle3DFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  reader.onload = function(e) {
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    let triCount = 0;
+    let totalAreaMm2 = 0;
+    let signedVolMm3 = 0;
+
+    if (ext === 'obj') {
+      const text = new TextDecoder().decode(e.target.result);
+      const verts = [];
+      const lines = text.split('\n');
+      for (const l of lines) {
+        if (l.startsWith('v ')) {
+          const p = l.trim().split(/\s+/);
+          const x = parseFloat(p[1]), y = parseFloat(p[2]), z = parseFloat(p[3]);
+          if (!isNaN(x)) {
+            verts.push([x, y, z]);
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+          }
+        } else if (l.startsWith('f ')) {
+          triCount++;
+        }
+      }
+    } else if (ext === 'stl') {
+      const buf = e.target.result;
+      const dv = new DataView(buf);
+      if (buf.byteLength > 84) {
+        const nTriangles = dv.getUint32(80, true);
+        if (84 + nTriangles * 50 === buf.byteLength) {
+          triCount = nTriangles;
+          for (let i = 0; i < nTriangles; i++) {
+            const off = 84 + i * 50;
+            const v1 = [dv.getFloat32(off + 12, true), dv.getFloat32(off + 16, true), dv.getFloat32(off + 20, true)];
+            const v2 = [dv.getFloat32(off + 24, true), dv.getFloat32(off + 28, true), dv.getFloat32(off + 32, true)];
+            const v3 = [dv.getFloat32(off + 36, true), dv.getFloat32(off + 40, true), dv.getFloat32(off + 44, true)];
+            for (const v of [v1, v2, v3]) {
+              if (v[0] < minX) minX = v[0]; if (v[0] > maxX) maxX = v[0];
+              if (v[1] < minY) minY = v[1]; if (v[1] > maxY) maxY = v[1];
+              if (v[2] < minZ) minZ = v[2]; if (v[2] > maxZ) maxZ = v[2];
+            }
+            // Area triangolo
+            const ax = v2[0]-v1[0], ay = v2[1]-v1[1], az = v2[2]-v1[2];
+            const bx = v3[0]-v1[0], by = v3[1]-v1[1], bz = v3[2]-v1[2];
+            const cx = ay*bz - az*by, cy = az*bx - ax*bz, cz = ax*by - ay*bx;
+            totalAreaMm2 += 0.5 * Math.sqrt(cx*cx + cy*cy + cz*cz);
+            signedVolMm3 += (v1[0]*(v2[1]*v3[2] - v2[2]*v3[1]) - v1[1]*(v2[0]*v3[2] - v2[2]*v3[0]) + v1[2]*(v2[0]*v3[1] - v2[1]*v3[0])) / 6.0;
+          }
+        }
+      }
+    }
+
+    if (minX !== Infinity) {
+      let sx = Math.round(maxX - minX), sy = Math.round(maxY - minY), sz = Math.round(maxZ - minZ);
+      // Se il file era in metri o cm, converti in mm
+      if (Math.max(sx, sy, sz) < 25) { sx *= 1000; sy *= 1000; sz *= 1000; }
+      else if (Math.max(sx, sy, sz) < 250) { sx *= 10; sy *= 10; sz *= 10; }
+
+      document.getElementById('q-dim-x').value = Math.max(50, sx);
+      document.getElementById('q-dim-y').value = Math.max(50, sy);
+      document.getElementById('q-dim-z').value = Math.max(50, sz);
+
+      const box = document.getElementById('mesh-diagnostic-box');
+      box.classList.remove('hidden');
+      box.className = 'p-3.5 rounded-lg border text-xs space-y-1 bg-emerald-500/10 border-emerald-500/40 text-emerald-200';
+      box.innerHTML = `
+        <div class="font-bold text-emerald-400">✅ FILE 3D ANALIZZATO: ${file.name} (${triCount.toLocaleString('it-IT')} facce)</div>
+        <div>Dimensioni rilevate: <b>${sx} × ${sy} × ${sz} mm</b> ${totalAreaMm2 > 0 ? `· Superficie mesh: <b>${(totalAreaMm2/1e6).toFixed(2)} m²</b>` : ''}</div>
+      `;
+      recalcQuote();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── 6. GESTIONE RIGHE FOGLIO PREVENTIVO EUREKA ───────────────────────────────
+function addCurrentLineToQuote() {
+  if (!currentCalculatedLine) recalcQuote();
+  const customDesc = document.getElementById('res-eureka-desc').value.trim();
+  quoteDocumentLines.push({
+    ...currentCalculatedLine,
+    descrizione: customDesc || currentCalculatedLine.descrizione
+  });
+  document.getElementById('quote-lines-count').textContent = quoteDocumentLines.length;
+  renderPrintSheet();
+}
+
+function clearPrintLines() {
+  quoteDocumentLines = [];
+  document.getElementById('quote-lines-count').textContent = 1;
+  renderPrintSheet();
+}
+
+function renderPrintSheet() {
+  const lines = quoteDocumentLines.length ? quoteDocumentLines : (currentCalculatedLine ? [currentCalculatedLine] : []);
+  const tbody = document.getElementById('pr-lines-tbody');
+  let totImp = 0;
+  tbody.innerHTML = lines.map(l => {
+    totImp += l.importo;
+    return `
+      <tr class="border-b border-gray-300">
+        <td class="p-2 border-r border-black">${l.descrizione}</td>
+        <td class="p-2 text-center border-r border-black">${l.um}</td>
+        <td class="p-2 text-right border-r border-black">${l.quantita.toFixed(3).replace('.', ',')}</td>
+        <td class="p-2 text-right border-r border-black">${l.prezzo_unitario.toLocaleString('it-IT', {minimumFractionDigits: 2})}</td>
+        <td class="p-2 text-right border-r border-black font-semibold">${l.importo.toLocaleString('it-IT', {minimumFractionDigits: 2})}</td>
+        <td class="p-2 text-center">22</td>
+      </tr>
+    `;
+  }).join('');
+  const iva = totImp * 0.22;
+  document.getElementById('pr-tot-imp').textContent = formatEUR(totImp);
+  document.getElementById('pr-tot-iva').textContent = formatEUR(iva);
+  document.getElementById('pr-tot-doc').textContent = formatEUR(totImp + iva);
+}
+
+function printEurekaPDF() {
+  renderPrintSheet();
+  window.print();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 7. PARSER KUKA (.SRC Roboticom ARPP 3.27.59) & PANTOGRAFO OSAI (.TXT) + 3D VIEW
+// ══════════════════════════════════════════════════════════════════════════════
+
+let lastParsedMachineHours = 0;
+let currentToolpathPoints = [];
+
+function generateRealisticKukaDemo(type) {
+  let out = [];
+  if (type === 'kuka2_pl2') {
+    out.push(`&ACCESS RVP\n&REL 1\n&COMMENT Generated by Roboticom ARPP 3.27.59\nDEF PL2_0004 ( )\n; --- Macchina: KUKA KR 16 (Foto 3 Capannone AMR) ---\n$BASE = {X 1250.0, Y 0.0, Z 420.0, A 0.0, B 0.0, C 0.0}\n$TOOL = {X 0.0, Y 0.0, Z 385.0, A 0.0, B 0.0, C 0.0}\n$VEL.CP = 0.250000\nPTP {E6POS: X -420.000, Y 100.000, Z 250.000, A -119.95, B 0, C 0, E1 0.0} C_PTP`);
+    // Genera passate elico-spirali 3D realistiche con le righe vere viste nella Foto 3 (13700..13711)
+    let x = -420, y = 105.434, z = 650, e1 = 0;
+    for (let i = 1; i <= 1800; i++) {
+      const angle = (i / 1800) * Math.PI * 28;
+      const radius = 320 + 95 * Math.sin(i / 180);
+      x = -420 + radius * Math.cos(angle);
+      y = 105.434 + radius * Math.sin(angle);
+      z = 650 - (i / 1800) * 600;
+      e1 = (i * 0.2) % 360;
+      const vel = (0.038 + 0.025 * Math.abs(Math.cos(angle))).toFixed(7);
+      out.push(`$VEL.CP = ${vel}`);
+      out.push(`LIN {E6POS: X ${x.toFixed(3)}, Y ${y.toFixed(3)}, Z ${z.toFixed(3)}, A -119.9509, B 0, C 0, E1 ${e1.toFixed(4)}} C_DIS`);
+    }
+    // Righe esatte lette dalla Foto 3 (Ln 13702-13711)
+    out.push(`; --- Righe esatte rilevate da Foto 3 KCP2 (Ln 13702 - 13711) ---`);
+    out.push(`$VEL.CP = 0.0388892`);
+    out.push(`LIN {E6POS: X -423.959, Y 105.434, Z 53.693, A -119.9509, B 0, C 0, E1 72.9601} C_DIS`);
+    out.push(`$VEL.CP = 0.0593385`);
+    out.push(`LIN {E6POS: X -426.952, Y 105.434, Z 52.868, A -119.9532, B 0, C 0, E1 73.0258} C_DIS`);
+    out.push(`$VEL.CP = 0.0604176`);
+    out.push(`LIN {E6POS: X -429.961, Y 105.434, Z 52.036, A -119.9507, B 0, C 0, E1 73.0703} C_DIS`);
+    out.push(`END`);
+  } else if (type === 'kuka1_inout') {
+    out.push(`&ACCESS RVP\n&COMMENT Roboticom ARPP 3.27.59 - KUKA KR 16F (Foto 2)\nDEF INOUT1834_0001 ( )\n$VEL.CP = 0.085000\nPTP {E6POS: X 267.986, Y 146.935, Z 120.036, A -110.2202, B 62.6699, C -96.8803, E1 -3023.0842} C_PTP C_DIS`);
+    for (let i = 1; i <= 1450; i++) {
+      const t = i / 1450;
+      const x = 267.986 + 450 * Math.cos(t * Math.PI * 22);
+      const y = 146.935 + 380 * Math.sin(t * Math.PI * 22);
+      const z = 980 - t * 860;
+      const e1 = -3023.0842 + i * 2.1;
+      const vel = (0.045 + 0.030 * Math.sin(i * 0.1)).toFixed(6);
+      out.push(`$VEL.CP = ${vel}`);
+      out.push(`LIN {E6POS: X ${x.toFixed(3)}, Y ${y.toFixed(3)}, Z ${z.toFixed(3)}, A -110.2202, B 62.6699, C -96.8803, E1 ${e1.toFixed(4)}} C_DIS`);
+    }
+    out.push(`END`);
+  } else {
+    // OSAI Pantografo RUSTIK.txt (Foto 1)
+    out.push(`N000 ;XXXX403\n(X,Y,Z - Programma RUSTIK.txt Pantografo OSAI IP 192.168.0.2)\nG90\nJM1\nG00 X0.000 Y0.000 Z50.000\nF3200`);
+    for (let pass = 0; pass < 24; pass++) {
+      const y = pass * 35;
+      out.push(`G01 X0.000 Y${y.toFixed(3)} Z-12.500 F2800`);
+      for (let step = 1; step <= 40; step++) {
+        const x = step * 35;
+        const z = -12.5 + 8.0 * Math.sin(step * 0.4 + pass * 0.5);
+        out.push(`G01 X${x.toFixed(3)} Y${y.toFixed(3)} Z${z.toFixed(3)} F3200`);
+      }
+    }
+    out.push(`G00 Z80.000\nM30`);
+  }
+  return out.join('\n');
+}
+
+function loadDemoMachineProgram(type) {
+  const names = {
+    kuka2_pl2: 'PL2_0004.SRC (KUKA 2 - KR 16)',
+    kuka1_inout: 'INOUT1834_0001.SRC (KUKA 1 - KR 16F)',
+    osai_rustik: 'RUSTIK.txt (Pantografo OSAI 192.168.0.2)'
+  };
+  document.getElementById('mach-prog-name').textContent = names[type];
+  document.getElementById('mach-pov-slider').value = (type === 'osai_rustik') ? 90 : 100;
+  document.getElementById('mach-code-area').value = generateRealisticKukaDemo(type);
+  parseCurrentMachineCode();
+}
+
+function handleMachineFilesUpload(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  Promise.all(files.map(f => f.text().then(t => ({ name: f.name, text: t })))).then(items => {
+    document.getElementById('mach-prog-name').textContent = items.map(i => i.name).join(' + ');
+    document.getElementById('mach-code-area').value = items.map(i => `; === FILE: ${i.name} ===\n` + i.text).join('\n');
+    parseCurrentMachineCode();
+  });
+}
+
+function parseCurrentMachineCode() {
+  const code = document.getElementById('mach-code-area').value || '';
+  const povPct = parseFloat(document.getElementById('mach-pov-slider').value) || 100;
+  document.getElementById('mach-pov-label').textContent = povPct + '%';
+
+  const isKuka = /\$VEL\.CP|E6POS|\bLIN\s*\{|\bPTP\s*\{/i.test(code);
+  const lines = code.split('\n');
+
+  let linMoves = 0, ptpMoves = 0;
+  let linDistMm = 0, ptpDistMm = 0;
+  let linTimeSec = 0, ptpTimeSec = 0;
+  let curVelCp = 0.05; // m/s
+  let curFeedMmMin = 3000;
+  let prev = null, prevE1 = null;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  let minE1 = Infinity, maxE1 = -Infinity;
+  let velSum = 0, velCount = 0;
+  const pts = [];
+
+  if (isKuka) {
+    document.getElementById('mach-detected-type').textContent = '🤖 Robot KUKA KRC2 (Roboticom ARPP 3.27.59)';
+    for (const l of lines) {
+      const mv = l.match(/\$VEL\.CP\s*=\s*([0-9.]+)/i);
+      if (mv) {
+        curVelCp = parseFloat(mv[1]) || 0.05;
+        velSum += curVelCp * 1000;
+        velCount++;
+        continue;
+      }
+      const mm = l.match(/\b(LIN|PTP)\s*\{([^}]+)\}/i);
+      if (mm) {
+        const mtype = mm[1].toUpperCase();
+        const body = mm[2];
+        const rx = body.match(/\bX\s+(-?[0-9.]+)/i);
+        const ry = body.match(/\bY\s+(-?[0-9.]+)/i);
+        const rz = body.match(/\bZ\s+(-?[0-9.]+)/i);
+        const re1 = body.match(/\bE1\s+(-?[0-9.]+)/i);
+        if (rx && ry && rz) {
+          const x = parseFloat(rx[1]), y = parseFloat(ry[1]), z = parseFloat(rz[1]);
+          const e1 = re1 ? parseFloat(re1[1]) : 0;
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
+          if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+          if (re1) { if (e1 < minE1) minE1 = e1; if (e1 > maxE1) maxE1 = e1; }
+
+          const vMms = Math.max(1, curVelCp * 1000);
+          pts.push({ x, y, z, v: vMms, rapid: mtype === 'PTP' });
+
+          if (prev) {
+            const dist = Math.hypot(x - prev.x, y - prev.y, z - prev.z);
+            const de1 = (re1 && prevE1 !== null) ? Math.abs(e1 - prevE1) : 0;
+            const effDist = Math.max(dist, de1 * 2.2);
+            if (mtype === 'LIN') {
+              linMoves++;
+              linDistMm += dist;
+              linTimeSec += (effDist / vMms) * 1.08;
+            } else {
+              ptpMoves++;
+              ptpDistMm += dist;
+              ptpTimeSec += (effDist / 400.0) + 0.15;
+            }
+          } else {
+            if (mtype === 'LIN') linMoves++; else ptpMoves++;
+          }
+          prev = { x, y, z };
+          if (re1) prevE1 = e1;
+        }
+      }
+    }
+  } else {
+    document.getElementById('mach-detected-type').textContent = '⚙️ Pantografo CNC OSAI (IP: 192.168.0.2 — G-Code ISO)';
+    let cx = 0, cy = 0, cz = 0, mode = 1;
+    for (const raw of lines) {
+      const l = raw.replace(/\([^)]*\)/g, '').split(';')[0].trim().toUpperCase();
+      if (!l) continue;
+      if (/\bG0?0\b/.test(l)) mode = 0;
+      if (/\bG0?[123]\b/.test(l)) mode = 1;
+      const mf = l.match(/\bF([0-9.]+)/);
+      if (mf) curFeedMmMin = parseFloat(mf[1]) || 3000;
+
+      const mx = l.match(/\bX(-?[0-9.]+)/);
+      const my = l.match(/\bY(-?[0-9.]+)/);
+      const mz = l.match(/\bZ(-?[0-9.]+)/);
+      if (mx || my || mz) {
+        const nx = mx ? parseFloat(mx[1]) : cx;
+        const ny = my ? parseFloat(my[1]) : cy;
+        const nz = mz ? parseFloat(mz[1]) : cz;
+        const dist = Math.hypot(nx - cx, ny - cy, nz - cz);
+        const vMms = Math.max(1, curFeedMmMin / 60.0);
+        velSum += vMms; velCount++;
+        if (mode === 0) {
+          ptpMoves++; ptpDistMm += dist; ptpTimeSec += (dist / 200.0) + 0.05;
+        } else {
+          linMoves++; linDistMm += dist; linTimeSec += (dist / vMms) * 1.05;
+        }
+        cx = nx; cy = ny; cz = nz;
+        if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
+        if (cz < minZ) minZ = cz; if (cz > maxZ) maxZ = cz;
+        pts.push({ x: cx, y: cy, z: cz, v: vMms, rapid: mode === 0 });
+      }
+    }
+  }
+
+  const time100 = linTimeSec + ptpTimeSec;
+  const effSec = time100 / (povPct / 100.0);
+  lastParsedMachineHours = effSec / 3600.0;
+
+  const fmtSec = (s) => {
+    s = Math.round(Math.max(0, s));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h > 0 ? `${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s` : `${m}m ${String(sec).padStart(2,'0')}s`;
+  };
+
+  document.getElementById('mach-res-time').textContent = fmtSec(effSec);
+  document.getElementById('mach-res-hours-dec').textContent = `(${lastParsedMachineHours.toFixed(2)} ore)`;
+  document.getElementById('mach-res-100-note').textContent = `Tempo a 100% POV: ${fmtSec(time100)} · Righe analizzate: ${lines.length.toLocaleString('it-IT')}`;
+
+  const hourlyRate = isKuka ? PARAMS.kuka_h : PARAMS.osai_h;
+  document.getElementById('mach-res-cost').textContent = formatEUR(lastParsedMachineHours * hourlyRate);
+  document.getElementById('mach-kpi-dist').textContent = ((linDistMm + ptpDistMm) / 1000).toFixed(1) + ' m';
+  document.getElementById('mach-kpi-moves').textContent = `${linMoves.toLocaleString('it-IT')} LIN / ${ptpMoves} PTP`;
+  const avgVel = velCount > 0 ? (velSum / velCount) : 50;
+  document.getElementById('mach-kpi-vel').textContent = avgVel.toFixed(1) + ' mm/s';
+
+  if (minX !== Infinity) {
+    document.getElementById('mach-kpi-bbox').textContent = `${Math.round(maxX-minX)}×${Math.round(maxY-minY)}×${Math.round(maxZ-minZ)}`;
+  }
+  document.getElementById('mach-kpi-e1').textContent = (minE1 !== Infinity) ? `${Math.round(minE1)}° → ${Math.round(maxE1)}°` : 'Non usato (3 assi)';
+
+  currentToolpathPoints = pts;
+  drawToolpath3D();
+}
+
+// ── 8. RENDER 3D INTERATTIVO PERCORSO UTENSILE SU CANVAS ────────────────────
+let camRotZ = 0.65, camRotX = 0.55, isDraggingCanvas = false, lastMouseX = 0, lastMouseY = 0;
+const canvas3d = document.getElementById('toolpath-canvas');
+canvas3d.addEventListener('mousedown', e => { isDraggingCanvas = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+window.addEventListener('mouseup', () => { isDraggingCanvas = false; });
+window.addEventListener('mousemove', e => {
+  if (!isDraggingCanvas) return;
+  camRotZ += (e.clientX - lastMouseX) * 0.01;
+  camRotX = Math.max(0.1, Math.min(1.4, camRotX + (e.clientY - lastMouseY) * 0.01));
+  lastMouseX = e.clientX; lastMouseY = e.clientY;
+  drawToolpath3D();
+});
+
+function drawToolpath3D() {
+  const ctx = canvas3d.getContext('2d');
+  const w = canvas3d.width, h = canvas3d.height;
+  ctx.clearRect(0, 0, w, h);
+  if (!currentToolpathPoints.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const p of currentToolpathPoints) {
+    if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
+  }
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
+  const span = Math.max(10, maxX - minX, maxY - minY, maxZ - minZ);
+  const scale = Math.min(w, h) * 0.72 / span;
+
+  const cosZ = Math.cos(camRotZ), sinZ = Math.sin(camRotZ);
+  const cosX = Math.cos(camRotX), sinX = Math.sin(camRotX);
+
+  const proj = (p) => {
+    const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+    const rx = dx * cosZ - dy * sinZ;
+    const ry = dx * sinZ + dy * cosZ;
+    const sx = w / 2 + rx * scale;
+    const sy = h / 2 - (dz * cosX - ry * sinX) * scale;
+    return [sx, sy];
+  };
+
+  for (let i = 1; i < currentToolpathPoints.length; i++) {
+    const p0 = currentToolpathPoints[i - 1], p1 = currentToolpathPoints[i];
+    const [x0, y0] = proj(p0), [x1, y1] = proj(p1);
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.strokeStyle = p1.rapid ? 'rgba(56,189,248,0.5)' : (p1.v > 55 ? 'rgba(16,185,129,0.85)' : 'rgba(245,158,11,0.85)');
+    ctx.lineWidth = p1.rapid ? 1 : 1.4;
+    ctx.stroke();
+  }
+}
+
+function sendMachineTimeToQuote() {
+  if (lastParsedMachineHours > 0) {
+    document.getElementById('q-override-mach-hours').value = lastParsedMachineHours.toFixed(2);
+    switchTab('tab-preventivo');
+    recalcQuote();
+  }
+}
+
+function clearMachOverride() {
+  document.getElementById('q-override-mach-hours').value = '';
+  recalcQuote();
+}
+
+// ── 9. TABELLA STORICO 75 PREVENTIVI EUREKA ─────────────────────────────────
+function renderStoricoTable() {
+  const q = (document.getElementById('storico-search').value || '').toLowerCase().trim();
+  const tbody = document.getElementById('storico-tbody');
+  const rows = [];
+
+  STORICO_QUOTES.forEach((doc, dIdx) => {
+    (doc.righe || []).forEach((r, rIdx) => {
+      if ((r.importo || 0) <= 0) return;
+      const hay = `${doc.nr_documento} ${doc.data} ${doc.cliente} ${doc.oggetto} ${r.descrizione}`.toLowerCase();
+      if (!q || hay.includes(q)) {
+        rows.push({ doc, r, dIdx, rIdx });
+      }
+    });
+  });
+
+  tbody.innerHTML = rows.map(({ doc, r, dIdx, rIdx }) => `
+    <tr class="hover:bg-slate-900/90 transition">
+      <td class="py-2.5 px-3 mono text-amber-300 whitespace-nowrap">#${doc.nr_documento || '-'}<div class="text-[10px] text-slate-500">${doc.data || ''}</div></td>
+      <td class="py-2.5 px-3 font-semibold text-white">${doc.cliente || '-'}</td>
+      <td class="py-2.5 px-3 text-slate-300">${doc.oggetto || '-'}</td>
+      <td class="py-2.5 px-3 text-slate-200 max-w-md">${r.descrizione}</td>
+      <td class="py-2.5 px-3 text-right mono">${r.quantita}</td>
+      <td class="py-2.5 px-3 text-right mono font-semibold text-emerald-400">${formatEUR(r.prezzo_unitario)}</td>
+      <td class="py-2.5 px-3 text-right mono font-bold text-white">${formatEUR(r.importo)}</td>
+      <td class="py-2.5 px-3 text-center">
+        <button onclick="useHistoricalRow(${dIdx}, ${rIdx})" class="bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 px-2.5 py-1 rounded text-[11px] font-semibold border border-slate-700 transition">Usa come Base</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function useHistoricalRow(dIdx, rIdx) {
+  const doc = STORICO_QUOTES[dIdx];
+  const r = doc.righe[rIdx];
+  document.getElementById('q-cliente').value = doc.cliente || '';
+  document.getElementById('q-oggetto').value = doc.oggetto || '';
+  document.getElementById('q-desc').value = r.descrizione || '';
+  document.getElementById('q-qty').value = r.quantita || 1;
+
+  const full = r.descrizione.toLowerCase();
+  const m3 = full.match(/(\d{3,4})\s*[x×]\s*(\d{3,4})\s*[x×]\s*(?:h\s*)?(\d{2,4})/);
+  const mh = full.match(/\bh\.?\s*(\d{3,4})\b/);
+  if (m3) {
+    document.getElementById('q-dim-x').value = m3[1];
+    document.getElementById('q-dim-y').value = m3[2];
+    document.getElementById('q-dim-z').value = m3[3];
+  } else if (mh) {
+    const h = parseInt(mh[1]);
+    document.getElementById('q-dim-z').value = h;
+    document.getElementById('q-dim-x').value = Math.round(h * 0.45);
+    document.getElementById('q-dim-y').value = Math.round(h * 0.45);
+  }
+  switchTab('tab-preventivo');
+  recalcQuote();
+}
+
+// ── 10. SALVATAGGIO PARAMETRI MASSIMO & GARY ────────────────────────────────
+function updateParamsFromUI() {
+  PARAMS.kuka_h = parseFloat(document.getElementById('p-kuka-h').value) || 45;
+  PARAMS.osai_h = parseFloat(document.getElementById('p-osai-h').value) || 40;
+  PARAMS.filo_h = parseFloat(document.getElementById('p-filo-h').value) || 35;
+  PARAMS.cad_h = parseFloat(document.getElementById('p-cad-h').value) || 50;
+  PARAMS.uomo_h = parseFloat(document.getElementById('p-uomo-h').value) || 32;
+  PARAMS.sfrido_pct = parseFloat(document.getElementById('p-sfrido').value) || 20;
+
+  PARAMS.finiture.scenografica_colore.mq = parseFloat(document.getElementById('p-fin-sceno').value) || 115;
+  PARAMS.finiture.quarzo_sabbia.mq = parseFloat(document.getElementById('p-fin-quarzo').value) || 135;
+  PARAMS.finiture.antiurto_poliurea_colore.mq = parseFloat(document.getElementById('p-fin-antiurto').value) || 240;
+  PARAMS.finiture.ignifuga_cemento_degarock.mq = parseFloat(document.getElementById('p-fin-cemento').value) || 380;
+  PARAMS.finiture.liscia_laccata_ral.mq = parseFloat(document.getElementById('p-fin-liscia').value) || 420;
+  PARAMS.finiture.cromata_specchio.mq = parseFloat(document.getElementById('p-fin-cromo').value) || 840;
+
+  PARAMS.materiali.eps_k13_100.costo_mc = parseFloat(document.getElementById('p-eps100').value) || 55;
+  PARAMS.materiali.eps_150.costo_mc = parseFloat(document.getElementById('p-eps150').value) || 78;
+  PARAMS.materiali.eps_200_hd.costo_mc = parseFloat(document.getElementById('p-eps200').value) || 110;
+  PARAMS.kuka_max = [
+    parseFloat(document.getElementById('p-kuka-x').value) || 1600,
+    parseFloat(document.getElementById('p-kuka-y').value) || 1200,
+    parseFloat(document.getElementById('p-kuka-z').value) || 1400
+  ];
+  recalcQuote();
+}
+
+function saveCustomParams() {
+  updateParamsFromUI();
+  localStorage.setItem('amr_preventivatore_params_v1', JSON.stringify(PARAMS));
+  alert('✅ Tariffe e parametri salvati con successo!');
+}
+
+function resetCustomParams() {
+  localStorage.removeItem('amr_preventivatore_params_v1');
+  location.reload();
+}
+
+// ── 11. INTEGRAZIONE LIVE MONDAY.COM (NEW COMMERCIALE 2133436509) ───────────
+let MONDAY_COMMERCIAL_ITEMS = [];
+
+async function fetchMondayCommercialItems() {
+  const badge = document.getElementById('monday-conn-badge');
+  badge.textContent = 'Sincronizzazione...';
+  try {
+    const res = await fetch('./api/preventivatore/monday/items');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Errore lettura Monday');
+    MONDAY_COMMERCIAL_ITEMS = data.items || [];
+    const sel = document.getElementById('monday-select-item');
+    sel.innerHTML = `<option value="">-- Seleziona una richiesta aperta da NEW COMMERCIALE (${MONDAY_COMMERCIAL_ITEMS.length} trovate) --</option>` +
+      MONDAY_COMMERCIAL_ITEMS.map((it, idx) =>
+        `<option value="${idx}">[${it.commessa || it.id}] ${it.cliente} — ${it.progetto || 'Senza oggetto'} ${it.budget ? '(€ ' + it.budget + ')' : ''}</option>`
+      ).join('');
+    document.getElementById('monday-items-bar').classList.remove('hidden');
+    badge.textContent = `Connesso (${MONDAY_COMMERCIAL_ITEMS.length} schede)`;
+  } catch (err) {
+    badge.textContent = 'Errore Connessione';
+    alert('Impossibile leggere Monday.com: ' + err.message);
+  }
+}
+
+function applySelectedMondayItem() {
+  const idx = document.getElementById('monday-select-item').value;
+  if (idx === '') {
+    document.getElementById('q-monday-id').value = '';
+    document.getElementById('q-monday-linked-badge').textContent = 'Nuova Scheda Monday';
+    return;
+  }
+  const it = MONDAY_COMMERCIAL_ITEMS[parseInt(idx)];
+  if (!it) return;
+  document.getElementById('q-monday-id').value = it.id;
+  document.getElementById('q-monday-linked-badge').textContent = `Collegato a Monday #${it.id} (${it.commessa})`;
+  document.getElementById('q-cliente').value = it.cliente || '';
+  document.getElementById('q-oggetto').value = it.progetto || it.cliente || '';
+  document.getElementById('q-referente').value = it.referente || '';
+  document.getElementById('q-email').value = it.email || '';
+  if (it.specifiche) {
+    document.getElementById('q-desc').value = it.specifiche.slice(0, 140);
+  }
+  recalcQuote();
+}
+
+async function publishQuoteToMonday() {
+  const btn = document.getElementById('btn-publish-monday');
+  const box = document.getElementById('monday-publish-result');
+  btn.disabled = true;
+  const origText = btn.innerHTML;
+  btn.innerHTML = '⏳ Invio a Monday.com...';
+  box.classList.add('hidden');
+
+  const linesToSend = quoteDocumentLines.length ? quoteDocumentLines : (currentCalculatedLine ? [currentCalculatedLine] : []);
+  const totImp = linesToSend.reduce((s, r) => s + (parseFloat(r.importo) || 0), 0);
+  const finKey = document.getElementById('q-finitura').value;
+
+  const payload = {
+    monday_item_id: document.getElementById('q-monday-id').value || '',
+    cliente: document.getElementById('q-cliente').value || 'Cliente',
+    oggetto: document.getElementById('q-oggetto').value || 'Preventivo AMR OS',
+    referente: document.getElementById('q-referente').value || '',
+    email: document.getElementById('q-email').value || '',
+    totale_imponibile: totImp,
+    fresa: true,
+    taglio: true,
+    finitura: !finKey.startsWith('grezzo'),
+    disegno_tecnico: document.getElementById('q-file3d').value !== 'file_ok',
+    specifiche: document.getElementById('res-eureka-desc').value || '',
+    righe: linesToSend,
+    analisi: {
+      dimensioni: `${document.getElementById('q-dim-x').value}x${document.getElementById('q-dim-y').value}x${document.getElementById('q-dim-z').value} mm`,
+      volume_m3: document.getElementById('kpi-vol-box').textContent,
+      superficie_m2: document.getElementById('kpi-surf-mq').textContent,
+      blocchi_kuka: document.getElementById('kpi-kuka-blocks').textContent,
+      tempo_macchina: document.getElementById('kpi-mach-hours').textContent,
+      costo_vivo: document.getElementById('bd-cost-tot').textContent,
+      margine: document.getElementById('res-margin-badge').textContent
+    }
+  };
+
+  try {
+    const res = await fetch('./api/preventivatore/monday/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Errore pubblicazione Monday');
+    document.getElementById('q-monday-id').value = data.item_id;
+    document.getElementById('q-monday-linked-badge').textContent = `Collegato a Monday #${data.item_id}`;
+    box.className = 'text-xs p-3 rounded-lg border bg-emerald-500/15 border-emerald-500/40 text-emerald-200 space-y-1';
+    box.innerHTML = `
+      <div class="font-bold text-emerald-400">✅ Preventivo salvato su Monday.com (Board NEW COMMERCIALE #2133436509)!</div>
+      <div>Scheda ID: <b class="mono">#${data.item_id}</b> · Importo impostato: <b>${formatEUR(totImp)}</b> · Update allegato con successo.</div>
+      <div><a href="${data.monday_url}" target="_blank" class="underline text-amber-300 font-bold">👉 Apri la scheda direttamente su Monday.com</a></div>
+    `;
+    box.classList.remove('hidden');
+  } catch (err) {
+    box.className = 'text-xs p-3 rounded-lg border bg-rose-500/15 border-rose-500/40 text-rose-200';
+    box.innerHTML = `❌ Errore invio Monday.com: ${err.message}`;
+    box.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origText;
+  }
+}
+
+// Init
+window.addEventListener('DOMContentLoaded', () => {
+  loadPresetPiece('kira_camera');
+  loadDemoMachineProgram('kuka2_pl2');
+});
+</script>
+</body>
+</html>
