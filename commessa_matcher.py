@@ -683,11 +683,11 @@ def _search_by_client_name(
             return MatchResult(found=False)
 
     # 2) Se l'email non ha alcun token specifico di progetto:
-    #    - Se è un nuovo preventivo / nuova richiesta / nuovo ordine → crea comunque nuova riga
-    #    - Se è una risposta (Re:/R:) o un aggiornamento generico → aggiorna l'item più recente del cliente
-    if tipo in ("preventivo", "nuova_richiesta", "ordine") and not is_reply:
+    #    - Se NON è una risposta (Re:/R:) → crea SEMPRE una nuova riga (anche se classificata generica)
+    #    - Se è una risposta (Re:/R:) → aggiorna l'item più recente del cliente
+    if not is_reply:
         logger.info(
-            "🆕 Nuova richiesta/preventivo per '%s' senza progetto specifico preesistente → creo NUOVA RIGA",
+            "🆕 Email non-risposta per '%s' senza progetto specifico preesistente → creo NUOVA RIGA",
             client_name
         )
         return MatchResult(found=False)
@@ -760,6 +760,7 @@ def add_email_update(
     board_id: str,
     classification,
     email_subject: str,
+    attachments: Optional[List[Tuple[str, bytes]]] = None,
 ) -> bool:
     """
     Aggiunge un update/commento all'item esistente con i dettagli dell'email ricevuta.
@@ -780,6 +781,7 @@ def add_email_update(
         check_query = """
         query ($item_id: [ID!]) {
           items(ids: $item_id) {
+            name
             updates(limit: 25) {
               id
               body
@@ -789,7 +791,9 @@ def add_email_update(
         """
         existing_data = _graphql(check_query, {"item_id": [item_id]})
         items_res = existing_data.get("items", [])
+        item_name_found = ""
         if items_res:
+            item_name_found = (items_res[0].get("name") or "").strip()
             existing_updates = items_res[0].get("updates", [])
             clean_sub = email_subject.strip().lower()
             clean_note = (getattr(classification, "note", "") or "").strip()[:60].lower()
@@ -835,6 +839,47 @@ def add_email_update(
 
         _graphql(query, {"item_id": item_id, "body": note_text})
         logger.info("✅ Update aggiunto all'item %s (board: %s)", item_id, board_id)
+
+        if attachments:
+            try:
+                from monday_client import upload_attachments_to_item
+                upload_attachments_to_item(str(item_id), attachments)
+            except Exception as att_err:
+                logger.warning("Impossibile caricare allegati su item %s: %s", item_id, att_err)
+
+        # Se l'item è su COMMERCIALE (1865049112) o NEW COMMERCIALE (2133436509),
+        # propaga l'update e gli allegati anche all'item gemello sull'altra scheda commerciale!
+        twin_board = None
+        if str(board_id) == "1865049112":
+            twin_board = "2133436509"
+        elif str(board_id) == "2133436509":
+            twin_board = "1865049112"
+
+        if twin_board and item_name_found:
+            try:
+                twin_q = """
+                query ($board_id: ID!, $item_name: String!) {
+                  items_page_by_column_values(
+                    limit: 5
+                    board_id: $board_id
+                    columns: [{ column_id: "name", column_values: [$item_name] }]
+                  ) {
+                    items { id name }
+                  }
+                }
+                """
+                twin_res = _graphql(twin_q, {"board_id": twin_board, "item_name": item_name_found})
+                twin_items = twin_res.get("items_page_by_column_values", {}).get("items", [])
+                if twin_items:
+                    twin_id = str(twin_items[0]["id"])
+                    _graphql(query, {"item_id": twin_id, "body": note_text})
+                    if attachments:
+                        from monday_client import upload_attachments_to_item
+                        upload_attachments_to_item(twin_id, attachments)
+                    logger.info("🔗 Update propagato anche a item gemello #%s su board %s", twin_id, twin_board)
+            except Exception as twin_err:
+                logger.debug("Propagazione twin update su board %s: %s", twin_board, twin_err)
+
         return True
 
     except Exception as e:

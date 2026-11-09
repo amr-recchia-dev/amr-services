@@ -597,7 +597,7 @@ def sync_all_active_departments() -> dict:
           items {{
             id
             name
-            column_values(ids: ["color_mkns43r0", "color_mknsezab", "color_mknsghqz", "color_mkrkwak4"]) {{
+            column_values(ids: ["text_mm51yk45", "color_mkns43r0", "color_mknsezab", "color_mknsghqz", "color_mkrkwak4"]) {{
               id
               text
             }}
@@ -608,6 +608,11 @@ def sync_all_active_departments() -> dict:
     """
     items = monday_query(q).get("data", {}).get("boards", [{}])[0].get("items_page", {}).get("items", [])
     logger.info(f"Letti {len(items)} progetti attivi da GESTIONE PROGETTI NEW.")
+
+    # Carica le mappe dei 3 reparti UNA SOLA VOLTA per risparmiare il 98% delle chiamate API Monday
+    taglio_map = fetch_department_existing_items(BOARD_TAGLIO_FRESA, "text_mkvq6d5t")
+    fin_map = fetch_department_existing_items(BOARD_FINITURE, "text_mkvq6d5t")
+    prog_map = fetch_department_existing_items(BOARD_PROGETTAZIONE_NEW, "text_mm51y7be")
 
     summary = {
         "commercial_reconciled": comm_reconcile,
@@ -621,14 +626,29 @@ def sync_all_active_departments() -> dict:
     }
 
     for it in items:
-        cols = {cv["id"]: cv.get("text") for cv in it["column_values"]}
-        has_dept = (
-            cols.get("color_mkns43r0") == "SI"
-            or cols.get("color_mknsezab") == "SI"
-            or cols.get("color_mknsghqz") == "SI"
-            or cols.get("color_mkrkwak4") == "SI"
-        )
-        if not has_dept:
+        cols = {cv["id"]: (cv.get("text") or "").strip() for cv in it["column_values"]}
+        is_t = cols.get("color_mkns43r0") == "SI"
+        is_fr = cols.get("color_mknsezab") == "SI"
+        is_fi = cols.get("color_mknsghqz") == "SI"
+        is_pr = cols.get("color_mkrkwak4") == "SI"
+
+        if not (is_t or is_fr or is_fi or is_pr):
+            continue
+
+        comm_code = cols.get("text_mm51yk45") or f"GP-{it['id']}"
+        name_low = it["name"].strip().lower()
+
+        missing_in_dept = False
+        if (is_t or is_fr) and not (taglio_map.get(comm_code) or taglio_map.get(name_low)):
+            missing_in_dept = True
+        if is_fi and not (fin_map.get(comm_code) or fin_map.get(name_low)):
+            missing_in_dept = True
+        if is_pr and not (prog_map.get(comm_code) or prog_map.get(name_low)):
+            missing_in_dept = True
+
+        # Sincronizza nel loop di riconciliazione periodica SOLO se manca in almeno un reparto assegnato
+        # (gli aggiornamenti in tempo reale avvengono già istantaneamente tramite webhook Monday)
+        if not missing_in_dept:
             continue
 
         res = sync_project_to_departments(str(it["id"]))

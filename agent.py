@@ -130,7 +130,7 @@ def run_once(dry_run: bool = False) -> None:
                         tipo="spam",
                     )
                     if email_obj.raw_uid:
-                        mark_email_as_read(email_obj.raw_uid)
+                        mark_email_as_read(email_obj.raw_uid, folder=getattr(email_obj, "folder", "INBOX"))
                 continue
 
             # 4. Crea item su Monday.com
@@ -151,7 +151,11 @@ def run_once(dry_run: bool = False) -> None:
                         match.item_name, match.item_id, match.board_id
                     )
                     success = add_email_update(
-                        match.item_id, match.board_id, result, email_obj.subject
+                        match.item_id,
+                        match.board_id,
+                        result,
+                        email_obj.subject,
+                        attachments=getattr(email_obj, "attachments", None),
                     )
                     monday_item_id = match.item_id if success else None
                     if not success:
@@ -173,7 +177,7 @@ def run_once(dry_run: bool = False) -> None:
                         f"⚠️ Da verificare: possibili commesse esistenti: {candidati_str}\n\n"
                         + result.note
                     )
-                    monday_item_id = create_item(result)
+                    monday_item_id = create_item(result, attachments=getattr(email_obj, "attachments", None))
                     if not monday_item_id:
                         logger.error(
                             "❌ Creazione item (ambiguo) fallita per: %s",
@@ -188,7 +192,7 @@ def run_once(dry_run: bool = False) -> None:
                         "➕ Nessuna commessa trovata → creo nuovo item per '%s'",
                         result.azienda
                     )
-                    monday_item_id = create_item(result)
+                    monday_item_id = create_item(result, attachments=getattr(email_obj, "attachments", None))
                     if not monday_item_id:
                         logger.error(
                             "❌ Creazione item fallita per: %s", email_obj.subject
@@ -205,7 +209,7 @@ def run_once(dry_run: bool = False) -> None:
                     monday_item_id=monday_item_id or "",
                 )
                 if email_obj.raw_uid:
-                    mark_email_as_read(email_obj.raw_uid)
+                    mark_email_as_read(email_obj.raw_uid, folder=getattr(email_obj, "folder", "INBOX"))
 
             logger.info(
                 "✅ Processata con successo: %s → Monday item #%s",

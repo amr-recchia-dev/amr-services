@@ -177,7 +177,55 @@ def _build_column_values_direct(classification) -> Tuple[Dict, str]:
 MONDAY_BOARD_COMMERCIALE = os.getenv("MONDAY_BOARD_COMMERCIALE", "1865049112")
 
 
-def _create_or_update_on_board(board_id: str, group_id: str, item_name: str, column_values: Dict, classification) -> Optional[str]:
+def upload_attachments_to_item(item_id: str, attachments: Optional[List[Tuple[str, bytes]]], col_id: str = "file_mkn13rg5") -> None:
+    """Carica gli allegati dell'email (PDF, DWG, DXF, ecc.) nella colonna file dell'item Monday."""
+    if not item_id or not attachments:
+        return
+    try:
+        q_assets = """
+        query ($item_id: [ID!]) {
+          items(ids: $item_id) {
+            assets { name }
+          }
+        }
+        """
+        res_a = _graphql(q_assets, {"item_id": [str(item_id)]})
+        existing_names = {
+            (a.get("name") or "").strip().lower()
+            for a in (res_a.get("items") or [{}])[0].get("assets", [])
+        }
+    except Exception:
+        existing_names = set()
+
+    for fname, fbytes in attachments:
+        if not fname or not fbytes or fname.strip().lower() in existing_names:
+            continue
+        try:
+            q_file = f'mutation ($file: File!) {{ add_file_to_column (item_id: {item_id}, column_id: "{col_id}", file: $file) {{ id }} }}'
+            r = requests.post(
+                "https://api.monday.com/v2/file",
+                headers={"Authorization": MONDAY_API_TOKEN, "API-Version": "2024-10"},
+                data={"query": q_file, "map": json.dumps({"image": "variables.file"})},
+                files={"image": (fname, fbytes, "application/octet-stream")},
+                timeout=60,
+            )
+            if r.status_code == 200 and "errors" not in r.text:
+                logger.info("📎 Allegato '%s' caricato su item #%s (colonna %s)", fname, item_id, col_id)
+                existing_names.add(fname.strip().lower())
+            else:
+                logger.warning("Upload allegato '%s' su item #%s: %s", fname, item_id, r.text[:160])
+        except Exception as e:
+            logger.warning("Errore upload allegato '%s' su item #%s: %s", fname, item_id, e)
+
+
+def _create_or_update_on_board(
+    board_id: str,
+    group_id: str,
+    item_name: str,
+    column_values: Dict,
+    classification,
+    attachments: Optional[List[Tuple[str, bytes]]] = None,
+) -> Optional[str]:
     """Crea o aggiorna (anti-duplicato) un item su una specifica board Monday (COMMERCIALE o NEW COMMERCIALE)."""
     try:
         check_q = """
@@ -212,6 +260,7 @@ def _create_or_update_on_board(board_id: str, group_id: str, item_name: str, col
                     item_name, classification.nome_progetto, board_id, it["id"]
                 )
                 _add_update_to_item(it["id"], classification)
+                upload_attachments_to_item(it["id"], attachments)
                 return it["id"]
     except Exception as check_err:
         logger.warning("Controllo preliminare duplicati su board %s fallito: %s", board_id, check_err)
@@ -256,13 +305,14 @@ def _create_or_update_on_board(board_id: str, group_id: str, item_name: str, col
             board_id, item_name_returned, item_id
         )
         _add_update_to_item(item_id, classification)
+        upload_attachments_to_item(item_id, attachments)
     else:
         logger.error("Creazione item fallita su board %s: risposta inattesa da Monday.com", board_id)
 
     return item_id
 
 
-def create_item(classification) -> Optional[str]:
+def create_item(classification, attachments: Optional[List[Tuple[str, bytes]]] = None) -> Optional[str]:
     """
     Crea un nuovo item sia sulla scheda principale COMMERCIALE (1865049112)
     sia su NEW COMMERCIALE (2133436509).
@@ -276,7 +326,9 @@ def create_item(classification) -> Optional[str]:
             if not b_id:
                 continue
             try:
-                created_id = _create_or_update_on_board(b_id, group_id, item_name, column_values, classification)
+                created_id = _create_or_update_on_board(
+                    b_id, group_id, item_name, column_values, classification, attachments=attachments
+                )
                 if created_id and not primary_id:
                     primary_id = created_id
             except Exception as b_err:

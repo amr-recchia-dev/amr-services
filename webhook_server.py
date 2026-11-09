@@ -572,7 +572,7 @@ def _send_permesso_email_smtp(o: dict) -> None:
         password = os.getenv("IMAP_PASSWORD", "")
         if not sender_email or not password:
             return
-        recipients = ["amministrazione@amrrecchia.it", "ordini@amrrecchia.it"]
+        recipients = ["amministrazione@amrrecchia.it", "ordini@amrrecchia.it", "info@amrrecchia.it"]
         nome = str(o.get("nome", ""))
         tipo = str(o.get("tipo", "Permesso"))
         dal = str(o.get("dal", ""))
@@ -646,7 +646,7 @@ def api_timbra_permessi():
     if action in ("permessi_richiedi", "permessi_annulla", "permessi_decidi"):
         logger.info(f"[PERMESSI] {action} da {ip}")
     data, code = _timbra_call(payload)
-    if action == "permessi_richiedi" and code == 200 and data.get("ok") and data.get("richiesta"):
+    if action == "permessi_richiedi" and code == 200 and data.get("ok") and data.get("richiesta") and not data.get("duplicata"):
         threading.Thread(target=_send_permesso_email_smtp, args=(data["richiesta"],), daemon=True).start()
     return jsonify(data), code
 
@@ -1132,7 +1132,7 @@ def test_archive(item_id: str):
 
 
 def start_email_agent_loop():
-    """Loop in background per controllare le email ogni 5 minuti."""
+    """Loop in background per controllare le email ogni 2 minuti."""
     import time
     from agent import run_once
     from db import init_db
@@ -1143,7 +1143,8 @@ def start_email_agent_loop():
     except Exception as e:
         logger.error(f"❌ Errore inizializzazione DB nel thread email: {e}")
         
-    check_interval = int(os.getenv("CHECK_INTERVAL_MINUTES", "5")) * 60
+    # Controllo ravvicinato ogni 2 minuti (120s) per intercettare subito le email prima che vengano spostate
+    check_interval = min(int(os.getenv("CHECK_INTERVAL_MINUTES", "2")) * 60, 120)
     
     # Ritardo iniziale di 15 secondi per dare il tempo a gunicorn/Flask di avviarsi completamente
     time.sleep(15)
@@ -1177,26 +1178,26 @@ def start_board_sync_loop():
 
 def start_department_sync_loop():
     """
-    Loop periodico di sicurezza (ogni 10 minuti) per inoltrare automaticamente
-    tutti i progetti da GESTIONE PROGETTI NEW verso
-    i reparti TAGLIO E FRESA, FINITURE e PROGETTAZIONE NEW.
+    Loop periodico di sicurezza (ogni 60 minuti) per verificare eventuali progetti
+    mancanti tra NEW COMMERCIALE -> GESTIONE PROGETTI NEW -> Reparti.
+    Gli aggiornamenti in tempo reale avvengono già tramite Webhook Monday.
     NON tocca MAI le vecchie board.
     """
     import time
     from department_syncer import sync_all_active_departments
 
-    logger.info("🔄 [DEPT GUARDIAN] Avvio thread periodico inoltro reparti (ogni 10 min)...")
+    logger.info("🔄 [DEPT GUARDIAN] Avvio thread periodico riconciliazione reparti (ogni 60 min)...")
     time.sleep(45)
 
     while True:
         try:
-            logger.info("🔄 [DEPT GUARDIAN] Controllo progetti assegnati ai reparti...")
+            logger.info("🔄 [DEPT GUARDIAN] Controllo riconciliazione reparti...")
             res = sync_all_active_departments()
-            logger.info(f"🔄 [DEPT GUARDIAN] Inoltro reparti completato: {res}")
+            logger.info(f"🔄 [DEPT GUARDIAN] Riconciliazione reparti completata: {res}")
         except Exception as e:
             logger.error(f"❌ [DEPT GUARDIAN] Errore ciclo reparti: {e}", exc_info=True)
 
-        time.sleep(600)
+        time.sleep(3600)
 
 
 dept_thread = threading.Thread(
