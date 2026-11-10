@@ -313,7 +313,7 @@
 
   var K_PIN = 'amr_timbra_pin', K_USER = 'amr_timbra_user', K_QUEUE = 'amr_timbra_queue', K_KNOWN = 'amr_timbra_known';
   var K_PERM_QUEUE = 'amr_perm_queue', K_PERM_CACHE = 'amr_perm_cache_';
-  var GPS_WAIT_MS = 3500, GPS_MAX_AGE = 120000, FETCH_TIMEOUT = 15000, LOGIN_TIMEOUT = 3500;
+  var GPS_WAIT_MS = 1200, GPS_MAX_AGE = 120000, FETCH_TIMEOUT = 15000, LOGIN_TIMEOUT = 3500;
 
   var $ = function (id) { return document.getElementById(id); };
   var pin = '';
@@ -352,9 +352,11 @@
     var timeoutMs = customTimeout || FETCH_TIMEOUT;
     var ctrl = window.AbortController ? new AbortController() : null;
     var t = setTimeout(function () { ctrl && ctrl.abort(); }, timeoutMs);
+    var payloadStr = JSON.stringify(body);
     return fetch(path, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body), signal: ctrl ? ctrl.signal : undefined, cache: 'no-store'
+      body: payloadStr, signal: ctrl ? ctrl.signal : undefined, cache: 'no-store',
+      keepalive: payloadStr.length < 60000
     }).then(function (r) {
       clearTimeout(t);
       return r.json().catch(function () { return { ok: false, retry: true }; }).then(function (j) { j._status = r.status; return j; });
@@ -398,6 +400,11 @@
   window.addEventListener('offline', netUi);
   window.addEventListener('pageshow', function () { netUi(); flushAll(); if (user && !KIOSK) refresh(); });
   window.addEventListener('focus', function () { netUi(); flushAll(); });
+  window.addEventListener('pagehide', function () { flushAll(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') flushAll();
+    else { netUi(); flushAll(); }
+  });
   netUi();
 
   // ── PIN ──────────────────────────────────────────────────────
