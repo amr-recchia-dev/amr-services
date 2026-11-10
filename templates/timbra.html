@@ -313,7 +313,7 @@
 
   var K_PIN = 'amr_timbra_pin', K_USER = 'amr_timbra_user', K_QUEUE = 'amr_timbra_queue', K_KNOWN = 'amr_timbra_known';
   var K_PERM_QUEUE = 'amr_perm_queue', K_PERM_CACHE = 'amr_perm_cache_';
-  var GPS_WAIT_MS = 1200, GPS_MAX_AGE = 120000, FETCH_TIMEOUT = 15000, LOGIN_TIMEOUT = 3500;
+  var GPS_WAIT_MS = 1200, GPS_MAX_AGE = 120000, FETCH_TIMEOUT = 15000, LOGIN_TIMEOUT = 2000;
 
   var $ = function (id) { return document.getElementById(id); };
   var pin = '';
@@ -1419,7 +1419,7 @@
   }
   if ('caches' in window) {
     try {
-      caches.open('amr-timbra-v7').then(function (c) {
+      caches.open('amr-timbra-v8').then(function (c) {
         c.put('/timbra', new Response('<!DOCTYPE html>\n' + document.documentElement.outerHTML, {
           status: 200,
           headers: { 'Content-Type': 'text/html; charset=utf-8' }

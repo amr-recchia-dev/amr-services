@@ -1,11 +1,11 @@
-/* AMR Timbra – service worker (v7 Offline-First + Cassaforte di Emergenza)
+/* AMR Timbra – service worker (v8 Offline-First + Cassaforte di Emergenza 2s)
  * 1. Apre SEMPRE istantaneamente la pagina /timbra dalla memoria del telefono (0 ms).
  * 2. Non cancella MAI le cache precedenti finché la nuova versione di /timbra non è salvata.
- * 3. Se iOS Safari avesse svuotato la cache e non c'è rete in capannone (timeout 3,5s),
+ * 3. Se iOS Safari avesse svuotato la cache e non c'è rete in capannone (timeout 2s),
  *    mostra una schermata di timbratura offline integrata che salva subito Entrata/Uscita
  *    in localStorage (amr_timbra_queue) all'orario esatto del tocco.
  */
-const CACHE = 'amr-timbra-v7';
+const CACHE = 'amr-timbra-v8';
 const ASSETS = ['/timbra', '/static/timbra-icon-192.png', '/static/timbra-icon-512.png', '/static/timbra-manifest.json',
   '/static/leaflet/leaflet.js', '/static/leaflet/leaflet.css'];
 
@@ -115,7 +115,7 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith(
     caches.match(normPath, { ignoreSearch: true }).then((cachedResp) => {
-      const bgUpdate = fetchUrlWithTimeout(normPath, cachedResp ? 15000 : 3500)
+      const bgUpdate = fetchUrlWithTimeout(normPath, cachedResp ? 15000 : 2000)
         .then(async (netResp) => {
           if (netResp && netResp.ok && netResp.status === 200) {
             const c = await caches.open(CACHE);
