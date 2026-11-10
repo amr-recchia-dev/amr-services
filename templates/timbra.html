@@ -1417,6 +1417,16 @@
       }
     });
   }
+  if ('caches' in window) {
+    try {
+      caches.open('amr-timbra-v7').then(function (c) {
+        c.put('/timbra', new Response('<!DOCTYPE html>\n' + document.documentElement.outerHTML, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        }));
+      }).catch(function () {});
+    } catch (e) {}
+  }
 })();
 </script>
 </body>
