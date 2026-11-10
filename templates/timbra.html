@@ -157,6 +157,29 @@
     .acts button { border: 0; border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 800; color: #fff; }
     .acts .y { background: var(--green); } .acts .n { background: var(--exit); }
     .lnk { background: none; border: 0; color: #f87171; font-size: 14px; font-weight: 700; padding: 8px 0 0; text-decoration: underline; }
+
+    /* Banner anomalia 1-click e Assistente Live */
+    #anomBanner { background: linear-gradient(135deg, #2b1d0d 0%, #1f160c 100%); border: 1.5px solid #d97706; border-radius: 16px; padding: 14px; margin-bottom: 14px; text-align: left; }
+    #anomBanner h4 { margin: 0 0 6px; font-size: 15px; color: #fbbf24; font-weight: 800; }
+    #anomBanner p { margin: 0 0 11px; font-size: 14px; color: #fde68a; line-height: 1.4; }
+    .anom-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .anom-btns button { flex: 1; min-width: 135px; border: 0; border-radius: 12px; padding: 12px 10px; font-size: 14px; font-weight: 800; color: #fff; cursor: pointer; }
+    .anom-btns .b-fix { background: #16a34a; }
+    .anom-btns .b-alt { background: #334155; color: #e2e8f0; }
+
+    .ass-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .ass-chips button { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; border-radius: 99px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .ass-chips button:active { background: #334155; }
+    #assChat { display: flex; flex-direction: column; gap: 8px; max-height: 290px; overflow-y: auto; margin-bottom: 10px; padding: 4px 0; }
+    .bub { padding: 10px 13px; border-radius: 14px; font-size: 14.5px; line-height: 1.45; white-space: pre-line; max-width: 92%; }
+    .bub.ai { background: #1e293b; color: #f1f5f9; border: 1px solid #334155; align-self: flex-start; }
+    .bub.me { background: #16a34a; color: #fff; font-weight: 600; align-self: flex-end; }
+    .ass-bar { display: flex; gap: 8px; align-items: center; }
+    .ass-bar input { flex: 1; min-width: 0; margin: 0; }
+    .b-mic { width: 48px; height: 48px; border-radius: 12px; border: 1px solid #334155; background: #1e293b; color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .b-mic.rec { background: #dc2626; border-color: #ef4444; animation: pulseRec 1s infinite; }
+    @keyframes pulseRec { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+    .b-send { height: 48px; padding: 0 16px; border-radius: 12px; border: 0; background: var(--accent); color: #fff; font-weight: 800; font-size: 15px; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -193,6 +216,7 @@
 
       <!-- Scheda TIMBRA -->
       <div id="tabTimbra" class="tab">
+        <div id="anomBanner" class="hidden"></div>
         <div class="clock" id="clock2">--:--</div>
         <div class="date" id="date2"></div>
         <div class="gps" id="gps">📍 Cerco la posizione…</div>
@@ -211,8 +235,34 @@
         <div class="card">
           <h3>Le timbrature di oggi</h3>
           <div id="oggi"><div class="empty">Nessuna timbratura oggi</div></div>
+          <button type="button" class="ghost" id="bGoAss" style="width:100%;margin-top:12px;font-size:14px">💬 Hai dimenticato di timbrare? Sistema con l'Assistente</button>
         </div>
         <div id="queueBox" class="hidden"></div>
+      </div>
+
+      <!-- Scheda ASSISTENTE ORARI 24/7 -->
+      <div id="tabAssistente" class="tab hidden">
+        <div class="card">
+          <h3>🤖 Assistente Orari 24/7</h3>
+          <p style="margin:0 0 10px;color:#94a3b8;font-size:13.5px;line-height:1.4">
+            Hai dimenticato una timbratura o sei entrato prima? Scrivilo qui o manda un vocale: l'Assistente corregge subito il tuo foglio.
+          </p>
+          <div class="ass-chips">
+            <button type="button" data-q="Ieri sono uscito alle 17:00">Ieri uscito alle 17:00</button>
+            <button type="button" data-q="Stamattina sono arrivato alle 07:00">Stamattina arrivato alle 07:00</button>
+            <button type="button" data-q="Ieri ho fatto pausa dalle 12:00 alle 13:00">Ieri pausa 12:00–13:00</button>
+          </div>
+          <div id="assChat"></div>
+          <div class="ass-bar">
+            <input type="text" id="assInp" class="inp" placeholder="Scrivi o tieni premuto 🎙️…">
+            <button type="button" class="b-mic" id="bAssMic" title="Registra messaggio vocale">🎙️</button>
+            <button type="button" class="b-send" id="bAssSend">Invia</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Le tue timbrature recenti</h3>
+          <div id="assStorico"><div class="empty">Nessuna timbratura recente</div></div>
+        </div>
       </div>
 
       <!-- Scheda FERIE E PERMESSI -->
@@ -285,7 +335,8 @@
 
   <nav id="tabbar" class="hidden">
     <button data-tab="tabTimbra" class="on"><span>⏱</span>Timbra</button>
-    <button data-tab="tabPermessi"><span>🌴</span>Ferie e permessi<i id="badgePerm" class="badge hidden"></i></button>
+    <button data-tab="tabAssistente"><span>💬</span>Assistente<i id="badgeAss" class="badge hidden"></i></button>
+    <button data-tab="tabPermessi"><span>🌴</span>Permessi<i id="badgePerm" class="badge hidden"></i></button>
     <button data-tab="tabAdmin" id="tbAdmin" class="hidden"><span>✅</span>Approva<i id="badgeAdmin" class="badge hidden"></i></button>
     <a href="/presenze"><span>📊</span>Le mie ore</a>
   </nav>
@@ -468,7 +519,11 @@
   function rememberKnown(p, res) {
     sha(p).then(function (h) {
       var known = load(K_KNOWN, {});
-      known[h] = { nome: res.nome, dipartimento: res.dipartimento || '', admin: !!res.admin, eventi_oggi: res.eventi_oggi || [], day: today() };
+      known[h] = {
+        nome: res.nome, dipartimento: res.dipartimento || '', admin: !!res.admin,
+        eventi_oggi: res.eventi_oggi || [], day: today(),
+        anomalia_ieri: res.anomalia_ieri || null, storico_recente: res.storico_recente || []
+      };
       save(K_KNOWN, known);
     });
   }
@@ -477,7 +532,12 @@
     sha(p).then(function (h) {
       var k = load(K_KNOWN, {})[h];
       if (k) {
-        enter(p, { nome: k.nome, dipartimento: k.dipartimento, eventi_oggi: k.day === today() ? (k.eventi_oggi || []) : [], prossima: null, admin: !!k.admin, offline: true });
+        enter(p, {
+          nome: k.nome, dipartimento: k.dipartimento,
+          eventi_oggi: k.day === today() ? (k.eventi_oggi || []) : [],
+          prossima: null, admin: !!k.admin, offline: true,
+          anomalia_ieri: k.anomalia_ieri || null, storico_recente: k.storico_recente || []
+        });
         refresh();
       } else {
         // Anche se è la prima volta in assoluto e non c'è rete, fa entrare subito senza bloccare l'operatore
@@ -490,10 +550,14 @@
   // ── Schermata timbratura ─────────────────────────────────────
   function enter(p, res) {
     var prev = user && user.pin === p && user.day === today() ? user.eventi_oggi : null;
+    var prevAnom = user && user.pin === p ? user.anomalia_ieri : null;
+    var prevStor = user && user.pin === p ? user.storico_recente : null;
     user = {
       pin: p, nome: res.nome, dipartimento: res.dipartimento || '',
       eventi_oggi: res.offline && prev ? prev : (res.eventi_oggi || []),
-      prossima: res.prossima, day: today(), admin: !!res.admin
+      prossima: res.prossima, day: today(), admin: !!res.admin,
+      anomalia_ieri: res.anomalia_ieri !== undefined ? res.anomalia_ieri : prevAnom,
+      storico_recente: res.storico_recente !== undefined ? res.storico_recente : (prevStor || [])
     };
     if (!KIOSK) { localStorage.setItem(K_PIN, p); save(K_USER, user); }
     pin = ''; drawDots(); $('pinMsg').textContent = '';
@@ -536,7 +600,8 @@
     $('vMain').classList.add('hidden'); $('vPin').classList.remove('hidden');
     $('tabbar').classList.add('hidden'); document.body.classList.remove('logged');
     $('listaPerm').innerHTML = ''; $('listaAttesa').innerHTML = ''; $('listaRecenti').innerHTML = ''; $('listaTel').innerHTML = '';
-    $('badgePerm').classList.add('hidden'); $('badgeAdmin').classList.add('hidden');
+    $('assChat').innerHTML = ''; $('assStorico').innerHTML = ''; $('anomBanner').className = 'hidden';
+    $('badgePerm').classList.add('hidden'); $('badgeAdmin').classList.add('hidden'); $('badgeAss').classList.add('hidden');
     pin = ''; drawDots();
   }
   $('bLogout').addEventListener('click', logout);
@@ -590,7 +655,43 @@
       if (e.pending) { var p = document.createElement('span'); p.className = 'p'; p.textContent = ' ⏳ in invio'; o.appendChild(p); }
       r.appendChild(a); r.appendChild(o); box.appendChild(r);
     });
+    renderAnomaliaBanner();
+    renderAssistenteStorico();
     renderQueue();
+  }
+
+  function renderAnomaliaBanner() {
+    var b = $('anomBanner');
+    if (!b) return;
+    var an = user && user.anomalia_ieri;
+    setBadge('badgeAss', an ? '!' : 0);
+    if (!an || !an.data) {
+      b.className = 'hidden';
+      b.innerHTML = '';
+      return;
+    }
+    b.className = '';
+    b.innerHTML = '';
+    b.appendChild(el('h4', '', '⚠️ Timbratura da completare (' + an.data + ')'));
+    b.appendChild(el('p', '', an.messaggio || 'Manca una timbratura recente.'));
+    var btns = el('div', 'anom-btns');
+    if (an.tipo === 'manca_pausa') {
+      var b1 = el('button', 'b-fix', '✓ Sì, pausa 12:00–13:00');
+      b1.onclick = function () { doQuickFix(an.data, 'manca_pausa', '12:00-13:00', b1); };
+      var b2 = el('button', 'b-fix', '✓ Pausa 12:00–12:30');
+      b2.onclick = function () { doQuickFix(an.data, 'manca_pausa', '12:00-12:30', b2); };
+      var b3 = el('button', 'b-alt', '✎ Altro orario…');
+      b3.onclick = function () { openAssistenteFor(an); };
+      btns.appendChild(b1); btns.appendChild(b2); btns.appendChild(b3);
+    } else {
+      var oraSug = an.orario_suggerito || '17:00';
+      var bFix = el('button', 'b-fix', '✓ Sono uscito alle ' + oraSug);
+      bFix.onclick = function () { doQuickFix(an.data, 'manca_uscita', oraSug, bFix); };
+      var bAlt = el('button', 'b-alt', '✎ Altro orario…');
+      bAlt.onclick = function () { openAssistenteFor(an); };
+      btns.appendChild(bFix); btns.appendChild(bAlt);
+    }
+    b.appendChild(btns);
   }
 
   function renderQueue() {
@@ -981,6 +1082,8 @@
     api('/api/timbra/login', { pin: p, device_id: DEV, kiosk: KIOSK }).then(function (res) {
       if (res.ok && user && user.pin === p) {
         user.nome = res.nome; user.dipartimento = res.dipartimento || ''; user.eventi_oggi = res.eventi_oggi || []; user.day = today();
+        user.anomalia_ieri = res.anomalia_ieri || null;
+        user.storico_recente = res.storico_recente || [];
         if (!!res.admin !== !!user.admin) { user.admin = !!res.admin; setAdmin(user.admin); }
         rememberKnown(p, res);
         save(K_USER, user); $('nome').textContent = user.nome; $('dip').textContent = user.dipartimento; renderMain();
@@ -995,6 +1098,188 @@
     lockScreen();
     document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') lockScreen(); });
   }
+
+  // ── Assistente Orari 24/7 (1-Click Banner + Testo + Vocale) ──
+  var assBusy = false, mediaRec = null, recChunks = [];
+
+  function addAssBubble(who, txt) {
+    var box = $('assChat');
+    if (!box) return;
+    var b = el('div', 'bub ' + who, txt);
+    box.appendChild(b);
+    box.scrollTop = box.scrollHeight;
+    return b;
+  }
+
+  function initAssChat() {
+    var box = $('assChat');
+    if (!box || box.children.length > 0 || !user) return;
+    var first = (user.nome || '').split(' ')[0] || '';
+    var welcome = 'Ciao ' + first + '! 👋\nSe hai dimenticato di timbrare l\'uscita, la pausa pranzo o l\'entrata, scrivilo qui sotto o premi 🎙️ per mandarmi un vocale: sistemo subito io il tuo foglio.';
+    if (user.anomalia_ieri && user.anomalia_ieri.messaggio) {
+      welcome += '\n\n⚠️ ' + user.anomalia_ieri.messaggio;
+    }
+    addAssBubble('ai', welcome);
+  }
+
+  function renderAssistenteStorico() {
+    var box = $('assStorico');
+    if (!box || !user) return;
+    var st = user.storico_recente || [];
+    box.innerHTML = '';
+    if (!st.length) {
+      box.innerHTML = '<div class="empty">Nessuna timbratura negli ultimi giorni</div>';
+      return;
+    }
+    var byDate = {}, dates = [];
+    st.forEach(function (ev) {
+      if (!byDate[ev.data]) { byDate[ev.data] = []; dates.push(ev.data); }
+      byDate[ev.data].push(ev);
+    });
+    dates.forEach(function (d) {
+      var r = el('div', 'req');
+      var top = el('div', 'top');
+      top.appendChild(el('span', 't', '📅 ' + d));
+      r.appendChild(top);
+      var badges = byDate[d].map(function (x) {
+        return (x.azione === 'Entrata' ? '▶ ' : '■ ') + x.orario;
+      }).join('   ·   ');
+      r.appendChild(el('div', 'w', badges));
+      box.appendChild(r);
+    });
+  }
+
+  function applyLoginStateFromAss(ls) {
+    if (!ls || !user) return;
+    user.eventi_oggi = ls.eventi_oggi || user.eventi_oggi;
+    user.prossima = ls.prossima || user.prossima;
+    user.anomalia_ieri = ls.anomalia_ieri || null;
+    user.storico_recente = ls.storico_recente || user.storico_recente;
+    save(K_USER, user);
+    rememberKnown(user.pin, ls);
+    renderMain();
+  }
+
+  function doQuickFix(dataStr, tipoFix, orarioStr, btnEl) {
+    if (!user || assBusy) return;
+    assBusy = true;
+    var oldTxt = btnEl ? btnEl.textContent : '';
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Salvataggio…'; }
+    api('/api/timbra/assistente', {
+      pin: user.pin, device_id: DEV, kiosk: KIOSK,
+      quick_fix: { data: dataStr, tipo: tipoFix, orario: orarioStr }
+    }, 55000).then(function (res) {
+      assBusy = false;
+      if (res.ok) {
+        vibrate(40);
+        if (res.login_state) applyLoginStateFromAss(res.login_state);
+        else { user.anomalia_ieri = null; renderMain(); refresh(); }
+        addAssBubble('ai', res.reply || '✅ Timbratura aggiornata!');
+        alert(res.reply || '✅ Timbratura registrata con successo!');
+      } else {
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = oldTxt; }
+        alert('⚠️ ' + (res.error || 'Errore durante il salvataggio, riprova.'));
+      }
+    }).catch(function () {
+      assBusy = false;
+      if (btnEl) { btnEl.disabled = false; btnEl.textContent = oldTxt; }
+      alert('📴 Connessione debole: riprova tra qualche secondo.');
+    });
+  }
+
+  function openAssistenteFor(an) {
+    showTab('tabAssistente');
+    var inp = $('assInp');
+    if (inp && an && an.data) {
+      inp.value = 'Il ' + an.data + ' sono uscito alle ';
+      inp.focus();
+    }
+  }
+
+  function sendAssistentePayload(payload, userLabel) {
+    if (!user || assBusy) return;
+    assBusy = true;
+    if (userLabel) addAssBubble('me', userLabel);
+    var waitBub = addAssBubble('ai', '⏳ Sto verificando e aggiornando il foglio…');
+    $('bAssSend').disabled = true;
+    payload.pin = user.pin;
+    payload.device_id = DEV;
+    payload.kiosk = KIOSK;
+    api('/api/timbra/assistente', payload, 60000).then(function (res) {
+      assBusy = false;
+      $('bAssSend').disabled = false;
+      if (res.ok) {
+        vibrate(40);
+        var msgOut = '';
+        if (res.transcription) msgOut += '🎙️ "' + res.transcription + '"\n\n';
+        msgOut += res.reply || '✅ Fatto!';
+        waitBub.textContent = msgOut;
+        if (res.login_state) applyLoginStateFromAss(res.login_state);
+        else refresh();
+      } else {
+        waitBub.textContent = '⚠️ ' + (res.error || 'Non sono riuscito a completare la richiesta.');
+      }
+    }).catch(function () {
+      assBusy = false;
+      $('bAssSend').disabled = false;
+      waitBub.textContent = '📴 Connessione assente o lenta: riprova appena hai segnale.';
+    });
+  }
+
+  function sendAssistenteText() {
+    var inp = $('assInp');
+    var txt = (inp.value || '').trim();
+    if (!txt || assBusy) return;
+    inp.value = '';
+    sendAssistentePayload({ text: txt }, txt);
+  }
+
+  $('bGoAss').addEventListener('click', function () { showTab('tabAssistente'); });
+  $('bAssSend').addEventListener('click', sendAssistenteText);
+  $('assInp').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); sendAssistenteText(); }
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.ass-chips button'), function (b) {
+    b.addEventListener('click', function () {
+      var q = b.getAttribute('data-q');
+      if (q) sendAssistentePayload({ text: q }, q);
+    });
+  });
+
+  $('bAssMic').addEventListener('click', function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Il microfono non è supportato su questo browser: scrivi pure il messaggio nella casella di testo.');
+      return;
+    }
+    if (mediaRec && mediaRec.state === 'recording') {
+      mediaRec.stop();
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      recChunks = [];
+      var mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+      mediaRec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      $('bAssMic').classList.add('rec');
+      $('bAssMic').textContent = '⏹';
+      mediaRec.ondataavailable = function (e) { if (e.data && e.data.size > 0) recChunks.push(e.data); };
+      mediaRec.onstop = function () {
+        $('bAssMic').classList.remove('rec');
+        $('bAssMic').textContent = '🎙️';
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        var blob = new Blob(recChunks, { type: mediaRec.mimeType || 'audio/mp4' });
+        if (blob.size < 500) return;
+        var reader = new FileReader();
+        reader.onloadend = function () {
+          var b64 = String(reader.result || '').split(',')[1] || '';
+          if (b64) sendAssistentePayload({ audio_base64: b64, mime_type: blob.type || 'audio/mp4' }, '🎙️ Messaggio vocale inviato');
+        };
+        reader.readAsDataURL(blob);
+      };
+      mediaRec.start();
+    }).catch(function () {
+      alert('Consenti l\'accesso al microfono per inviare un messaggio vocale.');
+    });
+  });
 
   // ── Ferie e permessi ─────────────────────────────────────────
   var formTipo = null, formDurata = 'giorni', oreVal = 2, formCid = '', permBusy = false;
@@ -1017,10 +1302,11 @@
   }
 
   function showTab(id) {
-    ['tabTimbra', 'tabPermessi', 'tabAdmin'].forEach(function (t) { $(t).classList.toggle('hidden', t !== id); });
+    ['tabTimbra', 'tabAssistente', 'tabPermessi', 'tabAdmin'].forEach(function (t) { $(t).classList.toggle('hidden', t !== id); });
     Array.prototype.forEach.call(document.querySelectorAll('#tabbar [data-tab]'), function (b) {
       b.classList.toggle('on', b.getAttribute('data-tab') === id);
     });
+    if (id === 'tabAssistente') { initAssChat(); renderAssistenteStorico(); }
     if (id === 'tabPermessi') loadPermessi();
     if (id === 'tabAdmin') { loadAdmin(); loadTelefoni(); loadSicurezza(); }
     if (id === 'tabTimbra' && map) setTimeout(function () { map.invalidateSize(); }, 50);
@@ -1419,7 +1705,7 @@
   }
   if ('caches' in window) {
     try {
-      caches.open('amr-timbra-v8').then(function (c) {
+      caches.open('amr-timbra-v9').then(function (c) {
         c.put('/timbra', new Response('<!DOCTYPE html>\n' + document.documentElement.outerHTML, {
           status: 200,
           headers: { 'Content-Type': 'text/html; charset=utf-8' }

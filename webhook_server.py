@@ -651,6 +651,96 @@ def api_timbra_permessi():
     return jsonify(data), code
 
 
+@app.route("/api/timbra/assistente", methods=["POST"])
+def api_timbra_assistente():
+    """Assistente Live 24/7 per i dipendenti AMR dentro l'app /timbra (1-click banner, testo e vocale)."""
+    import base64
+    import assistente_timbra
+
+    ip = get_client_ip()
+    allowed, retry_after = rate_limiter.is_allowed(f"timbra_ass_{ip}", max_requests=15, window_seconds=60)
+    if not allowed:
+        return jsonify({"ok": False, "error": f"Troppe richieste ravvicinate, attendi {retry_after} secondi"}), 429
+
+    body = request.get_json(silent=True) or {}
+    pin = str(body.get("pin", "")).strip()
+    if not pin.isdigit():
+        return jsonify({"ok": False, "error": "PIN non valido"}), 400
+
+    # Verifica che il dispositivo sia autorizzato per questo dipendente
+    dip_k = _dip_key(pin)
+    dev = str(body.get("device_id", ""))
+    kiosk = bool(body.get("kiosk"))
+    ua = request.headers.get("User-Agent", "")
+    chk = dispositivi.controlla(dip_k, dev, kiosk, ua, vincola=False)
+    if not chk.get("ok"):
+        return jsonify({"ok": False, "error": chk.get("messaggio", "Telefono non autorizzato")}), 403
+
+    login_data, login_code = _timbra_call({"action": "login", "pin": pin})
+    if login_code != 200 or not login_data.get("ok"):
+        return jsonify({"ok": False, "error": login_data.get("error", "PIN non riconosciuto")}), 401
+
+    nome = login_data.get("nome", "")
+    storico = login_data.get("storico_recente") or []
+
+    # 1. Caso Quick-Fix 1-click dal banner mattutino
+    qf = body.get("quick_fix")
+    if isinstance(qf, dict) and qf.get("data") and qf.get("orario"):
+        res = assistente_timbra.esegui_quick_fix(
+            pin=pin,
+            nome=nome,
+            data_str=str(qf.get("data")),
+            tipo_fix=str(qf.get("tipo", "manca_uscita")),
+            orario_str=str(qf.get("orario")),
+            amr_timbra_url=AMR_TIMBRA_URL,
+            amr_timbra_key=AMR_TIMBRA_KEY,
+        )
+        if res.get("ok") and res.get("auto_applied"):
+            refreshed, _ = _timbra_call({"action": "login", "pin": pin})
+            if refreshed.get("ok"):
+                res["login_state"] = refreshed
+        return jsonify(res), (200 if res.get("ok") else 400)
+
+    # 2. Caso Messaggio Testuale o Vocale (base64)
+    text = str(body.get("text", "")).strip()
+    audio_b64 = str(body.get("audio_base64", "")).strip()
+    mime_type = str(body.get("mime_type", "audio/webm")).strip()
+    trascrizione = ""
+
+    if not text and audio_b64:
+        try:
+            raw_bytes = base64.b64decode(audio_b64)
+            trans_res = voice_agent.transcribe_audio_with_gemini(raw_bytes, mime_type)
+            if isinstance(trans_res, dict):
+                text = str(trans_res.get("text") or trans_res.get("italian_translation") or "").strip()
+                trascrizione = str(trans_res.get("transcription") or text).strip()
+            else:
+                text = str(trans_res or "").strip()
+                trascrizione = text
+        except Exception as e:
+            logger.error(f"[ASSISTENTE] Errore decodifica vocale: {e}")
+            return jsonify({"ok": False, "error": "Audio non leggibile, riprova o scrivi il messaggio"}), 400
+
+    if not text:
+        return jsonify({"ok": False, "error": "Scrivi o registra un messaggio vocale"}), 400
+
+    res = assistente_timbra.gestisci_messaggio_assistente(
+        pin=pin,
+        nome=nome,
+        testo_utente=text,
+        storico_recente=storico,
+        amr_timbra_url=AMR_TIMBRA_URL,
+        amr_timbra_key=AMR_TIMBRA_KEY,
+    )
+    if trascrizione:
+        res["transcription"] = trascrizione
+    if res.get("ok") and res.get("auto_applied"):
+        refreshed, _ = _timbra_call({"action": "login", "pin": pin})
+        if refreshed.get("ok"):
+            res["login_state"] = refreshed
+    return jsonify(res), (200 if res.get("ok") else 400)
+
+
 @app.route("/api/employees", methods=["GET"])
 def api_employees():
     """Restituisce l'elenco di tutti i dipendenti aziendali registrati per la selezione rapida con 1 tocco."""
