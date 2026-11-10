@@ -344,7 +344,14 @@ def gestisci_messaggio_assistente(
     controlla i guardrail (ultimi 3-4 giorni, fascia 06:00-17:30), applica le modifiche
     consentite sul foglio Google e invia l'email di notifica ad amministrazione@ e info@.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("GEMINI_API_KEY="):
+                        api_key = line.split("=", 1)[1].strip().strip('"').strip("'")
     if not api_key:
         return {"ok": False, "error": "Servizio AI temporaneamente non disponibile"}
 
