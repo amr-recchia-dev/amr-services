@@ -338,8 +338,12 @@ def _onboard_item_locked(commercial_item_id: str, force: bool = False) -> dict:
         if src_raw:
             try:
                 parsed_p = json.loads(src_raw)
-                if parsed_p.get("personsAndTeams"):
-                    op_values[target_col] = {"personsAndTeams": parsed_p["personsAndTeams"]}
+                pts = [
+                    p for p in (parsed_p.get("personsAndTeams") or [])
+                    if str(p.get("id")) != "71533482"
+                ]
+                if pts:
+                    op_values[target_col] = {"personsAndTeams": pts}
             except Exception:
                 pass
 
