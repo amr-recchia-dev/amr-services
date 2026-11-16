@@ -148,7 +148,7 @@ def _send_lead_email_smtp(
         return None
 
     to_addr = "ordini@amrrecchia.it"
-    cc_addr = "info@amrrecchia.it"
+    cc_addr = "amministrazione@amrrecchia.it"
     all_recipients = [to_addr, cc_addr]
 
     # Formatta data leggibile

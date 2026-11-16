@@ -47,7 +47,7 @@ ROME_TZ = ZoneInfo("Europe/Rome")
 
 RECIPIENTS_TO = [
     "amministrazione@amrrecchia.it",
-    "info@amrrecchia.it",
+    "ordini@amrrecchia.it",
 ]
 RECIPIENTS_BCC = [
     "riccardo.g@zaffiroweb.com",

@@ -572,7 +572,7 @@ def _send_permesso_email_smtp(o: dict) -> None:
         password = os.getenv("IMAP_PASSWORD", "")
         if not sender_email or not password:
             return
-        recipients = ["amministrazione@amrrecchia.it", "ordini@amrrecchia.it", "info@amrrecchia.it"]
+        recipients = ["amministrazione@amrrecchia.it", "ordini@amrrecchia.it"]
         nome = str(o.get("nome", ""))
         tipo = str(o.get("tipo", "Permesso"))
         dal = str(o.get("dal", ""))

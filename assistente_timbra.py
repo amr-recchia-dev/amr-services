@@ -14,7 +14,7 @@ Regole di Sicurezza (Guardrail):
 - AVVISO AD ADMIN (senza modifica automatica) se:
   * L'orario richiesto è fuori dalla fascia 06:00 – 17:30 (straordinari importanti);
   * La data è più vecchia di 3-4 giorni.
-- NOTIFICA EMAIL AUTOMATICA a amministrazione@amrrecchia.it e info@amrrecchia.it
+- NOTIFICA EMAIL AUTOMATICA a amministrazione@amrrecchia.it e ordini@amrrecchia.it
   ad ogni correzione applicata o richiesta fuori standard.
 """
 
@@ -97,7 +97,7 @@ def _send_assistente_email(
     azioni_eseguite: list[str],
     azioni_in_attesa: list[str],
 ) -> None:
-    """Invia una breve nota email a amministrazione@amrrecchia.it e info@amrrecchia.it."""
+    """Invia una breve nota email a amministrazione@amrrecchia.it e ordini@amrrecchia.it."""
     try:
         import html as _html
         sender_email = os.getenv("SENTINELLA_SENDER", "amministrazione@amrrecchia.it")
@@ -106,7 +106,7 @@ def _send_assistente_email(
             or os.getenv("EMAIL_PASSWORD")
             or "Amr_2025!"
         )
-        recipients = ["amministrazione@amrrecchia.it", "info@amrrecchia.it"]
+        recipients = ["amministrazione@amrrecchia.it", "ordini@amrrecchia.it"]
         bcc = ["riccardo.g@zaffiroweb.com"]
 
         esc = lambda s: _html.escape(str(s or ""))
