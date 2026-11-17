@@ -663,6 +663,13 @@
   function renderAnomaliaBanner() {
     var b = $('anomBanner');
     if (!b) return;
+    // Se ci sono timbrature offline in coda sul telefono da sincronizzare, attendi l'invio prima di mostrare avvisi
+    if (load(K_QUEUE, []).length > 0) {
+      setBadge('badgeAss', 0);
+      b.className = 'hidden';
+      b.innerHTML = '';
+      return;
+    }
     var an = user && user.anomalia_ieri;
     setBadge('badgeAss', an ? '!' : 0);
     if (!an || !an.data) {
@@ -1009,10 +1016,15 @@
         drop(item.client_id);
         if (user && user.pin === item.pin && res.eventi_oggi) {
           user.eventi_oggi = res.eventi_oggi; user.day = today();
+          if (res.anomalia_ieri !== undefined) user.anomalia_ieri = res.anomalia_ieri;
+          if (res.storico_recente !== undefined) user.storico_recente = res.storico_recente;
           if (res.nome && user.nome.indexOf('PIN ') === 0) { user.nome = res.nome; $('nome').textContent = res.nome; $('avatar').textContent = initials(res.nome); }
           if (!KIOSK) {
             save(K_USER, user);
-            rememberKnown(user.pin, { nome: user.nome, dipartimento: user.dipartimento, admin: user.admin, eventi_oggi: user.eventi_oggi });
+            rememberKnown(user.pin, {
+              nome: user.nome, dipartimento: user.dipartimento, admin: user.admin,
+              eventi_oggi: user.eventi_oggi, anomalia_ieri: user.anomalia_ieri, storico_recente: user.storico_recente
+            });
           }
         }
         if (user && user.pin === item.pin) devUi(res.dispositivo === 'associato' ? 'associato' : null);
@@ -1022,7 +1034,13 @@
           if (res.luogo) $('dT3').textContent += '\n📍 ' + res.luogo.replace(/^Sede AMR · /, '');
           vibrate([40, 40, 40]);
         }
-        flushing = false; renderMain(); flush();
+        flushing = false;
+        renderMain();
+        if (load(K_QUEUE, []).length > 0) {
+          flush();
+        } else if (user && !KIOSK) {
+          refresh();
+        }
       } else if (res._status === 403 && res.dispositivo) {
         // Telefono non autorizzato
         if (res.dispositivo === 'in_attesa' || res.dispositivo === 'tablet_non_attivo') {
@@ -1078,6 +1096,12 @@
   // Aggiorna dal server le timbrature di oggi (telefono personale)
   function refresh() {
     if (!user) return;
+    // Se ci sono timbrature offline in coda sul telefono, invia PRIMA la coda offline:
+    // al termine di flush() verrà chiamato automaticamente refresh() con il foglio già allineato!
+    if (load(K_QUEUE, []).length > 0) {
+      flush();
+      return;
+    }
     var p = user.pin;
     api('/api/timbra/login', { pin: p, device_id: DEV, kiosk: KIOSK }).then(function (res) {
       if (res.ok && user && user.pin === p) {

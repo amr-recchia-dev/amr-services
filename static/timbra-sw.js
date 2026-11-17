@@ -5,7 +5,7 @@
  *    mostra una schermata di timbratura offline integrata che salva subito Entrata/Uscita
  *    in localStorage (amr_timbra_queue) all'orario esatto del tocco.
  */
-const CACHE = 'amr-timbra-v10';
+const CACHE = 'amr-timbra-v11';
 const ASSETS = ['/timbra', '/static/timbra-icon-192.png', '/static/timbra-icon-512.png', '/static/timbra-manifest.json',
   '/static/leaflet/leaflet.js', '/static/leaflet/leaflet.css'];
 

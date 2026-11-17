@@ -173,6 +173,32 @@ def _append_marker_to_imap(raw_msg_bytes: bytes) -> None:
         logger.debug(f"[SENTINELLA] Append IMAP non riuscito: {e}")
 
 
+def _is_day_ready_for_offline_aligned_check(d_check: datetime.date, now: datetime.datetime) -> bool:
+    """
+    Allinea i tempi delle notifiche email con la coda di sincronizzazione Offline dei telefoni:
+    - Quando un dipendente timbra l'uscita alle 17:00 in modalità Offline (senza rete in capannone),
+      il telefono invia la timbratura la mattina lavorativa successiva quando riapre l'app (06:00–08:30),
+      oppure il dipendente usa il banner mattutino 1-Click / Assistente all'ingresso.
+    - Pertanto una giornata lavorativa diventa notificabile via email SOLO DOPO le ore 09:30
+      del primo giorno feriale successivo (mai la sera stessa alle 19:00 e mai prima delle 09:30 del mattino).
+    """
+    today = now.date()
+    if d_check >= today:
+        return False
+
+    festivi_fissi = {(1, 1), (1, 6), (4, 25), (5, 1), (6, 2), (8, 15), (11, 1), (12, 8), (12, 25), (12, 26)}
+    # Trova il primo giorno feriale successivo a d_check (quando l'operaio rientra e l'app scarica la coda offline)
+    next_workday = d_check + datetime.timedelta(days=1)
+    while next_workday.weekday() >= 5 or (next_workday.month, next_workday.day) in festivi_fissi:
+        next_workday += datetime.timedelta(days=1)
+
+    if today < next_workday:
+        return False
+    if today == next_workday and (now.hour < 9 or (now.hour == 9 and now.minute < 30)):
+        return False
+    return True
+
+
 def collect_anomalies(now: datetime.datetime = None) -> list[dict]:
     """
     Analizza in tempo reale il Registro delle timbrature, il Registro Permessi e il Revisore Apps Script.
@@ -181,7 +207,6 @@ def collect_anomalies(now: datetime.datetime = None) -> list[dict]:
     if now is None:
         now = datetime.datetime.now(ROME_TZ)
     today = now.date()
-    include_today_missing_exit = (now.hour >= 19)
 
     # Forza refresh cache fogli Google
     presenze_service._CACHE["timestamp"] = 0
@@ -221,9 +246,13 @@ def collect_anomalies(now: datetime.datetime = None) -> list[dict]:
             if not d_iso:
                 continue
 
-            is_today = (d_iso == today.isoformat())
-            if is_today and not include_today_missing_exit:
-                # Non segnalare uscite mancanti mentre la giornata lavorativa di oggi è ancora in corso
+            try:
+                d_date_obj = datetime.date.fromisoformat(d_iso)
+            except Exception:
+                continue
+
+            if not _is_day_ready_for_offline_aligned_check(d_date_obj, now):
+                # Attende che il dipendente rientri al lavoro e il telefono sincronizzi eventuali timbrature offline (entro le 09:30)
                 continue
 
             for s in sessions:
@@ -368,6 +397,8 @@ def collect_anomalies(now: datetime.datetime = None) -> list[dict]:
         for day_num in range(1, today.day):
             d_check = datetime.date(today.year, today.month, day_num)
             if d_check.weekday() >= 5 or (d_check.month, d_check.day) in festivi_fissi:
+                continue
+            if not _is_day_ready_for_offline_aligned_check(d_check, now):
                 continue
             d_iso = d_check.isoformat()
             if d_iso in worked_dates:

@@ -242,6 +242,27 @@ def _trigger_bg_sync(amr_timbra_url: str, amr_timbra_key: str) -> None:
         logger.warning(f"[ASSISTENTE] Errore sync archivio background: {e}")
 
 
+def _sync_and_notify_bg(
+    dipendente: str,
+    messaggio_utente: str,
+    azioni_eseguite: list[str],
+    azioni_in_attesa: list[str],
+    amr_timbra_url: str,
+    amr_timbra_key: str,
+) -> None:
+    """Allinea prima le schede Google Sheets (Prospetto 0501 e scheda dipendente) e subito dopo invia l'email di notifica."""
+    if azioni_eseguite and amr_timbra_url and amr_timbra_key:
+        _trigger_bg_sync(amr_timbra_url, amr_timbra_key)
+    _send_assistente_email(
+        dipendente,
+        messaggio_utente,
+        azioni_eseguite,
+        azioni_in_attesa,
+        amr_timbra_url,
+        amr_timbra_key,
+    )
+
+
 def _call_gas_admin_rpc(amr_timbra_url: str, amr_timbra_key: str, fn: str, args: list) -> dict:
     payload = {
         "key": amr_timbra_key,
@@ -323,9 +344,8 @@ def esegui_quick_fix(
             "_skipSync": True,
         }])
         azioni_eseguite.append(f"Registrata pausa pranzo {out_pausa}–{in_pausa} sul giorno {data_str}")
-        threading.Thread(target=_trigger_bg_sync, args=(amr_timbra_url, amr_timbra_key), daemon=True).start()
         threading.Thread(
-            target=_send_assistente_email,
+            target=_sync_and_notify_bg,
             args=(nome, f"Conferma rapida da app: pausa {out_pausa}–{in_pausa} del {data_str}", azioni_eseguite, [], amr_timbra_url, amr_timbra_key),
             daemon=True,
         ).start()
@@ -367,9 +387,8 @@ def esegui_quick_fix(
         return {"ok": False, "error": err}
 
     azioni_eseguite.append(f"Aggiunta {azione_target} alle {orario_str} sul giorno {data_str}")
-    threading.Thread(target=_trigger_bg_sync, args=(amr_timbra_url, amr_timbra_key), daemon=True).start()
     threading.Thread(
-        target=_send_assistente_email,
+        target=_sync_and_notify_bg,
         args=(nome, f"Conferma rapida da app: {azione_target} alle {orario_str} del {data_str}", azioni_eseguite, [], amr_timbra_url, amr_timbra_key),
         daemon=True,
     ).start()
@@ -545,16 +564,9 @@ Restituisci SOLO il JSON valido, senza markdown."""
             else:
                 azioni_in_attesa.append(f"Inserimento {azione_s} alle {orario_s} del {data_s} (errore tecnico)")
 
-    if azioni_eseguite:
-        threading.Thread(
-            target=_trigger_bg_sync,
-            args=(amr_timbra_url, amr_timbra_key),
-            daemon=True,
-        ).start()
-
     if azioni_eseguite or azioni_in_attesa:
         threading.Thread(
-            target=_send_assistente_email,
+            target=_sync_and_notify_bg,
             args=(nome, testo_utente, azioni_eseguite, azioni_in_attesa, amr_timbra_url, amr_timbra_key),
             daemon=True,
         ).start()
