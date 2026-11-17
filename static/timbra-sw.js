@@ -5,7 +5,7 @@
  *    mostra una schermata di timbratura offline integrata che salva subito Entrata/Uscita
  *    in localStorage (amr_timbra_queue) all'orario esatto del tocco.
  */
-const CACHE = 'amr-timbra-v9';
+const CACHE = 'amr-timbra-v10';
 const ASSETS = ['/timbra', '/static/timbra-icon-192.png', '/static/timbra-icon-512.png', '/static/timbra-manifest.json',
   '/static/leaflet/leaflet.js', '/static/leaflet/leaflet.css'];
 
@@ -76,14 +76,6 @@ function fetchUrlWithTimeout(urlStr, ms) {
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE).then(async (c) => {
-      // 1. Copia subito eventuali risorse già presenti in cache precedenti così non resta mai vuoto
-      for (const u of ASSETS) {
-        try {
-          const oldMatch = await caches.match(u, { ignoreSearch: true });
-          if (oldMatch && oldMatch.ok) await c.put(u, oldMatch.clone());
-        } catch (_) {}
-      }
-      // 2. Scarica le versioni aggiornate dal server
       await Promise.allSettled(
         ASSETS.map((u) =>
           fetchUrlWithTimeout(u, 10000).then((r) => (r && r.ok && r.status === 200 ? c.put(u, r.clone()) : null))
@@ -113,34 +105,40 @@ self.addEventListener('fetch', (e) => {
   const normPath = url.pathname === '/timbra/' ? '/timbra' : url.pathname;
   if (!ASSETS.includes(normPath)) return;
 
-  e.respondWith(
-    caches.match(normPath, { ignoreSearch: true }).then((cachedResp) => {
-      const bgUpdate = fetchUrlWithTimeout(normPath, cachedResp ? 15000 : 2000)
+  if (normPath === '/timbra') {
+    e.respondWith(
+      fetchUrlWithTimeout(normPath, 2000)
         .then(async (netResp) => {
           if (netResp && netResp.ok && netResp.status === 200) {
             const c = await caches.open(CACHE);
             await c.put(normPath, netResp.clone());
             return netResp;
           }
-          return null;
+          throw new Error('bad status');
         })
-        .catch(() => null);
-
-      if (cachedResp) {
-        e.waitUntil(bgUpdate);
-        return cachedResp.clone();
-      }
-
-      return bgUpdate.then((netResp) => {
-        if (netResp) return netResp;
-        if (normPath === '/timbra') {
+        .catch(async () => {
+          const cachedResp = await caches.match(normPath, { ignoreSearch: true });
+          if (cachedResp) return cachedResp.clone();
           return new Response(FALLBACK_HTML, {
             status: 200,
             headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
           });
+        })
+    );
+    return;
+  }
+
+  e.respondWith(
+    caches.match(normPath, { ignoreSearch: true }).then((cachedResp) => {
+      if (cachedResp) return cachedResp.clone();
+      return fetchUrlWithTimeout(normPath, 5000).then(async (netResp) => {
+        if (netResp && netResp.ok && netResp.status === 200) {
+          const c = await caches.open(CACHE);
+          await c.put(normPath, netResp.clone());
+          return netResp;
         }
         return new Response('', { status: 504 });
-      });
+      }).catch(() => new Response('', { status: 504 }));
     })
   );
 });

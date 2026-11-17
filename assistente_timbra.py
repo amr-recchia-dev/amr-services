@@ -96,16 +96,23 @@ def _send_assistente_email(
     messaggio_utente: str,
     azioni_eseguite: list[str],
     azioni_in_attesa: list[str],
+    amr_timbra_url: str = "",
+    amr_timbra_key: str = "",
 ) -> None:
     """Invia una breve nota email a amministrazione@amrrecchia.it e ordini@amrrecchia.it."""
     try:
         import html as _html
-        sender_email = os.getenv("SENTINELLA_SENDER", "amministrazione@amrrecchia.it")
-        password = (
-            os.getenv("AMR_AMMINISTRAZIONE_PASSWORD")
-            or os.getenv("EMAIL_PASSWORD")
-            or "Amr_2025!"
-        )
+        sender_email = os.getenv("IMAP_USER", "ordini@amrrecchia.it")
+        password = os.getenv("IMAP_PASSWORD", "")
+        if not password:
+            env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.startswith("IMAP_PASSWORD="):
+                            password = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        elif line.startswith("IMAP_USER=") and not os.getenv("IMAP_USER"):
+                            sender_email = line.split("=", 1)[1].strip().strip('"').strip("'")
         recipients = ["amministrazione@amrrecchia.it", "ordini@amrrecchia.it"]
         bcc = ["riccardo.g@zaffiroweb.com"]
 
@@ -183,22 +190,56 @@ def _send_assistente_email(
             for a in azioni_in_attesa:
                 plain_lines.append(f"  - [DA VERIFICARE] {a}")
         plain_lines.append(f"\nDashboard: {dash_url}")
+        plain_body = "\n".join(plain_lines)
 
-        msg = MIMEMultipart("alternative")
-        msg["From"] = formataddr(("Assistente Presenze AMR", sender_email))
-        msg["To"] = ", ".join(recipients)
-        msg["Subject"] = subject
-        msg["Date"] = formatdate(localtime=True)
-        msg["Message-ID"] = make_msgid(domain="amrrecchia.it")
-        msg.attach(MIMEText("\n".join(plain_lines), "plain", "utf-8"))
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        if sender_email and password:
+            try:
+                msg = MIMEMultipart("alternative")
+                msg["From"] = formataddr(("Assistente Presenze AMR", sender_email))
+                msg["To"] = ", ".join(recipients)
+                msg["Subject"] = subject
+                msg["Date"] = formatdate(localtime=True)
+                msg["Message-ID"] = make_msgid(domain="amrrecchia.it")
+                msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+                msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-        with smtplib.SMTP_SSL("authsmtp.securemail.pro", 465, timeout=15) as s:
-            s.login(sender_email, password)
-            s.sendmail(sender_email, recipients + bcc, msg.as_string())
-        logger.info(f"[ASSISTENTE] Email inviata a {recipients} per {dipendente}")
+                with smtplib.SMTP_SSL("authsmtp.securemail.pro", 465, timeout=15) as s:
+                    s.login(sender_email, password)
+                    s.sendmail(sender_email, recipients + bcc, msg.as_string())
+                logger.info(f"[ASSISTENTE] Email inviata via SMTP a {recipients} per {dipendente}")
+                return
+            except Exception as smtp_err:
+                logger.warning(f"[ASSISTENTE] SMTP fallback a Apps Script: {smtp_err}")
+
+        if amr_timbra_url and amr_timbra_key:
+            requests.post(
+                amr_timbra_url,
+                json={
+                    "key": amr_timbra_key,
+                    "action": "invia_email_alessandro",
+                    "to": ",".join(recipients),
+                    "subject": subject,
+                    "body": plain_body,
+                    "htmlBody": html_body,
+                    "senderName": "Assistente Presenze AMR",
+                },
+                timeout=25,
+            )
+            logger.info(f"[ASSISTENTE] Email inviata via Apps Script a {recipients} per {dipendente}")
     except Exception as e:
         logger.warning(f"[ASSISTENTE] Errore invio email notifica: {e}")
+
+
+def _trigger_bg_sync(amr_timbra_url: str, amr_timbra_key: str) -> None:
+    """Ricalcola le schede dipendenti e il Prospetto 0501 in background senza far attendere l'operaio."""
+    try:
+        requests.post(
+            amr_timbra_url,
+            json={"key": amr_timbra_key, "action": "aggiorna_archivio"},
+            timeout=90,
+        )
+    except Exception as e:
+        logger.warning(f"[ASSISTENTE] Errore sync archivio background: {e}")
 
 
 def _call_gas_admin_rpc(amr_timbra_url: str, amr_timbra_key: str, fn: str, args: list) -> dict:
@@ -208,8 +249,12 @@ def _call_gas_admin_rpc(amr_timbra_url: str, amr_timbra_key: str, fn: str, args:
         "fn": fn,
         "args": args,
     }
-    r = requests.post(amr_timbra_url, json=payload, timeout=50)
-    return r.json()
+    try:
+        r = requests.post(amr_timbra_url, json=payload, timeout=30)
+        return r.json()
+    except Exception as e:
+        logger.error(f"[ASSISTENTE] Errore RPC {fn}: {e}")
+        return {"ok": False, "error": str(e)}
 
 
 def esegui_quick_fix(
@@ -246,7 +291,7 @@ def esegui_quick_fix(
             )
             threading.Thread(
                 target=_send_assistente_email,
-                args=(nome, f"Conferma pausa {out_pausa}-{in_pausa} del {data_str}", [], azioni_in_attesa),
+                args=(nome, f"Conferma pausa {out_pausa}-{in_pausa} del {data_str}", [], azioni_in_attesa, amr_timbra_url, amr_timbra_key),
                 daemon=True,
             ).start()
             return {
@@ -275,11 +320,13 @@ def esegui_quick_fix(
             "modalita": "Sede",
             "luogo": "Sede AMR · Pederobba (TV) · Via Cavasotta 20",
             "nota": nota,
+            "_skipSync": True,
         }])
         azioni_eseguite.append(f"Registrata pausa pranzo {out_pausa}–{in_pausa} sul giorno {data_str}")
+        threading.Thread(target=_trigger_bg_sync, args=(amr_timbra_url, amr_timbra_key), daemon=True).start()
         threading.Thread(
             target=_send_assistente_email,
-            args=(nome, f"Conferma rapida da app: pausa {out_pausa}–{in_pausa} del {data_str}", azioni_eseguite, []),
+            args=(nome, f"Conferma rapida da app: pausa {out_pausa}–{in_pausa} del {data_str}", azioni_eseguite, [], amr_timbra_url, amr_timbra_key),
             daemon=True,
         ).start()
         return {
@@ -295,13 +342,13 @@ def esegui_quick_fix(
         azioni_in_attesa.append(f"{azione_target} alle {orario_str} del {data_str} ({msg_g})")
         threading.Thread(
             target=_send_assistente_email,
-            args=(nome, f"Richiesta da app: {azione_target} alle {orario_str} del {data_str}", [], azioni_in_attesa),
+            args=(nome, f"Richiesta da app: {azione_target} alle {orario_str} del {data_str}", [], azioni_in_attesa, amr_timbra_url, amr_timbra_key),
             daemon=True,
         ).start()
         return {
             "ok": True,
             "auto_applied": False,
-            "reply": f"⏳ Poiché l'orario {orario_str} è fuori dalla fascia standard (06:00–17:30), ho inviato la richiesta ad Alessandro e Massimo che la confermeranno a breve!",
+            "reply": f"⏳ Poiché l'orario {orario_str} è fuori dalla fascia standard (06:00–17:30), ho inviato la richiesta ad Alessandro e Gary che la confermeranno a breve!",
         }
 
     res_rpc = _call_gas_admin_rpc(amr_timbra_url, amr_timbra_key, "aggiungiTimbratura", [{
@@ -313,15 +360,17 @@ def esegui_quick_fix(
         "modalita": "Sede",
         "luogo": "Sede AMR · Pederobba (TV) · Via Cavasotta 20",
         "nota": nota,
+        "_skipSync": True,
     }])
     if not res_rpc.get("ok") or not (res_rpc.get("result") or {}).get("ok", True):
         err = (res_rpc.get("result") or {}).get("error") or res_rpc.get("error") or "Errore salvataggio"
         return {"ok": False, "error": err}
 
     azioni_eseguite.append(f"Aggiunta {azione_target} alle {orario_str} sul giorno {data_str}")
+    threading.Thread(target=_trigger_bg_sync, args=(amr_timbra_url, amr_timbra_key), daemon=True).start()
     threading.Thread(
         target=_send_assistente_email,
-        args=(nome, f"Conferma rapida da app: {azione_target} alle {orario_str} del {data_str}", azioni_eseguite, []),
+        args=(nome, f"Conferma rapida da app: {azione_target} alle {orario_str} del {data_str}", azioni_eseguite, [], amr_timbra_url, amr_timbra_key),
         daemon=True,
     ).start()
     return {
@@ -410,11 +459,12 @@ Restituisci SOLO il JSON valido, senza markdown."""
         "generationConfig": {
             "temperature": 0.1,
             "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
 
     try:
-        r = requests.post(url, json=payload, timeout=30)
+        r = requests.post(url, json=payload, timeout=20)
         r.raise_for_status()
         cand = r.json()["candidates"][0]["content"]["parts"][0]["text"]
         parsed = json.loads(cand)
@@ -444,7 +494,6 @@ Restituisci SOLO il JSON valido, senza markdown."""
         azione_s = "Uscita" if str(op.get("azione") or "").strip().lower() == "uscita" else "Entrata"
         orario_s = str(op.get("orario") or "").strip()
         row_idx = op.get("rowIndex")
-        is_last = (idx == len(ops) - 1)
 
         ok_g, msg_g = _is_within_guardrails(data_s, orario_s, now_dt)
         if not ok_g:
@@ -453,13 +502,13 @@ Restituisci SOLO il JSON valido, senza markdown."""
             )
             continue
 
-        # Verifica se nello storico recente c'è già una riga dello stesso giorno/azione entro 90 min da modificare
+        # Verifica se nello storico recente c'è già una riga dello stesso giorno/azione entro 120 min da modificare
         if op_type == "aggiungi" and not row_idx:
             target_min = _parse_hhmm_to_minutes(orario_s)
             for ev in (storico_recente or []):
                 if ev.get("data") == data_s and ev.get("azione") == azione_s and ev.get("rowIndex"):
                     ev_min = _parse_hhmm_to_minutes(ev.get("orario", ""))
-                    if target_min is not None and ev_min is not None and abs(target_min - ev_min) <= 90:
+                    if target_min is not None and ev_min is not None and abs(target_min - ev_min) <= 120:
                         op_type = "modifica"
                         row_idx = ev.get("rowIndex")
                         break
@@ -471,7 +520,7 @@ Restituisci SOLO il JSON valido, senza markdown."""
                 "entrata": orario_s if azione_s == "Entrata" else "",
                 "uscita": orario_s if azione_s == "Uscita" else "",
                 "nota": nota,
-                "_skipSync": not is_last,
+                "_skipSync": True,
             }
             res_rpc = _call_gas_admin_rpc(amr_timbra_url, amr_timbra_key, "modificaOrario", [mod_arg])
             if res_rpc.get("ok") and (res_rpc.get("result") or {}).get("ok", True):
@@ -488,7 +537,7 @@ Restituisci SOLO il JSON valido, senza markdown."""
                 "modalita": "Sede",
                 "luogo": "Sede AMR · Pederobba (TV) · Via Cavasotta 20",
                 "nota": nota,
-                "_skipSync": not is_last,
+                "_skipSync": True,
             }
             res_rpc = _call_gas_admin_rpc(amr_timbra_url, amr_timbra_key, "aggiungiTimbratura", [ins_arg])
             if res_rpc.get("ok") and (res_rpc.get("result") or {}).get("ok", True):
@@ -496,17 +545,24 @@ Restituisci SOLO il JSON valido, senza markdown."""
             else:
                 azioni_in_attesa.append(f"Inserimento {azione_s} alle {orario_s} del {data_s} (errore tecnico)")
 
+    if azioni_eseguite:
+        threading.Thread(
+            target=_trigger_bg_sync,
+            args=(amr_timbra_url, amr_timbra_key),
+            daemon=True,
+        ).start()
+
     if azioni_eseguite or azioni_in_attesa:
         threading.Thread(
             target=_send_assistente_email,
-            args=(nome, testo_utente, azioni_eseguite, azioni_in_attesa),
+            args=(nome, testo_utente, azioni_eseguite, azioni_in_attesa, amr_timbra_url, amr_timbra_key),
             daemon=True,
         ).start()
 
     if azioni_in_attesa and not azioni_eseguite:
         final_reply = (
             f"⏳ Ho preso in carico la tua richiesta ({', '.join(azioni_in_attesa)}) e l'ho inviata "
-            f"ad Alessandro e Massimo in Amministrazione perché riguarda un orario fuori dalla fascia standard "
+            f"ad Alessandro e Gary in Amministrazione perché riguarda un orario fuori dalla fascia standard "
             f"(06:00–17:30) o una data meno recente."
         )
     elif azioni_in_attesa and azioni_eseguite:
