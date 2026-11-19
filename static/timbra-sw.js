@@ -5,7 +5,7 @@
  *    mostra una schermata di timbratura offline integrata che salva subito Entrata/Uscita
  *    in localStorage (amr_timbra_queue) all'orario esatto del tocco.
  */
-const CACHE = 'amr-timbra-v11';
+const CACHE = 'amr-timbra-v12';
 const ASSETS = ['/timbra', '/static/timbra-icon-192.png', '/static/timbra-icon-512.png', '/static/timbra-manifest.json',
   '/static/leaflet/leaflet.js', '/static/leaflet/leaflet.css'];
 
@@ -66,9 +66,23 @@ function saveOff(azione){
 
 function fetchUrlWithTimeout(urlStr, ms) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timeout')), ms);
-    fetch(urlStr, { cache: 'no-cache', credentials: 'same-origin' })
-      .then((res) => { clearTimeout(timer); resolve(res); })
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = setTimeout(() => {
+      try { if (ctrl) ctrl.abort(); } catch (_) {}
+      reject(new Error('timeout'));
+    }, ms);
+    fetch(urlStr, { cache: 'no-cache', credentials: 'same-origin', signal: ctrl ? ctrl.signal : undefined })
+      .then(async (res) => {
+        if (!res || !res.ok || res.status !== 200) {
+          clearTimeout(timer);
+          reject(new Error('bad status'));
+          return;
+        }
+        // Legge interamente il body dentro il timeout così su 4G bloccato ("lie-fi") non resta mai appeso
+        const buf = await res.arrayBuffer();
+        clearTimeout(timer);
+        resolve(new Response(buf, { status: 200, headers: res.headers }));
+      })
       .catch((err) => { clearTimeout(timer); reject(err); });
   });
 }
@@ -78,7 +92,7 @@ self.addEventListener('install', (e) => {
     caches.open(CACHE).then(async (c) => {
       await Promise.allSettled(
         ASSETS.map((u) =>
-          fetchUrlWithTimeout(u, 10000).then((r) => (r && r.ok && r.status === 200 ? c.put(u, r.clone()) : null))
+          fetchUrlWithTimeout(u, 8000).then((r) => (r && r.ok ? c.put(u, r.clone()) : null))
         )
       );
     }).then(() => self.skipWaiting())
@@ -107,23 +121,31 @@ self.addEventListener('fetch', (e) => {
 
   if (normPath === '/timbra') {
     e.respondWith(
-      fetchUrlWithTimeout(normPath, 2000)
-        .then(async (netResp) => {
-          if (netResp && netResp.ok && netResp.status === 200) {
-            const c = await caches.open(CACHE);
-            await c.put(normPath, netResp.clone());
+      caches.open(CACHE).then(async (currCache) => {
+        const freshCached = await currCache.match(normPath, { ignoreSearch: true });
+        const bgFetch = fetchUrlWithTimeout(normPath, freshCached ? 6000 : 1800)
+          .then(async (netResp) => {
+            await currCache.put(normPath, netResp.clone());
             return netResp;
-          }
-          throw new Error('bad status');
-        })
-        .catch(async () => {
-          const cachedResp = await caches.match(normPath, { ignoreSearch: true });
-          if (cachedResp) return cachedResp.clone();
-          return new Response(FALLBACK_HTML, {
-            status: 200,
-            headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
-          });
-        })
+          })
+          .catch(() => null);
+
+        // Se la versione corrente v12 è già in cache, aprila in 0 millisecondi!
+        if (freshCached) {
+          e.waitUntil(bgFetch);
+          return freshCached.clone();
+        }
+
+        // Altrimenti attendi al massimo 1,8s la rete, poi fallback immediato a cache precedente o cassaforte offline
+        const netResp = await bgFetch;
+        if (netResp) return netResp;
+        const anyCached = await caches.match(normPath, { ignoreSearch: true });
+        if (anyCached) return anyCached.clone();
+        return new Response(FALLBACK_HTML, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
+        });
+      })
     );
     return;
   }

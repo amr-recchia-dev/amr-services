@@ -19,7 +19,7 @@
       --text: #f8fafc; --muted: #94a3b8; --warn: #f59e0b;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    button, input { font-family: inherit; }
+    button, input, a { font-family: inherit; touch-action: manipulation; -webkit-touch-callout: none; }
     html, body { margin: 0; height: 100%; }
     body {
       background: var(--bg); color: var(--text);
@@ -112,20 +112,29 @@
 
     /* Barra schede */
     #tabbar {
-      position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500; display: flex;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 1500; display: flex; gap: 3px;
       background: var(--card); border-top: 1px solid var(--border);
-      padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
     }
     #tabbar button, #tabbar a {
       flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
-      background: none; border: 0; color: var(--muted); font-size: 11px; font-weight: 700; text-decoration: none; padding: 4px 2px;
+      background: none; border: 0; border-radius: 12px; color: var(--muted); font-size: 11px; font-weight: 700;
+      text-decoration: none; padding: 6px 2px; cursor: pointer;
     }
-    #tabbar span { font-size: 22px; line-height: 1.1; filter: grayscale(.7); }
-    #tabbar .on { color: var(--text); }
+    #tabbar button:active, #tabbar a:active {
+      background: rgba(255,255,255,.1); transform: scale(.93); color: #fff;
+    }
+    #tabbar span, #tabbar i { pointer-events: none; }
+    #tabbar span { font-size: 22px; line-height: 1.1; filter: grayscale(.6); }
+    #tabbar .on { color: #fff; background: rgba(223,49,49,.16); }
     #tabbar .on span { filter: none; }
-    .badge { position: absolute; top: 0; right: 18%; min-width: 18px; height: 18px; border-radius: 9px; background: var(--red); color: #fff; font-size: 11px; font-style: normal; line-height: 18px; padding: 0 5px; }
+    .badge { position: absolute; top: 2px; right: 16%; min-width: 18px; height: 18px; border-radius: 9px; background: var(--red); color: #fff; font-size: 11px; font-style: normal; line-height: 18px; padding: 0 5px; }
     .mini { background: #1e2433; color: var(--muted); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; font-size: 13px; font-weight: 700; }
     .tab { margin-top: 12px; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+    .kpi-box { background: #1e2433; border: 1px solid var(--border); border-radius: 14px; padding: 10px 8px; text-align: center; }
+    .kpi-box .v { font-size: 20px; font-weight: 900; color: #fff; }
+    .kpi-box .l { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; margin-top: 2px; }
 
     /* Modulo richiesta */
     .cta { width: 100%; border: 0; border-radius: 16px; background: var(--red); color: #fff; font-size: 18px; font-weight: 800; padding: 16px; margin-bottom: 12px; }
@@ -330,15 +339,29 @@
           <button type="button" class="ghost" id="bSicCsv" style="width:100%">⬇︎ Scarica registro (Excel / CSV)</button>
         </div>
       </div>
+
+      <!-- Scheda LE MIE ORE (istantanea in-app, 0 ms) -->
+      <div id="tabOre" class="tab hidden">
+        <div class="card">
+          <h3 id="oreTitle">📊 Riepilogo Mese Corrente</h3>
+          <div class="kpi-grid">
+            <div class="kpi-box"><div class="v" id="kOreTot">—</div><div class="l">Ore Totali</div></div>
+            <div class="kpi-box"><div class="v" id="kOreStr" style="color:#4ade80">—</div><div class="l">Straord.</div></div>
+            <div class="kpi-box"><div class="v" id="kGiorni">—</div><div class="l">Giorni</div></div>
+          </div>
+          <div id="oreListaGiorni"><div class="empty">Caricamento dettaglio mese…</div></div>
+          <a href="/presenze" class="ghost" style="display:block;text-align:center;text-decoration:none;margin:12px 0 0;font-size:14px">🔍 Apri portale completo e mesi precedenti</a>
+        </div>
+      </div>
     </section>
   </main>
 
   <nav id="tabbar" class="hidden">
-    <button data-tab="tabTimbra" class="on"><span>⏱</span>Timbra</button>
-    <button data-tab="tabAssistente"><span>💬</span>Assistente<i id="badgeAss" class="badge hidden"></i></button>
-    <button data-tab="tabPermessi"><span>🌴</span>Permessi<i id="badgePerm" class="badge hidden"></i></button>
-    <button data-tab="tabAdmin" id="tbAdmin" class="hidden"><span>✅</span>Approva<i id="badgeAdmin" class="badge hidden"></i></button>
-    <a href="/presenze"><span>📊</span>Le mie ore</a>
+    <button type="button" data-tab="tabTimbra" class="on"><span>⏱</span>Timbra</button>
+    <button type="button" data-tab="tabAssistente"><span>💬</span>Assistente<i id="badgeAss" class="badge hidden"></i></button>
+    <button type="button" data-tab="tabPermessi"><span>🌴</span>Permessi<i id="badgePerm" class="badge hidden"></i></button>
+    <button type="button" data-tab="tabAdmin" id="tbAdmin" class="hidden"><span>✅</span>Approva<i id="badgeAdmin" class="badge hidden"></i></button>
+    <button type="button" data-tab="tabOre"><span>📊</span>Le mie ore</button>
   </nav>
 
   <div id="done" class="hidden">
@@ -568,7 +591,7 @@
     setAdmin(user.admin);
     showTab('tabTimbra');
     renderMain();
-    startGps();
+    setTimeout(startGps, 250);
     resetIdle();
     if (!res.offline) { loadPermessi(true); devUi(res.dispositivo, res.dispositivo_msg); }
     else {
@@ -1325,21 +1348,87 @@
     return api('/api/timbra/permessi', body);
   }
 
+  function renderMieOreData(rep) {
+    if (!rep || !user) return;
+    var s = rep.summary || {};
+    $('oreTitle').textContent = '📊 Riepilogo ' + (rep.month_label || 'Mese Corrente');
+    $('kOreTot').textContent = (s.total_hours !== undefined ? String(s.total_hours).replace('.', ',') : '0') + 'h';
+    $('kOreStr').textContent = (s.overtime_hours !== undefined ? '+' + String(s.overtime_hours).replace('.', ',') : '0') + 'h';
+    $('kGiorni').textContent = s.days_worked !== undefined ? String(s.days_worked) : '0';
+    var box = $('oreListaGiorni');
+    box.innerHTML = '';
+    var days = (rep.daily || []).slice().reverse();
+    if (!days.length) {
+      box.innerHTML = '<div class="empty">Nessuna presenza registrata in questo mese</div>';
+      return;
+    }
+    days.forEach(function (g) {
+      var r = el('div', 'req');
+      var top = el('div', 'top');
+      top.appendChild(el('span', 't', '📅 ' + (g.day_name ? g.day_name.slice(0, 3) + ' ' : '') + g.date));
+      var hBadge = el('span', 'st ' + (g.net_hours >= 8 ? 'ok' : 'att'), String(g.net_hours || 0).replace('.', ',') + ' h');
+      top.appendChild(hBadge);
+      r.appendChild(top);
+      var sessTxt = (g.sessions || []).map(function (x) {
+        return '▶ ' + (x.in || '—') + ' → ■ ' + (x.out || 'in corso');
+      }).join('   ·   ');
+      r.appendChild(el('div', 'w', sessTxt || '—'));
+      if (g.lunch_minutes > 0) {
+        r.appendChild(el('div', 'nt', '🍽️ Pausa: ' + g.lunch_minutes + ' min' + (g.overtime_hours > 0 ? ' · ⚡ Straord: +' + String(g.overtime_hours).replace('.', ',') + 'h' : '')));
+      }
+      box.appendChild(r);
+    });
+  }
+
+  function loadMieOreInline() {
+    if (!user) return;
+    var p = user.pin;
+    var cKey = 'amr_ore_cache_' + p;
+    var cached = load(cKey, null);
+    if (cached && cached.authenticated) {
+      renderMieOreData(cached);
+    } else {
+      // Mostra istantaneamente lo storico recente già in memoria mentre scarica il mese completo
+      var st = user.storico_recente || [];
+      if (st.length && !$('oreListaGiorni').children.length) {
+        renderAssistenteStorico();
+      }
+    }
+    api('/api/presenze-data', { pin: p }, 8000).then(function (res) {
+      if (res && res.authenticated && user && user.pin === p) {
+        save(cKey, res);
+        renderMieOreData(res);
+      }
+    }).catch(function () {});
+  }
+
+  var currentTabId = 'tabTimbra';
   function showTab(id) {
-    ['tabTimbra', 'tabAssistente', 'tabPermessi', 'tabAdmin'].forEach(function (t) { $(t).classList.toggle('hidden', t !== id); });
+    currentTabId = id;
+    ['tabTimbra', 'tabAssistente', 'tabPermessi', 'tabAdmin', 'tabOre'].forEach(function (t) {
+      var elT = $(t);
+      if (elT) elT.classList.toggle('hidden', t !== id);
+    });
     Array.prototype.forEach.call(document.querySelectorAll('#tabbar [data-tab]'), function (b) {
       b.classList.toggle('on', b.getAttribute('data-tab') === id);
     });
     if (id === 'tabAssistente') { initAssChat(); renderAssistenteStorico(); }
-    if (id === 'tabPermessi') loadPermessi();
-    if (id === 'tabAdmin') { loadAdmin(); loadTelefoni(); loadSicurezza(); }
+    if (id === 'tabPermessi') setTimeout(function () { loadPermessi(); }, 10);
+    if (id === 'tabAdmin') setTimeout(function () { loadAdmin(); loadTelefoni(); loadSicurezza(); }, 10);
+    if (id === 'tabOre') { loadMieOreInline(); }
     if (id === 'tabTimbra' && map) setTimeout(function () { map.invalidateSize(); }, 50);
     window.scrollTo(0, 0);
   }
-  $('tabbar').addEventListener('click', function (e) {
+  function onTabBarTap(e) {
     var b = e.target.closest('[data-tab]'); if (!b || !user) return;
-    showTab(b.getAttribute('data-tab'));
-  });
+    var targetTab = b.getAttribute('data-tab');
+    if (targetTab && targetTab !== currentTabId) {
+      vibrate(10);
+      showTab(targetTab);
+    }
+  }
+  $('tabbar').addEventListener('pointerdown', onTabBarTap);
+  $('tabbar').addEventListener('click', onTabBarTap);
   var permAtt = 0, telAtt = 0;
   function setAdmin(on) { $('tbAdmin').classList.toggle('hidden', !on); if (on) { loadAdmin(true); loadTelefoni(true); } }
 
