@@ -71,8 +71,11 @@ _WIX_K_B64 = "".join([
     'dw=='
 ])
 
-# Tutte le submission fino a questo istante sono già state sincronizzate il 22/10/2026
-SYNC_CUTOFF_ISO = "2026-10-22T13:16:00Z"
+# Tutte le submission fino a questo istante sono già state sincronizzate
+SYNC_CUTOFF_ISO = "2026-11-23T10:15:00Z"
+# Finestra massima di retroattività: se il container Render si riavvia con DB effimero azzerato,
+# nessuna vecchia lead più vecchia di 48 ore viene mai rispedita via email o duplicata su Monday.
+MAX_LEAD_AGE_HOURS = 48
 
 
 def _get_wix_api_key() -> str:
@@ -387,17 +390,98 @@ def _create_monday_commercial_item(
     return ",".join(created_ids) if created_ids else None
 
 
+def _fetch_recent_monday_wix_signatures() -> List[Dict[str, str]]:
+    """
+    Legge le ultime righe da COMMERCIALE (1865049112) e NEW COMMERCIALE (2133436509)
+    per impedire duplicati anche dopo un riavvio del container Render (disco SQLite effimero).
+    """
+    q = """
+    query ($board_ids: [ID!]) {
+      boards(ids: $board_ids) {
+        id
+        items_page(limit: 80, query_params: {order_by: [{column_id: "__creation_log__", direction: desc}]}) {
+          items {
+            id
+            name
+            column_values(ids: ["email_mkn1v37b", "testo_lungo_mkn1ydyz", "text_mkypgtb8"]) {
+              id
+              text
+            }
+          }
+        }
+      }
+    }
+    """
+    sigs: List[Dict[str, str]] = []
+    try:
+        board_ids = list({b for b in [MONDAY_BOARD_COMMERCIALE, MONDAY_BOARD_ID] if b})
+        data = _graphql(q, {"board_ids": board_ids})
+        for b in data.get("boards") or []:
+            for it in (b.get("items_page") or {}).get("items") or []:
+                cmap = {c["id"]: (c.get("text") or "").strip().lower() for c in it.get("column_values") or []}
+                sigs.append({
+                    "id": str(it.get("id", "")),
+                    "name": (it.get("name") or "").strip().lower(),
+                    "email": cmap.get("email_mkn1v37b", ""),
+                    "richiesta": cmap.get("testo_lungo_mkn1ydyz", ""),
+                    "specifiche": cmap.get("text_mkypgtb8", ""),
+                })
+    except Exception as e:
+        logger.warning("⚠️ [WIX SYNC] Impossibile leggere firme anti-duplicato da Monday: %s", e)
+    return sigs
+
+
+def _is_already_on_monday(
+    sigs: List[Dict[str, str]],
+    item_name: str,
+    email_cliente: str,
+    created_date: str,
+    messaggio: str,
+) -> bool:
+    """Verifica se la stessa lead Wix esiste già su Monday (anche se il DB locale si è resettato)."""
+    if not sigs:
+        return False
+    em_low = (email_cliente or "").strip().lower()
+    name_low = (item_name or "").strip().lower()
+    msg_snippet = " ".join((messaggio or "").split()).lower()[:50]
+
+    dt_variants = set()
+    try:
+        dt_utc = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
+        dt_variants.add(dt_utc.strftime("%d/%m/%Y %H:%M"))
+        dt_variants.add(dt_utc.astimezone().strftime("%d/%m/%Y %H:%M"))
+    except Exception:
+        pass
+
+    for s in sigs:
+        blob = f"{s['richiesta']} {s['specifiche']}"
+        # 1. Stessa data+ora esatta di invio form + stessa email
+        if em_low and (em_low == s["email"] or em_low in blob):
+            if any(dv in blob for dv in dt_variants):
+                return True
+            if msg_snippet and len(msg_snippet) >= 15 and msg_snippet in " ".join(blob.split()):
+                return True
+            if name_low and name_low == s["name"]:
+                return True
+    return False
+
+
 def sync_wix_forms(dry_run: bool = False) -> int:
     """
     Controlla tutti gli invii del form Wix e sincronizza quelli nuovi:
-    1) Email a ordini@amrrecchia.it + CC info@amrrecchia.it
-    2) Creazione riga su Monday.com NEW COMMERCIALE (2133436509)
+    1) Verifica anti-duplicato su DB locale, finestra 48h e Monday live (immune ai riavvii Render)
+    2) Creazione riga su Monday.com
+    3) Email a ordini@amrrecchia.it + CC amministrazione@amrrecchia.it
     Restituisce il numero di nuove lead sincronizzate.
     """
     init_db()
     subs = fetch_wix_submissions(limit=30)
     if not subs:
         return 0
+
+    from datetime import timezone, timedelta
+    now_utc = datetime.now(timezone.utc)
+    monday_sigs: Optional[List[Dict[str, str]]] = None
 
     synced_count = 0
     for s in subs:
@@ -419,6 +503,23 @@ def sync_wix_forms(dry_run: bool = False) -> int:
             )
             continue
 
+        # Protezione anti-riavvio Render: mai rispedire lead più vecchie di MAX_LEAD_AGE_HOURS
+        if created_date:
+            try:
+                dt_sub = datetime.fromisoformat(created_date.replace("Z", "+00:00"))
+                if (now_utc - dt_sub) > timedelta(hours=MAX_LEAD_AGE_HOURS):
+                    logger.info("⏭️ [WIX SYNC] Lead '%s' troppo vecchia (%s > %dh), marco come storica.", sub_id, created_date, MAX_LEAD_AGE_HOURS)
+                    mark_as_processed(
+                        message_id=db_key,
+                        subject="Archivio storico >48h",
+                        sender="",
+                        tipo="storico_wix",
+                        monday_item_id="",
+                    )
+                    continue
+            except Exception:
+                pass
+
         fields = s.get("submissions", {})
         first_name = (fields.get("first_name_abae") or "").strip()
         last_name = (fields.get("last_name_d97c") or "").strip()
@@ -427,6 +528,22 @@ def sync_wix_forms(dry_run: bool = False) -> int:
         phone_cliente = (fields.get("phone_4c77") or "").strip()
         oggetto_azienda = (fields.get("oggetto") or "").strip()
         messaggio = (fields.get("long_answer_3524") or "").strip()
+        item_name = (oggetto_azienda or full_name or email_cliente or "Nuova Lead Sito Web")[:255]
+
+        # Verifica live su Monday.com: se è già presente (es. dopo riavvio Render entro 48h), NON duplicare né rispedire email!
+        if monday_sigs is None:
+            monday_sigs = _fetch_recent_monday_wix_signatures()
+        if _is_already_on_monday(monday_sigs, item_name, email_cliente, created_date, messaggio):
+            logger.info("⏭️ [WIX SYNC] Lead '%s' (%s) già presente su Monday.com: salto invio email e creazione doppione.", item_name, email_cliente)
+            if not dry_run:
+                mark_as_processed(
+                    message_id=db_key,
+                    subject=oggetto_azienda,
+                    sender=email_cliente,
+                    tipo="preventivo_wix_dedup",
+                    monday_item_id="",
+                )
+            continue
 
         logger.info(
             "🆕 [WIX SYNC] Nuova lead rilevata dal sito: %s (%s - %s)",
@@ -438,7 +555,7 @@ def sync_wix_forms(dry_run: bool = False) -> int:
         if dry_run:
             continue
 
-        # 1. Crea item su Monday NEW COMMERCIALE
+        # 1. Crea item su Monday
         monday_item_id = _create_monday_commercial_item(
             created_date=created_date,
             full_name=full_name,
@@ -448,7 +565,7 @@ def sync_wix_forms(dry_run: bool = False) -> int:
             messaggio=messaggio,
         )
 
-        # 2. Invia email a ordini@amrrecchia.it e CC info@amrrecchia.it
+        # 2. Invia email a ordini@amrrecchia.it e CC amministrazione@amrrecchia.it
         msgid = _send_lead_email_smtp(
             sub_id=sub_id,
             created_date=created_date,
