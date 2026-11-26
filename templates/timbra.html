@@ -806,6 +806,11 @@
   // Non blocca mai la timbratura. Leaflet è servito dal nostro server (/static/leaflet):
   // unpkg.com resta solo come riserva, perché da alcune reti (iPhone in 4G) era lentissimo.
   var SEDE = { lat: 45.868561, lng: 11.934981, raggio: 250 };
+  var ZONE_NO_TRASFERTA = [
+    { nome: 'Codognè', lat: 45.8609, lng: 12.4026, raggio: 3500 },
+    { nome: 'Pederobba / Onigo', lat: 45.8735, lng: 11.9580, raggio: 3500 },
+    { nome: 'Cavaso del Tomba', lat: 45.8605, lng: 11.8980, raggio: 3000 }
+  ];
   var map = null, meMarker = null, accCircle = null, leafletPromise = null, lastMapFix = 0, cssLoaded = {};
 
   function distKm(a, b, c, d) {
@@ -895,8 +900,16 @@
     lastMapFix = Date.now();
     var km = distKm(f.lat, f.lng, SEDE.lat, SEDE.lng);
     var info = $('mapInfo');
+    var zonaNoTrasf = null;
+    for (var zi = 0; zi < ZONE_NO_TRASFERTA.length; zi++) {
+      var z = ZONE_NO_TRASFERTA[zi];
+      if (distKm(f.lat, f.lng, z.lat, z.lng) * 1000 <= z.raggio) { zonaNoTrasf = z; break; }
+    }
     if (km * 1000 <= SEDE.raggio) { info.className = 'sede'; info.textContent = '✓ Sei in sede'; }
-    else {
+    else if (zonaNoTrasf) {
+      info.className = 'sede';
+      info.textContent = '✓ Zona ' + zonaNoTrasf.nome + ' · registrata come Sede';
+    } else {
       info.className = 'fuori';
       info.textContent = '🚐 Fuori sede · ' + (km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1).replace('.', ',') + ' km') + ' dalla sede → Trasferta';
     }
