@@ -27,6 +27,47 @@ from dotenv import load_dotenv
 
 _dept_sync_lock = threading.Lock()
 _recent_dept_sync_ts: dict[str, float] = {}
+_recent_bot_dept_writes: dict[tuple[str, str], float] = {}
+_recent_gp_progress_updates: dict[tuple[str, str, str, str], float] = {}
+BOT_ECHO_TTL_SECONDS = 45.0
+GP_UPDATE_DEDUP_TTL_SECONDS = 300.0
+
+
+def _mark_bot_dept_write(board_id: str, item_id: str) -> None:
+    """Segna una scrittura appena effettuata dal bot su un item reparto per ignorare i webhook di rimbalzo."""
+    if not item_id:
+        return
+    now = time.time()
+    with _dept_sync_lock:
+        _recent_bot_dept_writes[(str(board_id), str(item_id))] = now
+        # Pulizia leggera chiavi scadute
+        if len(_recent_bot_dept_writes) > 500:
+            cutoff = now - BOT_ECHO_TTL_SECONDS * 2
+            for k in [k for k, ts in _recent_bot_dept_writes.items() if ts < cutoff]:
+                _recent_bot_dept_writes.pop(k, None)
+
+
+def _is_bot_dept_echo(board_id: str, item_id: str) -> bool:
+    now = time.time()
+    with _dept_sync_lock:
+        ts = _recent_bot_dept_writes.get((str(board_id), str(item_id)))
+        return ts is not None and (now - ts) <= BOT_ECHO_TTL_SECONDS
+
+
+def _should_post_gp_update(gp_id: str, board_id: str, column_id: str, val_text: str) -> bool:
+    """Impedisce di scrivere commenti create_update duplicati/identici in sequenza su GESTIONE PROGETTI NEW."""
+    key = (str(gp_id), str(board_id), str(column_id), str(val_text).strip().lower())
+    now = time.time()
+    with _dept_sync_lock:
+        ts = _recent_gp_progress_updates.get(key)
+        if ts is not None and (now - ts) <= GP_UPDATE_DEDUP_TTL_SECONDS:
+            return False
+        _recent_gp_progress_updates[key] = now
+        if len(_recent_gp_progress_updates) > 500:
+            cutoff = now - GP_UPDATE_DEDUP_TTL_SECONDS * 2
+            for k in [k for k, t in _recent_gp_progress_updates.items() if t < cutoff]:
+                _recent_gp_progress_updates.pop(k, None)
+        return True
 
 load_dotenv()
 logger = logging.getLogger("department_syncer")
@@ -340,6 +381,7 @@ def _sync_project_to_departments_locked(item_id: str) -> dict:
             })
             target_t_id = res_c.get("data", {}).get("create_item", {}).get("id")
             if target_t_id:
+                _mark_bot_dept_write(BOARD_TAGLIO_FRESA, str(target_t_id))
                 results["taglio_fresa"] = f"Created #{target_t_id}"
         else:
             target_t_id = str(existing_t["id"])
@@ -349,6 +391,7 @@ def _sync_project_to_departments_locked(item_id: str) -> dict:
             if is_fresa and not existing_t_cols.get("color_mkwqmw4c"):
                 taglio_values["color_mkwqmw4c"] = {"label": "In svolgimento"}
 
+            _mark_bot_dept_write(BOARD_TAGLIO_FRESA, target_t_id)
             monday_query(
                 f"mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {BOARD_TAGLIO_FRESA}, item_id: {target_t_id}, column_values: $val) {{ id }} }}",
                 {"val": json.dumps(taglio_values)},
@@ -411,9 +454,11 @@ def _sync_project_to_departments_locked(item_id: str) -> dict:
             })
             target_f_id = res_c.get("data", {}).get("create_item", {}).get("id")
             if target_f_id:
+                _mark_bot_dept_write(BOARD_FINITURE, str(target_f_id))
                 results["finiture"] = f"Created #{target_f_id}"
         else:
             target_f_id = str(existing_f["id"])
+            _mark_bot_dept_write(BOARD_FINITURE, target_f_id)
             monday_query(
                 f"mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {BOARD_FINITURE}, item_id: {target_f_id}, column_values: $val) {{ id }} }}",
                 {"val": json.dumps(fin_values)},
@@ -467,9 +512,11 @@ def _sync_project_to_departments_locked(item_id: str) -> dict:
             })
             target_p_id = res_c.get("data", {}).get("create_item", {}).get("id")
             if target_p_id:
+                _mark_bot_dept_write(BOARD_PROGETTAZIONE_NEW, str(target_p_id))
                 results["progettazione"] = f"Created #{target_p_id}"
         else:
             target_p_id = str(existing_p["id"])
+            _mark_bot_dept_write(BOARD_PROGETTAZIONE_NEW, target_p_id)
             monday_query(
                 f"mutation ($val: JSON!) {{ change_multiple_column_values(board_id: {BOARD_PROGETTAZIONE_NEW}, item_id: {target_p_id}, column_values: $val) {{ id }} }}",
                 {"val": json.dumps(prog_values)},
@@ -550,6 +597,10 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
     if board_id not in (BOARD_TAGLIO_FRESA, BOARD_FINITURE, BOARD_PROGETTAZIONE_NEW):
         return {"ok": False, "reason": "Board non di reparto"}
 
+    if _is_bot_dept_echo(board_id, str(dept_item_id)):
+        logger.info("🔇 [DEPT->GP] Ignoro webhook di rimbalzo (echo) su board %s item #%s col %s", board_id, dept_item_id, column_id)
+        return {"ok": True, "skipped": "bot_echo"}
+
     q = f"""
     query {{
       items(ids: ["{dept_item_id}"]) {{
@@ -586,8 +637,11 @@ def sync_department_progress_to_gp_new(board_id: str, dept_item_id: str, column_
         BOARD_PROGETTAZIONE_NEW: "📐 [PROGETTAZIONE NEW]",
     }[board_id]
 
-    # 1. Registra nota di avanzamento su GESTIONE PROGETTI NEW se c'è un cambio stato significativo
-    if val_text:
+    # 1. Registra nota di avanzamento su GESTIONE PROGETTI NEW SOLO per vere colonne di stato
+    #    (evita raffiche di commenti su colonne testuali/date/priorità sincronizzate da GP NEW)
+    #    e con deduplicazione anti-ripetizione.
+    is_status_col = str(column_id or "").startswith(("color_", "status"))
+    if val_text and is_status_col and _should_post_gp_update(gp_id, board_id, column_id, val_text):
         msg = f"{dept_badge} Aggiornamento su <b>{item_name}</b> ({commessa_code}): <b>{col_title}</b> ➔ <b>{val_text}</b>"
         monday_query(
             "mutation ($item_id: ID!, $body: String!) { create_update(item_id: $item_id, body: $body) { id } }",

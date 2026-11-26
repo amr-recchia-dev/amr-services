@@ -647,7 +647,13 @@ def api_timbra_permessi():
         logger.info(f"[PERMESSI] {action} da {ip}")
     data, code = _timbra_call(payload)
     if action == "permessi_richiedi" and code == 200 and data.get("ok") and data.get("richiesta") and not data.get("duplicata"):
-        threading.Thread(target=_send_permesso_email_smtp, args=(data["richiesta"],), daemon=True).start()
+        # Google Apps Script invia già l'email di notifica da amrrecchia2@gmail.com:
+        # inviamo via SMTP solo come fallback se Apps Script segnala esplicitamente email_inviata=False
+        # (evita la doppia email identica a 1 secondo di distanza ad Alessandro e ordini@).
+        if data.get("email_inviata") is False:
+            threading.Thread(target=_send_permesso_email_smtp, args=(data["richiesta"],), daemon=True).start()
+        else:
+            logger.info("[PERMESSI] Email già gestita da Apps Script: salto invio SMTP duplicato.")
     return jsonify(data), code
 
 

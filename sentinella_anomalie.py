@@ -26,14 +26,17 @@ import os
 import re
 import json
 import time
+import email
 import html as _html
 import logging
 import smtplib
 import imaplib
 import datetime
+import threading
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from collections import defaultdict
+from email.header import decode_header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr, formatdate, make_msgid
@@ -42,6 +45,7 @@ import requests
 import presenze_service
 
 logger = logging.getLogger("sentinella_anomalie")
+_RUN_LOCK = threading.Lock()
 
 ROME_TZ = ZoneInfo("Europe/Rome")
 
@@ -117,8 +121,38 @@ def _save_state(state: dict) -> None:
         logger.warning(f"[SENTINELLA] Impossibile salvare file stato locale: {e}")
 
 
+def _decode_mime_header(val: str) -> str:
+    if not val:
+        return ""
+    out = []
+    for part, enc in decode_header(val):
+        if isinstance(part, bytes):
+            out.append(part.decode(enc or "utf-8", errors="replace"))
+        else:
+            out.append(str(part))
+    return "".join(out)
+
+
+def _extract_ids_from_text(text: str, found: dict) -> None:
+    if not text:
+        return
+    matches = re.findall(r"AMR_SENTINELLA_IDS:([^\r\n>]+?)-->", text)
+    for m_str in matches:
+        for item in m_str.split(";"):
+            item = item.strip()
+            if item:
+                found[item] = "imap-recovered"
+
+
 def _fetch_notified_ids_from_imap() -> dict:
-    """Legge dalla casella IMAP ordini@amrrecchia.it i marker AMR_SENTINELLA_IDS degli ultimi 14 giorni."""
+    """
+    Legge dalla casella IMAP ordini@amrrecchia.it gli ID già notificati negli ultimi 14 giorni.
+    Gestisce correttamente:
+    - Header diretto X-Sentinella-IDs (ASCII puro, istantaneo)
+    - Oggetti UTF-8 codificati RFC 2047 (es. =?utf-8?q?=5BSentinella_Presenze_AMR=5D...?)
+    - Corpi HTML codificati in Base64 / Quoted-Printable
+    - Tutte le cartelle dove il messaggio può finire (INBOX, permessi e avvisi, Sent, Trash)
+    """
     host = os.getenv("IMAP_HOST", "imap.register.it")
     port = int(os.getenv("IMAP_PORT", "993") or 993)
     user = os.getenv("IMAP_USER", "")
@@ -130,24 +164,48 @@ def _fetch_notified_ids_from_imap() -> dict:
         with imaplib.IMAP4_SSL(host, port, timeout=15) as m:
             m.login(user, pw)
             since_str = (datetime.date.today() - datetime.timedelta(days=14)).strftime("%d-%b-%Y")
-            for folder in ("INBOX", '"INBOX.permessi e avvisi"', '"INBOX.Sent"'):
+            for folder in ("INBOX", '"INBOX.permessi e avvisi"', '"INBOX.Sent"', '"INBOX.Trash"'):
                 try:
                     t_sel, _ = m.select(folder, readonly=True)
                     if t_sel != "OK":
                         continue
-                    typ, data = m.search(None, f'(SINCE {since_str} SUBJECT "Sentinella Presenze AMR")')
-                    if typ == "OK" and data and data[0]:
-                        msg_ids = data[0].split()[-25:]
-                        for mid in msg_ids:
-                            t2, raw = m.fetch(mid, "(BODY.PEEK[])")
-                            if t2 == "OK" and raw and raw[0] and len(raw[0]) > 1:
-                                text = raw[0][1].decode("utf-8", errors="ignore")
-                                matches = re.findall(r"AMR_SENTINELLA_IDS:([A-Za-z0-9_|\-,.:+ ]+?)-->", text)
-                                for m_str in matches:
-                                    for item in m_str.split(";"):
-                                        item = item.strip()
-                                        if item:
-                                            found[item] = "imap-recovered"
+                    # NON filtrare per SUBJECT in IMAP SEARCH: Register.it non matcha
+                    # oggetti UTF-8 codificati RFC 2047 (Sentinella_Presenze_AMR).
+                    typ, data = m.search(None, f"(SINCE {since_str})")
+                    if typ != "OK" or not data or not data[0]:
+                        continue
+                    msg_ids = data[0].split()[-80:]
+                    for mid in msg_ids:
+                        t_hdr, hdr_raw = m.fetch(mid, "(BODY.PEEK[HEADER.FIELDS (SUBJECT X-SENTINELLA-IDS)])")
+                        if t_hdr != "OK" or not hdr_raw or not hdr_raw[0] or len(hdr_raw[0]) < 2:
+                            continue
+                        hdr_msg = email.message_from_bytes(hdr_raw[0][1])
+                        x_ids = (hdr_msg.get("X-Sentinella-IDs") or "").strip()
+                        if x_ids:
+                            for item in x_ids.split(";"):
+                                item = item.strip()
+                                if item:
+                                    found[item] = "imap-header-recovered"
+                            continue
+                        subj = _decode_mime_header(hdr_msg.get("Subject") or "")
+                        if "sentinella presenze amr" not in subj.lower():
+                            continue
+                        t2, raw = m.fetch(mid, "(BODY.PEEK[])")
+                        if t2 != "OK" or not raw or not raw[0] or len(raw[0]) < 2:
+                            continue
+                        full_msg = email.message_from_bytes(raw[0][1])
+                        if full_msg.is_multipart():
+                            for part in full_msg.walk():
+                                ctype = (part.get_content_type() or "").lower()
+                                if ctype in ("text/html", "text/plain"):
+                                    payload = part.get_payload(decode=True)
+                                    if payload:
+                                        charset = part.get_content_charset() or "utf-8"
+                                        _extract_ids_from_text(payload.decode(charset, errors="replace"), found)
+                        else:
+                            payload = full_msg.get_payload(decode=True)
+                            if payload:
+                                _extract_ids_from_text(payload.decode("utf-8", errors="replace"), found)
                 except Exception:
                     pass
             m.logout()
@@ -157,7 +215,10 @@ def _fetch_notified_ids_from_imap() -> dict:
 
 
 def _append_marker_to_imap(raw_msg_bytes: bytes) -> None:
-    """Salva copia dell'email inviata (già segnata come letta \\Seen) per persistenza anti-redeploy."""
+    """
+    Salva una copia di archivio in INBOX.Sent (MAI in INBOX, per non duplicare l'email ricevuta
+    da ordini@amrrecchia.it) come persistenza anti-redeploy per Render.
+    """
     host = os.getenv("IMAP_HOST", "imap.register.it")
     port = int(os.getenv("IMAP_PORT", "993") or 993)
     user = os.getenv("IMAP_USER", "")
@@ -167,10 +228,10 @@ def _append_marker_to_imap(raw_msg_bytes: bytes) -> None:
     try:
         with imaplib.IMAP4_SSL(host, port, timeout=15) as m:
             m.login(user, pw)
-            m.append("INBOX", "(\\Seen)", imaplib.Time2Internaldate(time.time()), raw_msg_bytes)
+            m.append('"INBOX.Sent"', "(\\Seen)", imaplib.Time2Internaldate(time.time()), raw_msg_bytes)
             m.logout()
     except Exception as e:
-        logger.debug(f"[SENTINELLA] Append IMAP non riuscito: {e}")
+        logger.debug(f"[SENTINELLA] Append IMAP su INBOX.Sent non riuscito: {e}")
 
 
 def _is_day_ready_for_offline_aligned_check(d_check: datetime.date, now: datetime.datetime) -> bool:
@@ -558,6 +619,7 @@ def _send_sentinella_email(new_anomalies: list[dict], all_anomalies: list[dict],
             msg["Subject"] = subject
             msg["Date"] = formatdate(localtime=True)
             msg["Message-ID"] = make_msgid(domain="amrrecchia.it")
+            msg["X-Sentinella-IDs"] = all_ids_marker.replace("\r", "").replace("\n", "")
             msg.attach(MIMEText(plain_body, "plain", "utf-8"))
             msg.attach(MIMEText(html_body, "html", "utf-8"))
 
@@ -601,8 +663,14 @@ def run_check(force_send: bool = False) -> dict:
     """
     Esegue un controllo completo delle anomalie.
     Se trova nuove anomalie non ancora notificate (o se force_send=True), invia l'email
-    ad Alessandro (amministrazione@amrrecchia.it) e Massimo (info@amrrecchia.it).
+    ad Alessandro (amministrazione@amrrecchia.it) e ordini@amrrecchia.it.
+    Protetto da lock anti-concorrenza per evitare invii doppi simultanei.
     """
+    with _RUN_LOCK:
+        return _run_check_locked(force_send=force_send)
+
+
+def _run_check_locked(force_send: bool = False) -> dict:
     now = datetime.datetime.now(ROME_TZ)
     now_iso = now.isoformat(timespec="seconds")
     try:
